@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="hg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#80f0b0" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#1a6040" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="50" cy="50" r="48" fill="url(#hg)"/>
+  <!-- leaf wreath -->
+  <g fill="#3a9858" stroke="#60c080" stroke-width="0.6" opacity="0.85">
+    <ellipse cx="50" cy="10" rx="5" ry="8" transform="rotate(0 50 10)"/>
+    <ellipse cx="78" cy="22" rx="5" ry="8" transform="rotate(45 78 22)"/>
+    <ellipse cx="90" cy="50" rx="5" ry="8" transform="rotate(90 90 50)"/>
+    <ellipse cx="78" cy="78" rx="5" ry="8" transform="rotate(135 78 78)"/>
+    <ellipse cx="50" cy="90" rx="5" ry="8" transform="rotate(180 50 90)"/>
+    <ellipse cx="22" cy="78" rx="5" ry="8" transform="rotate(225 22 78)"/>
+    <ellipse cx="10" cy="50" rx="5" ry="8" transform="rotate(270 10 50)"/>
+    <ellipse cx="22" cy="22" rx="5" ry="8" transform="rotate(315 22 22)"/>
+  </g>
+  <!-- soft vine curves -->
+  <g fill="none" stroke="#48a868" stroke-width="1.2" opacity="0.7">
+    <path d="M50 12 Q70 30 70 50 Q70 70 50 88 Q30 70 30 50 Q30 30 50 12"/>
+    <path d="M50 18 Q62 32 62 50 Q62 68 50 82 Q38 68 38 50 Q38 32 50 18" opacity="0.5"/>
+  </g>
+  <!-- healing cross glow -->
+  <g fill="none" stroke="#a0e8c0" stroke-width="1.5" opacity="0.6">
+    <path d="M50 6 L50 14 M46 10 L54 10"/>
+  </g>
+  <circle cx="50" cy="50" r="44" fill="none" stroke="#60b880" stroke-width="1" opacity="0.45" stroke-dasharray="3 5"/>
+</svg>

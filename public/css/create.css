@@ -1,0 +1,82 @@
+.create-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.create-shell {
+  position: relative;
+  z-index: 5;
+  width: min(520px, 100%);
+  padding: 2.5rem;
+  border: 1px solid rgba(176, 141, 87, 0.35);
+  border-radius: 20px;
+  background: linear-gradient(145deg, rgba(18, 14, 10, 0.92), rgba(8, 12, 18, 0.88));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  animation: fadeUp 0.9s ease both;
+}
+
+.create-back {
+  color: #9ad4c0;
+  text-decoration: none;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.create-back:hover {
+  opacity: 1;
+}
+
+.create-shell h1 {
+  margin: 1rem 0 0.5rem;
+  color: #f5e6c8;
+  font-size: 1.8rem;
+}
+
+.create-lead {
+  color: #c8b89a;
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+
+.create-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.create-form label {
+  display: grid;
+  gap: 0.45rem;
+  color: #d4b36a;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+}
+
+.create-form input,
+.create-form textarea {
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(176, 141, 87, 0.35);
+  background: rgba(0, 0, 0, 0.35);
+  color: #f5e6c8;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.create-form input:focus,
+.create-form textarea:focus {
+  outline: none;
+  border-color: rgba(90, 220, 180, 0.55);
+  box-shadow: 0 0 0 3px rgba(60, 180, 140, 0.12);
+}
+
+.btn-create--static {
+  position: static;
+  transform: none;
+  opacity: 0.55;
+  cursor: not-allowed;
+  margin-top: 0.5rem;
+}

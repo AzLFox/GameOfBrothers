@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>GoB — Новый персонаж</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/create.css">
+</head>
+<body class="create-page">
+  <div class="realm-depth" aria-hidden="true">
+    <div class="mountains mountains-back"></div>
+    <div class="mountains mountains-mid"></div>
+    <div class="mountains mountains-front"></div>
+  </div>
+
+  <main class="create-shell">
+    <a href="/" class="create-back">← К миру</a>
+    <h1>Создание персонажа</h1>
+    <p class="create-lead">Здесь появится мастер создания героя. Пока что — заготовка.</p>
+    <form class="create-form" onsubmit="return false;">
+      <label>
+        Имя
+        <input type="text" placeholder="Введите имя героя" autocomplete="off">
+      </label>
+      <label>
+        Краткое описание
+        <textarea rows="4" placeholder="Кто ваш персонаж?"></textarea>
+      </label>
+      <button type="submit" class="btn-create btn-create--static" disabled>Сохранить (скоро)</button>
+    </form>
+  </main>
+</body>
+</html>

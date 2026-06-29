@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>GoB — Мир персонажей</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/index.css">
+</head>
+<body class="main-page">
+  <div class="realm-depth" aria-hidden="true">
+    <div class="mountains mountains-back"></div>
+    <div class="mountains mountains-mid"></div>
+    <div class="mountains mountains-front"></div>
+    <div class="rune-field rune-field--global" aria-hidden="true">
+      <span class="rune rune--dim" style="--x:42%;--y:12%;--d:0s">ᛟ</span>
+      <span class="rune rune--dim" style="--x:55%;--y:8%;--d:1s">ᛞ</span>
+    </div>
+    <div class="mist mist-left"></div>
+    <div class="mist mist-right"></div>
+  </div>
+
+  <div class="veil-runes veil-runes-left" aria-hidden="true">
+    <span class="rune rune--veil" style="--x:18%;--y:14%;--d:0s">ᚠ</span>
+    <span class="rune rune--veil" style="--x:32%;--y:28%;--d:0.4s">ᚢ</span>
+    <span class="rune rune--veil" style="--x:12%;--y:44%;--d:0.8s">ᚦ</span>
+    <span class="rune rune--veil" style="--x:38%;--y:58%;--d:1.2s">ᚨ</span>
+    <span class="rune rune--veil" style="--x:22%;--y:72%;--d:1.6s">ᚱ</span>
+    <span class="rune rune--veil" style="--x:8%;--y:86%;--d:2s">ᚲ</span>
+  </div>
+  <div class="veil-runes veil-runes-right" aria-hidden="true">
+    <span class="rune rune--veil" style="--x:72%;--y:16%;--d:0.2s">ᚹ</span>
+    <span class="rune rune--veil" style="--x:88%;--y:30%;--d:0.6s">ᚺ</span>
+    <span class="rune rune--veil" style="--x:78%;--y:46%;--d:1s">ᚾ</span>
+    <span class="rune rune--veil" style="--x:92%;--y:60%;--d:1.4s">ᛁ</span>
+    <span class="rune rune--veil" style="--x:68%;--y:74%;--d:1.8s">ᛃ</span>
+    <span class="rune rune--veil" style="--x:84%;--y:88%;--d:2.2s">ᛇ</span>
+  </div>
+
+  <div class="veil-side veil-left" aria-hidden="true">
+    <div class="veil-crack"></div>
+    <div class="veil-shards"></div>
+  </div>
+  <div class="veil-side veil-right" aria-hidden="true">
+    <div class="veil-crack"></div>
+    <div class="veil-shards"></div>
+  </div>
+
+  <header class="page-header">
+    <p class="page-eyebrow">Gates of Beyond</p>
+    <h1 class="page-title">Выбери героя</h1>
+  </header>
+
+  <a href="/create" class="btn-create" id="btnCreate">
+    <span class="btn-create-glow"></span>
+    <span class="btn-create-icon">✦</span>
+    <span class="btn-create-text">Новый персонаж</span>
+  </a>
+
+  <div class="card-spotlight" id="cardSpotlight" aria-hidden="true"></div>
+  <div class="overlay" id="overlay"></div>
+
+  <div class="scene" id="scene">
+    <div class="orbit-hub">
+      <div class="world-tree" id="worldTree">
+        <img src="characters/world-tree.png" alt="" draggable="false">
+      </div>
+      <div id="carousel" class="carousel"></div>
+    </div>
+  </div>
+
+  <p class="page-hint" id="pageHint">Крути колесом мыши · нажми на карточку</p>
+
+  <script src="js/index.js"></script>
+</body>
+</html>

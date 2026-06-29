@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GoB — Персонаж</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/character.css">
+</head>
+<body>
+  <div class="char-page">
+    <header class="char-header">
+      <a href="/" class="char-back">← К миру</a>
+      <h1 class="char-header-title">Лист персонажа</h1>
+      <span class="save-hint" id="save-hint" aria-live="polite"></span>
+    </header>
+
+    <aside class="slot-editor panel" id="slot-editor" hidden>
+      <header class="slot-editor-header">
+        <h2 class="panel-title" id="slot-editor-title">Предмет</h2>
+        <button type="button" class="slot-editor-close" id="slot-editor-close" aria-label="Закрыть редактор">×</button>
+      </header>
+      <label class="field-label" for="slot-name">Название</label>
+      <input type="text" class="field-input" id="slot-name" autocomplete="off" spellcheck="false">
+      <label class="field-label" for="slot-desc">Описание</label>
+      <textarea class="field-input" id="slot-desc" rows="5" spellcheck="false"></textarea>
+    </aside>
+
+    <div class="char-sheet-wrap">
+    <div class="char-layout">
+      <aside class="portrait-panel">
+        <div class="portrait-frame">
+          <img id="char-img" alt="">
+        </div>
+        <label class="field-label" for="char-name">Имя</label>
+        <input type="text" class="field-input field-input--name" id="char-name" autocomplete="off" spellcheck="false">
+        <label class="field-label" for="char-desc">Описание</label>
+        <textarea class="field-input field-input--desc" id="char-desc" rows="4" spellcheck="false"></textarea>
+      </aside>
+
+      <section class="stats-panel panel">
+        <h2 class="panel-title">Характеристики</h2>
+        <div class="stats-grid" id="stats-grid"></div>
+      </section>
+
+      <section class="combat-panel panel">
+        <h2 class="panel-title">Боевые показатели</h2>
+        <div class="combat-grid" id="combat-grid"></div>
+      </section>
+
+      <section class="backpack-panel panel">
+        <h2 class="panel-title">Рюкзак</h2>
+        <div class="backpack-frame">
+          <div class="backpack-slots" id="backpack-slots"></div>
+        </div>
+      </section>
+
+      <section class="lore-panel panel">
+        <h2 class="panel-title">История</h2>
+        <textarea class="field-input field-input--lore" id="char-lore" rows="8" placeholder="Предыстория, заметки, приключения…" spellcheck="false"></textarea>
+      </section>
+
+      <section class="equipment-panel panel">
+        <h2 class="panel-title">Обмундирование</h2>
+        <div class="equipment-layout">
+          <div class="equipment-grid" id="equipment-grid"></div>
+        </div>
+      </section>
+    </div>
+    </div>
+
+    <div id="combat-tooltip" class="combat-tooltip" hidden role="tooltip"></div>
+
+    <button type="button" class="spellbook-btn" id="spellbook-btn" aria-label="Книга заклинаний" title="Книга заклинаний">
+      <img class="spellbook-icon" src="/img/spellbook-icon.svg" alt="" width="80" height="80" draggable="false">
+      <span class="spellbook-label">Заклинания</span>
+    </button>
+
+    <dialog class="spellbook-modal" id="spellbook-modal">
+      <div class="spellbook-open" role="document">
+        <div class="spellbook-frame">
+          <div class="spellbook-gold-shell">
+            <span class="spellbook-ornament spellbook-ornament--tl" aria-hidden="true"></span>
+            <span class="spellbook-ornament spellbook-ornament--tr" aria-hidden="true"></span>
+            <span class="spellbook-ornament spellbook-ornament--bl" aria-hidden="true"></span>
+            <span class="spellbook-ornament spellbook-ornament--br" aria-hidden="true"></span>
+
+            <button type="button" class="spellbook-close" id="spellbook-close" aria-label="Закрыть">
+              <span aria-hidden="true">✕</span>
+            </button>
+
+            <div class="spellbook-strap" aria-hidden="true">
+              <span class="spellbook-strap-leather"></span>
+              <span class="spellbook-buckle"></span>
+            </div>
+
+            <div class="spellbook-well">
+              <div class="spellbook-body">
+                <div class="spellbook-page spellbook-page--left">
+                  <div class="spellbook-page-inner">
+                    <div class="spell-grid" id="spell-grid-left"></div>
+                    <span class="spellbook-page-num" id="spell-page-left-num">1</span>
+                  </div>
+                </div>
+                <div class="spellbook-spine" aria-hidden="true"></div>
+                <div class="spellbook-page spellbook-page--right">
+                  <div class="spellbook-page-inner">
+                    <div class="spell-grid" id="spell-grid-right"></div>
+                    <span class="spellbook-page-num" id="spell-page-right-num">2</span>
+                  </div>
+                </div>
+
+                <div class="spellbook-flip spellbook-flip--from-right" id="spellbook-flip" hidden aria-hidden="true">
+                  <div class="spellbook-flip-sheet" id="spellbook-flip-sheet">
+                    <div class="spellbook-flip-face spellbook-flip-face--front">
+                      <div class="spellbook-page spellbook-page--flip">
+                        <div class="spellbook-page-inner">
+                          <div class="spell-grid" id="spell-grid-flip-front"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="spellbook-flip-face spellbook-flip-face--back">
+                      <div class="spellbook-page spellbook-page--flip">
+                        <div class="spellbook-page-inner spellbook-page-inner--back">
+                          <div class="spell-grid" id="spell-grid-flip-back"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <nav class="spellbook-tabs" id="spellbook-tabs" aria-label="Специализации"></nav>
+
+          <footer class="spellbook-footer">
+            <button type="button" class="spell-create-btn" id="spell-create-btn">
+              <span class="spell-create-icon" aria-hidden="true">✦</span>
+              Создать заклинание
+            </button>
+            <div class="spellbook-page-nav">
+              <button type="button" class="spell-page-btn spell-page-btn--prev" id="spell-page-prev" aria-label="Предыдущий разворот" hidden>
+                <span aria-hidden="true">‹</span>
+              </button>
+              <span class="spell-page-indicator" id="spell-page-indicator"></span>
+              <button type="button" class="spell-page-btn spell-page-btn--next" id="spell-page-next" aria-label="Следующий разворот" hidden>
+                <span aria-hidden="true">›</span>
+              </button>
+            </div>
+          </footer>
+          </div>
+        </div>
+
+        <aside class="spell-editor" id="spell-editor" hidden>
+          <header class="spell-editor-header">
+            <h3 id="spell-editor-title">Новое заклинание</h3>
+            <button type="button" class="spell-editor-close" id="spell-editor-close" aria-label="Закрыть редактор">×</button>
+          </header>
+          <label class="field-label" for="spell-name">Название</label>
+          <input type="text" class="field-input" id="spell-name" autocomplete="off" spellcheck="false">
+          <label class="field-label">Специализация</label>
+          <div class="spell-spec-picker" id="spell-spec-picker"></div>
+          <label class="field-label">Значок</label>
+          <div class="spell-icon-picker" id="spell-icon-picker"></div>
+          <div class="spell-editor-row">
+            <div>
+              <label class="field-label" for="spell-level">Уровень</label>
+              <input type="number" class="field-input field-input--small" id="spell-level" min="1" max="5" value="1">
+            </div>
+            <div>
+              <label class="field-label" for="spell-mana">Мана</label>
+              <input type="number" class="field-input field-input--small" id="spell-mana" min="0" max="99" value="0">
+            </div>
+          </div>
+          <label class="field-label" for="spell-desc">Описание</label>
+          <textarea class="field-input" id="spell-desc" rows="5" spellcheck="false"></textarea>
+          <div class="spell-editor-actions">
+            <button type="button" class="spell-delete-btn" id="spell-delete-btn" hidden>Удалить</button>
+            <button type="button" class="spell-save-btn" id="spell-save-btn">Сохранить</button>
+          </div>
+        </aside>
+      </div>
+      <div id="spell-tooltip" class="spell-tooltip" hidden role="tooltip"></div>
+    </dialog>
+  </div>
+
+  <script src="js/character.js"></script>
+</body>
+</html>

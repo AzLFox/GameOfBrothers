@@ -1,0 +1,44 @@
+[
+	{
+		"id": "001",
+		"name": "Evade",
+		"image": "../characters/001.jpg",
+		"description": "Принц тёмных эльфов, ответсвенный за тех, кто заблудился.",
+		"url": "character.html?id=001"
+	},
+	{
+		"id": "002",
+		"name": "Revenge",
+		"image": "../characters/002.jpg",
+		"description": "Демон - охотник за святыми.",
+		"url": "character.html?id=002"
+	},
+	{
+		"id": "003",
+		"name": "Rash",
+		"image": "../characters/003.jpg",
+		"description": "Хранитель ночного леса.",
+		"url": "character.html?id=003"
+	},
+	{
+		"id": "004",
+		"name": "Scorn",
+		"image": "../characters/004.jpg",
+		"description": "Дриадский искуситель.",
+		"url": "character.html?id=004"
+	},
+	{
+		"id": "005",
+		"name": "Regret",
+		"image": "../characters/005.jpg",
+		"description": "Мудрый принц жабич, занимается изучением внешней политики и читает книги.",
+		"url": "character.html?id=005"
+	},
+	{
+		"id": "006",
+		"name": "Cafard",
+		"image": "../characters/006.jpg",
+		"description": "Подводный бастард, ныне пират.",
+		"url": "character.html?id=006"
+	}
+]

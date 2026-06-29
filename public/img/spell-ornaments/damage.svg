@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="dg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ff9040" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#801010" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="50" cy="50" r="48" fill="url(#dg)"/>
+  <!-- flame rays -->
+  <g fill="none" stroke="#e85020" stroke-width="1.4" stroke-linecap="round" opacity="0.85">
+    <path d="M50 4 L52 22 M50 4 L48 22"/>
+    <path d="M50 96 L52 78 M50 96 L48 78"/>
+    <path d="M4 50 L22 52 M4 50 L22 48"/>
+    <path d="M96 50 L78 52 M96 50 L78 48"/>
+    <path d="M16 16 L28 28 M84 84 L72 72"/>
+    <path d="M84 16 L72 28 M16 84 L28 72"/>
+  </g>
+  <!-- jagged star burst -->
+  <g fill="#c03010" stroke="#ff8040" stroke-width="0.8" opacity="0.75">
+    <path d="M50 8 L54 36 L82 50 L54 64 L50 92 L46 64 L18 50 L46 36 Z"/>
+  </g>
+  <g fill="none" stroke="#ff6030" stroke-width="1.2" opacity="0.9">
+    <path d="M50 14 L53 32 L71 50 L53 68 L50 86 L47 68 L29 50 L47 32 Z"/>
+  </g>
+  <!-- ember sparks -->
+  <circle cx="50" cy="8" r="2" fill="#ffb060"/>
+  <circle cx="92" cy="50" r="1.5" fill="#ff8040"/>
+  <circle cx="50" cy="92" r="2" fill="#ffb060"/>
+  <circle cx="8" cy="50" r="1.5" fill="#ff8040"/>
+  <circle cx="22" cy="22" r="1.2" fill="#ff9040" opacity="0.8"/>
+  <circle cx="78" cy="78" r="1.2" fill="#ff9040" opacity="0.8"/>
+</svg>
