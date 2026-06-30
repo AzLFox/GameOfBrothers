@@ -7,7 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/gob-tokens.css">
   <link rel="stylesheet" href="css/character.css">
+  <link rel="stylesheet" href="css/gob-art.css">
+  <script src="js/gob-transition-guard.js"></script>
 </head>
 <body>
   <div class="char-page">
@@ -100,40 +103,10 @@
             </div>
 
             <div class="spellbook-well">
-              <div class="spellbook-body">
-                <div class="spellbook-page spellbook-page--left">
-                  <div class="spellbook-page-inner">
-                    <div class="spell-grid" id="spell-grid-left"></div>
-                    <span class="spellbook-page-num" id="spell-page-left-num">1</span>
-                  </div>
-                </div>
-                <div class="spellbook-spine" aria-hidden="true"></div>
-                <div class="spellbook-page spellbook-page--right">
-                  <div class="spellbook-page-inner">
-                    <div class="spell-grid" id="spell-grid-right"></div>
-                    <span class="spellbook-page-num" id="spell-page-right-num">2</span>
-                  </div>
-                </div>
-
-                <div class="spellbook-flip spellbook-flip--from-right" id="spellbook-flip" hidden aria-hidden="true">
-                  <div class="spellbook-flip-sheet" id="spellbook-flip-sheet">
-                    <div class="spellbook-flip-face spellbook-flip-face--front">
-                      <div class="spellbook-page spellbook-page--flip">
-                        <div class="spellbook-page-inner">
-                          <div class="spell-grid" id="spell-grid-flip-front"></div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="spellbook-flip-face spellbook-flip-face--back">
-                      <div class="spellbook-page spellbook-page--flip">
-                        <div class="spellbook-page-inner spellbook-page-inner--back">
-                          <div class="spell-grid" id="spell-grid-flip-back"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div id="spellbook-mount" class="spellbook-mount">
+                <div id="spellbook-flip-root" class="spellbook-flip-root"></div>
               </div>
+              <div class="spellbook-spine-overlay" aria-hidden="true"></div>
             </div>
 
             <nav class="spellbook-tabs" id="spellbook-tabs" aria-label="Специализации"></nav>
@@ -156,7 +129,7 @@
           </div>
         </div>
 
-        <aside class="spell-editor" id="spell-editor" hidden>
+        <aside class="spell-editor panel" id="spell-editor" hidden>
           <header class="spell-editor-header">
             <h3 id="spell-editor-title">Новое заклинание</h3>
             <button type="button" class="spell-editor-close" id="spell-editor-close" aria-label="Закрыть редактор">×</button>
@@ -189,59 +162,33 @@
     </dialog>
   </div>
 
-  <!-- Модальное окно переноса данных -->
-  <div id="transfer-modal" class="transfer-modal hidden">
-    <div class="transfer-modal__backdrop"></div>
-    <div class="transfer-modal__box">
-      <div class="transfer-modal__header">
-        <h2>Перенос данных</h2>
-        <button type="button" id="btn-transfer-close" class="transfer-modal__close" aria-label="Закрыть">✕</button>
-      </div>
+  <script src="/vendor/gsap/gsap.min.js"></script>
+  <script src="js/gob-sound.js"></script>
+  <script src="js/gob-motion.js"></script>
+  <script type="module" src="js/spellbook-bootstrap.mjs"></script>
+  <script src="js/character-motion.js" defer></script>
+  <script src="js/character.js" defer></script>
 
-      <!-- Переключатель вкладок -->
-      <div class="transfer-modal__tabs">
-        <button type="button" class="transfer-tab active" data-tab="export">Экспорт</button>
-        <button type="button" class="transfer-tab"        data-tab="import">Импорт</button>
-      </div>
-
-      <!-- Вкладка: Экспорт -->
-      <div class="transfer-panel" id="transfer-panel-export">
-        <p class="transfer-hint">
-          JSON с данными персонажа в формате GameOfBraza.
-          Скиллы экспортируются со своими иконками.
-        </p>
-        <textarea id="export-json" class="transfer-json" readonly rows="14"></textarea>
-        <div class="transfer-actions">
-          <button type="button" id="btn-export-copy">Скопировать</button>
-          <button type="button" id="btn-export-download" class="btn-primary">Скачать .json</button>
-        </div>
-      </div>
-
-      <!-- Вкладка: Импорт -->
-      <div class="transfer-panel hidden" id="transfer-panel-import">
-        <p class="transfer-hint">
-          Вставьте JSON из GameOfBraza или загрузите файл.
-          Скиллы переносятся как спеллы; репутация и валюта не импортируются.
-        </p>
-        <div class="transfer-file-row">
-          <button type="button" id="btn-import-file">Загрузить файл…</button>
-          <span id="import-file-info" class="transfer-file-info"></span>
-          <input id="import-file-input" type="file" accept=".json,application/json" style="display:none">
-        </div>
-        <textarea id="import-json" class="transfer-json" rows="14"
-          placeholder='{ "schemaVersion": 1, "name": "...", ... }'></textarea>
-        <div id="import-error" class="transfer-error hidden"></div>
-        <div id="import-success" class="transfer-success hidden">
-          Персонаж загружен. <a id="import-success-link" href="#">Открыть →</a>
-        </div>
-        <div class="transfer-actions">
-          <button type="button" id="btn-import-apply" class="btn-primary">Применить к текущему листу</button>
-          <button type="button" id="btn-transfer-cancel">Отмена</button>
-        </div>
-      </div>
+  <div id="gob-page-wipe" class="gob-page-wipe" aria-hidden="true" hidden>
+    <div class="gob-page-wipe__void"></div>
+    <div class="gob-page-wipe__mist"></div>
+    <div class="gob-page-wipe__crack" aria-hidden="true"></div>
+    <div class="gob-page-wipe__runes" aria-hidden="true">
+      <span class="gob-page-wipe__rune" style="--rx:10%;--ry:14%">ᚠ</span>
+      <span class="gob-page-wipe__rune" style="--rx:88%;--ry:12%">ᚢ</span>
+      <span class="gob-page-wipe__rune" style="--rx:6%;--ry:48%">ᚦ</span>
+      <span class="gob-page-wipe__rune" style="--rx:92%;--ry:52%">ᚨ</span>
+      <span class="gob-page-wipe__rune" style="--rx:14%;--ry:84%">ᚱ</span>
+      <span class="gob-page-wipe__rune" style="--rx:86%;--ry:82%">ᚲ</span>
+      <span class="gob-page-wipe__rune" style="--rx:50%;--ry:6%">ᛟ</span>
+      <span class="gob-page-wipe__rune" style="--rx:48%;--ry:90%">ᛞ</span>
     </div>
+    <div class="gob-page-wipe__sigil" aria-hidden="true">ᛟ</div>
   </div>
 
-  <script src="js/character.js"></script>
+  <div class="gob-cinematic" aria-hidden="true">
+    <div class="gob-cinematic__vignette"></div>
+    <div class="gob-cinematic__grain"></div>
+  </div>
 </body>
 </html>

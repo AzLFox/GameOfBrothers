@@ -7,10 +7,10 @@
 :root {
   --orbit-height: 42vh;
   --tree-height: 100vh;
-  --gold: #d4b36a;
-  --gold-light: #f0d98a;
-  --teal: #5ef0c8;
-  --veil-dark: #030508;
+  --gold: var(--gob-gold);
+  --gold-light: var(--gob-gold-light);
+  --teal: var(--gob-teal);
+  --veil-dark: var(--gob-veil);
 }
 
 body {
@@ -28,6 +28,8 @@ body {
   inset: 0;
   z-index: 0;
   overflow: hidden;
+  --para-x: 0px;
+  --para-y: 0px;
   background:
     radial-gradient(ellipse 80% 60% at 50% 100%, #0d1a28 0%, transparent 70%),
     radial-gradient(ellipse 120% 80% at 50% 0%, #142238 0%, #050810 55%, #000 100%);
@@ -239,6 +241,80 @@ body {
   transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
 }
 
+/* ================= AMBIENT TOGGLE ================= */
+.ambient-toggle {
+  position: fixed;
+  top: 1.45rem;
+  left: 1.5rem;
+  z-index: 8;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border: 1px solid rgba(176, 141, 87, 0.38);
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(24, 18, 12, 0.88), rgba(8, 12, 18, 0.9));
+  color: var(--gold-light);
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  animation: btnEnter 0.9s ease 2.1s forwards;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+}
+
+.ambient-toggle:hover {
+  border-color: rgba(212, 179, 106, 0.55);
+  box-shadow: 0 0 18px rgba(94, 240, 200, 0.15);
+}
+
+.ambient-toggle__icon {
+  display: block;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.ambient-toggle__icon--off {
+  display: none;
+  opacity: 0.45;
+  position: relative;
+}
+
+.ambient-toggle__icon--off::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 120%;
+  height: 2px;
+  background: currentColor;
+  transform: translate(-50%, -50%) rotate(-38deg);
+  border-radius: 1px;
+}
+
+.ambient-toggle.is-muted .ambient-toggle__icon--on {
+  display: none;
+}
+
+.ambient-toggle.is-muted .ambient-toggle__icon--off {
+  display: block;
+}
+
+.btn-create-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 48%,
+    transparent 100%
+  );
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .btn-create:hover {
   border-color: rgba(94, 240, 200, 0.45);
   box-shadow:
@@ -289,6 +365,47 @@ body {
   left: 50%;
   bottom: var(--orbit-height);
   transform-style: preserve-3d;
+  z-index: 1;
+}
+
+.orbit-arc {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 784px;
+  height: 118px;
+  margin: -18px 0 0 -392px;
+  transform: translateZ(-24px) rotateX(72deg);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+  opacity: 0.58;
+  filter: drop-shadow(0 0 12px rgba(212, 179, 106, 0.22));
+}
+
+.orbit-arc svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+body.scene-card-active .orbit-arc {
+  opacity: 0.88;
+  filter: drop-shadow(0 0 22px rgba(255, 220, 150, 0.38));
+}
+
+/* ================= SCENE ATMOSPHERE (Pixi) ================= */
+.scene-atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.scene-atmosphere canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .carousel {
@@ -316,6 +433,40 @@ body {
   animation: treeEnter 1.6s cubic-bezier(0.22, 1, 0.36, 1) 0.7s forwards;
 }
 
+.tree-god-rays {
+  position: absolute;
+  left: 50%;
+  bottom: calc(-1 * var(--orbit-height) + 2vh);
+  width: min(42vw, 320px);
+  height: min(28vh, 220px);
+  margin-left: calc(min(42vw, 320px) / -2);
+  pointer-events: none;
+  background:
+    conic-gradient(
+      from 200deg at 50% 100%,
+      transparent 0deg,
+      rgba(255, 230, 170, 0.16) 18deg,
+      transparent 36deg,
+      rgba(94, 240, 200, 0.12) 52deg,
+      transparent 70deg,
+      rgba(255, 220, 150, 0.14) 88deg,
+      transparent 108deg,
+      rgba(120, 255, 210, 0.1) 128deg,
+      transparent 160deg
+    );
+  filter: blur(10px);
+  opacity: 0.45;
+  mix-blend-mode: screen;
+  animation: godRaysPulse 4.8s ease-in-out infinite alternate;
+  transform-origin: 50% 100%;
+}
+
+body.scene-card-active .tree-god-rays {
+  opacity: 0.82;
+  animation-duration: 3.2s;
+  transform: scaleY(1.08);
+}
+
 .world-tree img {
   position: absolute;
   left: 50%;
@@ -326,10 +477,13 @@ body {
   transform: translateX(-50%) translateZ(0);
   object-fit: contain;
   object-position: center bottom;
+  transform-origin: 50% 100%;
   filter:
     drop-shadow(0 0 30px rgba(80, 255, 180, 0.3))
     drop-shadow(0 0 70px rgba(60, 180, 120, 0.12));
-  animation: treeGlow 5s ease-in-out 2.2s infinite alternate;
+  animation:
+    treeGlow 5s ease-in-out 2.2s infinite alternate,
+    treeBreathe 5.5s ease-in-out 2.4s infinite alternate;
 }
 
 /* ================= CARD ================= */
@@ -343,18 +497,124 @@ body {
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
   transform-origin: center center;
-  transition: transform 0.9s ease;
+  --card-angle: 0deg;
+  --card-flip: 0deg;
+  --card-z: 380px;
+  --card-z-hover: 0px;
+  --card-scale: 1;
+  transform:
+    rotateY(var(--card-angle))
+    translateZ(calc(var(--card-z) + var(--card-z-hover)))
+    rotateY(var(--card-flip))
+    scale(var(--card-scale));
+  transition: transform 0.9s var(--gob-ease-out);
   opacity: 0;
 }
 
-body.loaded .card {
-  animation: cardEnter 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+body.loaded:not(.motion-js) .card {
+  animation: cardEnter 1s var(--gob-ease-out) forwards;
   animation-delay: calc(1.1s + var(--enter-delay, 0s));
+}
+
+body.motion-js.loaded .card {
+  animation: none;
+}
+
+body.motion-js.loaded .card.is-visible {
+  opacity: 1;
+}
+
+.card--skeleton {
+  pointer-events: none;
+  opacity: 1 !important;
+  background: transparent;
+  border: 1px solid rgba(94, 240, 200, 0.14);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.45),
+    0 0 24px rgba(94, 240, 200, 0.06);
+}
+
+.card-skeleton-mist {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background: linear-gradient(165deg, rgba(8, 18, 24, 0.94) 0%, rgba(14, 26, 30, 0.9) 100%);
+}
+
+.card-skeleton-silhouette {
+  position: absolute;
+  bottom: 6%;
+  left: 50%;
+  width: 56%;
+  height: 74%;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse 50% 88% at 50% 100%, rgba(94, 240, 200, 0.16), transparent 68%);
+  clip-path: polygon(36% 0%, 64% 0%, 76% 20%, 70% 42%, 86% 100%, 14% 100%, 30% 42%, 24% 20%);
+  opacity: 0.7;
+}
+
+.card-skeleton-fog {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(105deg, transparent 38%, rgba(154, 212, 192, 0.07) 48%, rgba(212, 179, 106, 0.1) 52%, transparent 62%),
+    linear-gradient(180deg, rgba(94, 240, 200, 0.05) 0%, transparent 35%, rgba(3, 5, 8, 0.55) 100%);
+  background-size: 220% 100%, auto;
+  animation: cardSkeletonShimmer 2s ease-in-out infinite, cardFogDrift 3s ease-in-out infinite alternate;
+}
+
+@keyframes cardFogDrift {
+  0% { opacity: 0.75; }
+  100% { opacity: 1; }
+}
+
+.card-skeleton-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(154, 212, 192, 0.08) 48%,
+    rgba(212, 179, 106, 0.14) 52%,
+    transparent 62%
+  );
+  background-size: 220% 100%;
+  animation: cardSkeletonShimmer 1.6s ease-in-out infinite;
+}
+
+.carousel.is-loading {
+  pointer-events: none;
+}
+
+@keyframes cardSkeletonShimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
 }
 
 .card.selected {
   z-index: 12;
-  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.85s var(--gob-ease-out);
+}
+
+.card:not(.selected):not(.is-locked).is-hover .card-front {
+  box-shadow:
+    0 0 32px rgba(94, 240, 200, 0.38),
+    0 0 18px rgba(212, 179, 106, 0.22),
+    0 0 25px rgba(0, 0, 0, 0.6);
+}
+
+.card:not(.selected):not(.is-locked).is-hover::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 18px;
+  border: 1px solid rgba(94, 240, 200, 0.35);
+  box-shadow: 0 0 20px rgba(94, 240, 200, 0.2);
+  pointer-events: none;
+  z-index: 2;
 }
 
 body.card-open .card:not(.selected) {
@@ -372,7 +632,8 @@ body.card-open .card.selected {
   height: 100%;
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
-  transition: transform 0.4s ease;
+  transition: transform 0.55s var(--gob-ease-out);
+  transform: rotateY(0deg);
 }
 
 .card.selected .card-inner {
@@ -380,10 +641,6 @@ body.card-open .card.selected {
 }
 
 .card.flipped .card-inner {
-  transform: rotateY(180deg);
-}
-
-.card.rear:not(.selected) .card-inner {
   transform: rotateY(180deg);
 }
 
@@ -417,10 +674,17 @@ body.card-open .card.selected {
   pointer-events: none;
 }
 
+/* Заблокирована при повороте вне ±70° — обе стороны как рубашка */
+.card.is-locked:not(.selected):not(.flipped) .card-front {
+  background-image: url(/characters/card_back.jpg) !important;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.8);
+}
+
 .card-content {
   display: none;
-  background: #1a120a;
-  color: #f5e6c8;
+  color: var(--gob-text-body, #2a1a08);
   transform: rotateY(180deg);
   padding: 14px;
   flex-direction: column;
@@ -443,7 +707,6 @@ body.card-open .card.selected {
 
 .card.selected.flip-done .card-content {
   pointer-events: auto;
-  box-shadow: inset 0 0 30px rgba(212, 179, 106, 0.1);
 }
 
 .card-content h3 {
@@ -457,7 +720,6 @@ body.card-open .card.selected {
 .card-content p {
   font-size: 14px;
   line-height: 1.45;
-  opacity: 0.92;
 }
 
 .open-btn {
@@ -486,12 +748,17 @@ body.card-open .page-hint {
   z-index: 9;
   pointer-events: none;
   opacity: 0;
+  --spot-x: 50%;
+  --spot-y: 48%;
+  --spot-rx: 220px;
+  --spot-ry: 280px;
   background:
     radial-gradient(
-      ellipse 34% 46% at 50% 48%,
-      rgba(255, 230, 170, 0.22) 0%,
-      rgba(94, 240, 200, 0.1) 32%,
-      transparent 68%
+      ellipse var(--spot-rx) var(--spot-ry) at var(--spot-x) var(--spot-y),
+      rgba(255, 230, 170, 0.28) 0%,
+      rgba(94, 240, 200, 0.12) 38%,
+      rgba(0, 0, 0, 0.08) 62%,
+      transparent 78%
     );
   transition: opacity 0.9s ease;
 }
@@ -551,7 +818,34 @@ body.card-open .page-hint {
   animation: rimGlow 2.5s ease-in-out infinite alternate;
 }
 
-/* ================= KEYFRAMES ================= */
+body.motion-js .overlay,
+body.motion-js .card-spotlight {
+  transition: none;
+}
+
+.page-transition-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  background: radial-gradient(ellipse 40% 50% at 50% 48%, transparent 0%, rgba(0, 0, 0, 0.92) 100%);
+  opacity: 0;
+}
+
+/* GSAP intro takes over when motion-js is set */
+body.motion-js .mountains,
+body.motion-js .mist,
+body.motion-js .veil-side,
+body.motion-js .rune--veil,
+body.motion-js .page-header,
+body.motion-js .btn-create,
+body.motion-js .ambient-toggle,
+body.motion-js .scene,
+body.motion-js .world-tree,
+body.motion-js .page-hint {
+  animation: none !important;
+}
+
 @keyframes veilCrack {
   0% {
     opacity: 1;
@@ -729,6 +1023,28 @@ body.card-open .page-hint {
   to { filter: drop-shadow(0 0 40px rgba(100, 255, 200, 0.42)) drop-shadow(0 0 90px rgba(60, 200, 140, 0.18)); }
 }
 
+@keyframes treeBreathe {
+  from { transform: translateX(-50%) translateZ(0) scale(1); }
+  to { transform: translateX(-50%) translateZ(0) scale(1.02); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .world-tree img {
+    animation: treeGlow 5s ease-in-out 2.2s infinite alternate;
+  }
+}
+
+@keyframes godRaysPulse {
+  from {
+    opacity: 0.38;
+    transform: scaleY(0.94);
+  }
+  to {
+    opacity: 0.62;
+    transform: scaleY(1.06);
+  }
+}
+
 @keyframes spotlightPulse {
   from { opacity: 0.85; }
   to { opacity: 1; }
@@ -784,5 +1100,37 @@ body.card-open .page-hint {
   to {
     opacity: 1;
     transform: translateX(50%) translateY(0) scale(1);
+  }
+}
+
+.carousel-loading-hint {
+  position: fixed;
+  left: 50%;
+  bottom: calc(42vh - 72px);
+  transform: translateX(-50%);
+  z-index: 7;
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.14em;
+  color: rgba(154, 212, 192, 0.52);
+  text-shadow: 0 0 18px rgba(94, 240, 200, 0.12);
+  pointer-events: none;
+  animation: fadeUp 0.8s ease 0.2s both;
+}
+
+@media (max-width: 640px) {
+  .carousel-loading-hint {
+    bottom: 5.5rem;
+    font-size: 0.72rem;
+  }
+
+  .orbit-arc {
+    width: min(94vw, 640px);
+    margin-left: calc(min(94vw, 640px) / -2);
+  }
+
+  .tree-god-rays {
+    width: min(56vw, 260px);
+    margin-left: calc(min(56vw, 260px) / -2);
   }
 }

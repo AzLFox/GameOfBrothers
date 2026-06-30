@@ -11,11 +11,15 @@
   z-index: 5;
   width: min(520px, 100%);
   padding: 2.5rem;
-  border: 1px solid rgba(176, 141, 87, 0.35);
-  border-radius: 20px;
-  background: linear-gradient(145deg, rgba(18, 14, 10, 0.92), rgba(8, 12, 18, 0.88));
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+body:not(.motion-js) .create-shell {
   animation: fadeUp 0.9s ease both;
+}
+
+html.page-enter-pending .create-shell {
+  animation: none !important;
+  visibility: hidden;
 }
 
 .create-back {

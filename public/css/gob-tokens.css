@@ -1,0 +1,83 @@
+/* GoB design & motion tokens — shared across pages */
+
+:root {
+  /* Color — core */
+  --gob-gold: #d4b36a;
+  --gob-gold-light: #f0d98a;
+  --gob-gold-dark: #7a5a28;
+  --gob-teal: #5ef0c8;
+  --gob-teal-dim: #3a9a82;
+  --gob-teal-shadow: #0c2824;
+  --gob-ink: #1a120a;
+  --gob-parchment: #f5e6c8;
+  --gob-parchment-base: #ebe0c4;
+  --gob-parchment-warm: #e6d4ac;
+  --gob-text-body: #2a1a08;
+  --gob-text-muted: #3d2e1c;
+  --gob-text-on-dark: #f5e6c8;
+  --gob-veil: #030508;
+
+  /* Color grade — teal shadows, gold highlights */
+  --gob-grade-shadow: rgba(8, 22, 28, 0.72);
+  --gob-grade-shadow-soft: rgba(12, 32, 36, 0.45);
+  --gob-grade-teal-mist: rgba(94, 240, 200, 0.08);
+  --gob-grade-gold-glow: rgba(240, 217, 138, 0.18);
+  --gob-grade-vignette: rgba(3, 5, 8, 0.52);
+
+  /* Typography */
+  --gob-font-display: "Cinzel", "Palatino Linotype", "Book Antiqua", serif;
+  --gob-font-body: "Crimson Pro", Georgia, "Times New Roman", serif;
+  --gob-font-counter: "Cinzel", "Palatino Linotype", serif;
+  --gob-tracking-display: 0.12em;
+  --gob-tracking-label: 0.08em;
+  --gob-tracking-body: 0.02em;
+  --gob-tracking-counter: 0.14em;
+  --gob-lh-body: 1.55;
+  --gob-lh-display: 1.2;
+
+  /* Shadows & glow */
+  --gob-shadow-panel: 0 8px 28px var(--gob-grade-shadow);
+  --gob-shadow-teal: 0 4px 24px rgba(20, 80, 70, 0.32);
+  --gob-shadow-gold: 0 0 20px rgba(212, 179, 106, 0.28);
+  --gob-glow-gold-inner: inset 0 0 24px rgba(212, 179, 106, 0.12);
+  --gob-glow-gold-ring: inset 0 0 0 1px rgba(122, 90, 40, 0.35);
+  --gob-glow-teal: 0 0 32px rgba(94, 240, 200, 0.22);
+
+  /* Cinematic overlay */
+  --gob-cinematic-vignette: 0.42;
+  --gob-cinematic-grain: 0.04;
+
+  /* Motion durations (seconds) */
+  --gob-dur-instant: 0.15s;
+  --gob-dur-fast: 0.35s;
+  --gob-dur-normal: 0.6s;
+  --gob-dur-slow: 0.9s;
+  --gob-dur-cinematic: 1.4s;
+  --gob-dur-intro: 2.4s;
+
+  /* Stagger */
+  --gob-stagger-tight: 0.06s;
+  --gob-stagger-normal: 0.1s;
+  --gob-stagger-wide: 0.14s;
+
+  /* Easing (for CSS transitions; GSAP uses gob-motion.js presets) */
+  --gob-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --gob-ease-snap: cubic-bezier(0.4, 0, 0.2, 1);
+  --gob-ease-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --gob-dur-instant: 0.01ms;
+    --gob-dur-fast: 0.01ms;
+    --gob-dur-normal: 0.01ms;
+    --gob-dur-slow: 0.01ms;
+    --gob-dur-cinematic: 0.01ms;
+    --gob-dur-intro: 0.01ms;
+    --gob-stagger-tight: 0s;
+    --gob-stagger-normal: 0s;
+    --gob-stagger-wide: 0s;
+    --gob-cinematic-vignette: 0;
+    --gob-cinematic-grain: 0;
+  }
+}
