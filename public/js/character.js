@@ -298,11 +298,8 @@ function defaultCombat(stats) {
   const spi = stats.spi ?? 12;
   return {
     hp: str * 4,
-    hpBonus: 0,
     ap: end,
-    apBonus: 0,
     mp: spi,
-    mpBonus: 0,
   };
 }
 
@@ -312,24 +309,25 @@ function migrateCombat(data, stats) {
   const c = data.combat;
   return {
     hp: Number.isFinite(c.hp) ? c.hp : base.hp,
-    hpBonus: parseInt(c.hpBonus, 10) || 0,
     ap: Number.isFinite(c.ap) ? c.ap : base.ap,
-    apBonus: parseInt(c.apBonus, 10) || 0,
     mp: Number.isFinite(c.mp) ? c.mp : base.mp,
-    mpBonus: parseInt(c.mpBonus, 10) || 0,
   };
 }
 
 function maxHp() {
-  return sheet.stats.str * 4 + (sheet.combat.hpBonus || 0);
+  return sheet.stats.str * 4;
 }
 
 function maxAp() {
-  return sheet.stats.end + (sheet.combat.apBonus || 0);
+  return sheet.stats.end;
 }
 
 function maxMp() {
-  return sheet.stats.spi + (sheet.combat.mpBonus || 0);
+  return sheet.stats.spi;
+}
+
+function overheal(current, max) {
+  return Math.max(0, (parseInt(current, 10) || 0) - max);
 }
 
 function hitThreshold(dieSides, dex) {
@@ -453,43 +451,60 @@ function critTooltipHtml() {
 
 function syncCombatInputs() {
   document.getElementById('combat-hp').value = sheet.combat.hp;
-  document.getElementById('combat-hp-bonus').value = sheet.combat.hpBonus || '';
   document.getElementById('combat-ap').value = sheet.combat.ap;
-  document.getElementById('combat-ap-bonus').value = sheet.combat.apBonus || '';
   document.getElementById('combat-mp').value = sheet.combat.mp;
-  document.getElementById('combat-mp-bonus').value = sheet.combat.mpBonus || '';
+}
+
+function updateOverheal(key, current, max) {
+  const wrap = document.getElementById(`combat-${key}-over-wrap`);
+  const val = document.getElementById(`combat-${key}-over`);
+  if (!wrap || !val) return;
+  const over = overheal(current, max);
+  val.textContent = over;
+  wrap.hidden = over <= 0;
 }
 
 function updateCombatValues() {
   if (!sheet?.combat) return;
 
-  document.getElementById('combat-hp-max').textContent = maxHp();
-  document.getElementById('combat-ap-max').textContent = maxAp();
-  document.getElementById('combat-mp-max').textContent = maxMp();
+  const hpMax = maxHp();
+  const apMax = maxAp();
+  const mpMax = maxMp();
+
+  document.getElementById('combat-hp-max').textContent = hpMax;
+  document.getElementById('combat-ap-max').textContent = apMax;
+  document.getElementById('combat-mp-max').textContent = mpMax;
   document.getElementById('combat-hit').textContent = sheet.stats.dex;
   document.getElementById('combat-skills').textContent = sheet.stats.int;
   document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck);
+
+  updateOverheal('hp', sheet.combat.hp, hpMax);
+  updateOverheal('mp', sheet.combat.mp, mpMax);
+  updateOverheal('ap', sheet.combat.ap, apMax);
 
   const skillsRow = document.getElementById('combat-row-skills');
   skillsRow.classList.toggle('combat-row--warning', spellsRemaining() < 0);
 }
 
 function bindCombatInputs() {
-  const bind = (id, key, parser = (v) => parseInt(v, 10) || 0, afterChange) => {
+  const bind = (id, key, maxLen) => {
     const el = document.getElementById(id);
     el.addEventListener('input', () => {
-      sheet.combat[key] = parser(el.value);
+      const clean = el.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, maxLen);
+      if (clean !== el.value) {
+        const atEnd = el.selectionStart === el.value.length;
+        el.value = clean;
+        if (atEnd) el.setSelectionRange(clean.length, clean.length);
+      }
+      sheet.combat[key] = parseInt(clean, 10) || 0;
       scheduleSave();
-      afterChange?.();
+      updateCombatValues();
     });
   };
 
-  bind('combat-hp', 'hp');
-  bind('combat-hp-bonus', 'hpBonus', undefined, updateCombatValues);
-  bind('combat-ap', 'ap');
-  bind('combat-ap-bonus', 'apBonus', undefined, updateCombatValues);
-  bind('combat-mp', 'mp');
-  bind('combat-mp-bonus', 'mpBonus', undefined, updateCombatValues);
+  bind('combat-hp', 'hp', 4);
+  bind('combat-ap', 'ap', 3);
+  bind('combat-mp', 'mp', 3);
 }
 
 function renderCombat() {
@@ -498,12 +513,12 @@ function renderCombat() {
     <div class="combat-row" id="combat-row-hp" data-stat-link="str">
       <span class="combat-label">HP</span>
       <div class="combat-value-combo">
-        <input type="number" class="combat-input" id="combat-hp" min="0" max="9999" aria-label="Текущие HP">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" class="combat-input" id="combat-hp" aria-label="Текущие HP">
         <span class="combat-sep">/</span>
         <span class="combat-max" id="combat-hp-max" aria-label="Максимальные HP"></span>
-        <span class="combat-bonus-wrap">
-          <span class="combat-bonus-label" title="Дополнительные HP">+</span>
-          <input type="number" class="combat-bonus-input" id="combat-hp-bonus" min="0" max="999" placeholder="0" aria-label="Дополнительные HP">
+        <span class="combat-bonus-wrap combat-overheal-wrap" id="combat-hp-over-wrap" hidden>
+          <span class="combat-bonus-label">+</span>
+          <span class="combat-overheal" id="combat-hp-over" title="Оверхил (текущие − макс.)" aria-label="Оверхил HP">0</span>
         </span>
       </div>
     </div>
@@ -518,24 +533,24 @@ function renderCombat() {
     <div class="combat-row" id="combat-row-mp" data-stat-link="spi">
       <span class="combat-label">MP</span>
       <div class="combat-value-combo">
-        <input type="number" class="combat-input" id="combat-mp" min="0" max="999" aria-label="Текущие MP">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="combat-input" id="combat-mp" aria-label="Текущие MP">
         <span class="combat-sep">/</span>
         <span class="combat-max" id="combat-mp-max" aria-label="Максимальные MP"></span>
-        <span class="combat-bonus-wrap">
-          <span class="combat-bonus-label" title="Дополнительные MP">+</span>
-          <input type="number" class="combat-bonus-input" id="combat-mp-bonus" min="0" max="999" placeholder="0" aria-label="Дополнительные MP">
+        <span class="combat-bonus-wrap combat-overheal-wrap" id="combat-mp-over-wrap" hidden>
+          <span class="combat-bonus-label">+</span>
+          <span class="combat-overheal" id="combat-mp-over" title="Оверхил (текущие − макс.)" aria-label="Оверхил MP">0</span>
         </span>
       </div>
     </div>
     <div class="combat-row" id="combat-row-ap" data-stat-link="end">
       <span class="combat-label">AP</span>
       <div class="combat-value-combo">
-        <input type="number" class="combat-input" id="combat-ap" min="0" max="999" aria-label="Текущие AP">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="combat-input" id="combat-ap" aria-label="Текущие AP">
         <span class="combat-sep">/</span>
         <span class="combat-max" id="combat-ap-max" aria-label="Максимальные AP"></span>
-        <span class="combat-bonus-wrap">
-          <span class="combat-bonus-label" title="Дополнительные AP">+</span>
-          <input type="number" class="combat-bonus-input" id="combat-ap-bonus" min="0" max="999" placeholder="0" aria-label="Дополнительные AP">
+        <span class="combat-bonus-wrap combat-overheal-wrap" id="combat-ap-over-wrap" hidden>
+          <span class="combat-bonus-label">+</span>
+          <span class="combat-overheal" id="combat-ap-over" title="Оверхил (текущие − макс.)" aria-label="Оверхил AP">0</span>
         </span>
       </div>
     </div>
@@ -1246,6 +1261,311 @@ function deleteSpell() {
   closeSpellEditor();
   renderSpellGrids();
   updateCombatValues();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// TRANSFER MODULE — экспорт / импорт с GameOfBraza
+// ────────────────────────────────────────────────────────────────────────────
+
+function toInt(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n) : fallback;
+}
+
+function strVal(v) {
+  return typeof v === 'string' ? v : '';
+}
+
+/**
+ * Сериализует текущий `sheet` в нейтральный JSON-формат обмена.
+ * Вызывается перед скачиванием файла или копированием в буфер.
+ */
+function exportToSharedFormat() {
+  const s = sheet;
+
+  const allSlots = [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS];
+  const equipment = Object.fromEntries(
+    allSlots.map(({ key }) => [
+      key,
+      { name: s.equipment[key]?.name ?? '', desc: s.equipment[key]?.desc ?? '' },
+    ])
+  );
+
+  const backpack = (s.backpack ?? [])
+    .slice(0, 6)
+    .map(item => ({ name: item?.name ?? '', desc: item?.desc ?? '' }));
+  // Добить до 6 слотов на случай неполного массива
+  while (backpack.length < 6) backpack.push({ name: '', desc: '' });
+
+  return {
+    schemaVersion: 1,
+    source: 'GameOfBrothers',
+    name: s.name ?? '',
+    description: s.description ?? '',
+    lore: s.lore ?? '',
+    stats: {
+      str:  s.stats?.str  ?? 12,
+      dex:  s.stats?.dex  ?? 12,
+      int:  s.stats?.int  ?? 12,
+      spi:  s.stats?.spi  ?? 12,
+      end:  s.stats?.end  ?? 12,
+      luck: s.stats?.luck ?? 12,
+    },
+    combat: {
+      hp:      s.combat?.hp      ?? 0,
+      hpBonus: s.combat?.hpBonus ?? 0,
+      ap:      s.combat?.ap      ?? 0,
+      apBonus: s.combat?.apBonus ?? 0,
+      mp:      s.combat?.mp      ?? 0,
+      mpBonus: s.combat?.mpBonus ?? 0,
+    },
+    equipment,
+    backpack,
+    spells: (s.spells ?? []).map(sp => ({
+      id:        sp.id        ?? uid(),
+      name:      sp.name      ?? '',
+      desc:      sp.desc      ?? '',
+      spec:      sp.spec      ?? 'buff',
+      level:     sp.level     ?? 1,
+      mana:      sp.mana      ?? 0,
+      icon:      sp.icon      ?? 'default',
+      iconImage: sp.iconImage ?? '',
+    })),
+  };
+}
+
+/** Скачивает JSON-файл с данными персонажа. */
+function downloadExportJson() {
+  const data = exportToSharedFormat();
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${(sheet.name || 'character').replace(/[^\wА-яЁё]/g, '_')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Принимает JSON-строку в формате обмена и возвращает объект,
+ * совместимый со структурой `sheet`.
+ *
+ * @param {string} jsonString
+ * @returns {{ ok: true, sheet: object } | { ok: false, error: string }}
+ */
+function importFromSharedFormat(jsonString) {
+  let raw;
+  try {
+    raw = JSON.parse(jsonString);
+  } catch {
+    return { ok: false, error: 'Невалидный JSON. Проверьте формат файла.' };
+  }
+
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false, error: 'Ожидался JSON-объект.' };
+  }
+
+  const schemaVersion = raw.schemaVersion;
+  if (schemaVersion !== 1) {
+    return { ok: false, error: `Неизвестная версия схемы: ${schemaVersion}. Ожидается 1.` };
+  }
+
+  // ── Характеристики ──────────────────────────────────────────────────
+  const stats = {
+    str:  toInt(raw.stats?.str,  12),
+    dex:  toInt(raw.stats?.dex,  12),
+    int:  toInt(raw.stats?.int,  12),
+    spi:  toInt(raw.stats?.spi,  12),
+    end:  toInt(raw.stats?.end,  12),
+    luck: toInt(raw.stats?.luck, 12),
+  };
+
+  // ── Боевые показатели ───────────────────────────────────────────────
+  const combat = defaultCombat(stats);
+  combat.hp      = toInt(raw.combat?.hp,      combat.hp);
+  combat.hpBonus = toInt(raw.combat?.hpBonus, 0);
+  combat.ap      = toInt(raw.combat?.ap,      combat.ap);
+  combat.apBonus = toInt(raw.combat?.apBonus, 0);
+  combat.mp      = toInt(raw.combat?.mp,      combat.mp);
+  combat.mpBonus = toInt(raw.combat?.mpBonus, 0);
+
+  // ── Снаряжение ──────────────────────────────────────────────────────
+  const allSlots = [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS];
+  const equipment = Object.fromEntries(
+    allSlots.map(({ key }) => {
+      const item = raw.equipment?.[key];
+      return [key, { name: strVal(item?.name), desc: strVal(item?.desc) }];
+    })
+  );
+
+  // ── Рюкзак ─────────────────────────────────────────────────────────
+  const rawBackpack = Array.isArray(raw.backpack) ? raw.backpack : [];
+  const backpack = Array.from({ length: BACKPACK_COUNT }, (_, i) => {
+    const item = rawBackpack[i];
+    return { name: strVal(item?.name), desc: strVal(item?.desc) };
+  });
+
+  // ── Спеллы ─────────────────────────────────────────────────────────
+  const rawSpells = Array.isArray(raw.spells) ? raw.spells : [];
+  const spells = rawSpells.map(s => normalizeSpell({
+    id:        strVal(s?.id) || uid(),
+    name:      strVal(s?.name),
+    desc:      strVal(s?.desc),
+    spec:      ['damage', 'buff', 'heal', 'debuff'].includes(s?.spec) ? s.spec : 'buff',
+    level:     Math.min(5, Math.max(1, toInt(s?.level, 1))),
+    mana:      Math.max(0, toInt(s?.mana, 0)),
+    icon:      strVal(s?.icon) || 'default',
+    iconImage: strVal(s?.iconImage),
+  }));
+
+  // ── Описание / квента ───────────────────────────────────────────────
+  const description = strVal(raw.description);
+  const lore        = strVal(raw.lore);
+
+  return {
+    ok: true,
+    sheet: {
+      name: strVal(raw.name) || 'Импортированный персонаж',
+      description,
+      lore,
+      stats,
+      combat,
+      equipment,
+      backpack,
+      spells,
+    },
+  };
+}
+
+/**
+ * Полностью пересинхронизирует UI листа с текущим объектом `sheet`.
+ * Используется после импорта, когда заменяются все поля персонажа.
+ */
+function renderSheet() {
+  document.getElementById('char-name').value = sheet.name ?? '';
+  document.getElementById('char-desc').value = sheet.description ?? '';
+  document.getElementById('char-lore').value = sheet.lore ?? '';
+  document.title = `GoB — ${sheet.name || 'Персонаж'}`;
+
+  closeSlotEditor();
+  renderStats();
+  renderCombat();
+  renderEquipment();
+  renderBackpack();
+
+  spreadIndex = 0;
+  renderSpellGrids();
+}
+
+function initTransfer() {
+  const modal        = document.getElementById('transfer-modal');
+  const btnOpen      = document.getElementById('btn-transfer');
+  const btnClose     = document.getElementById('btn-transfer-close');
+  const btnCancel    = document.getElementById('btn-transfer-cancel');
+  const panelExport  = document.getElementById('transfer-panel-export');
+  const panelImport  = document.getElementById('transfer-panel-import');
+  const tabs         = document.querySelectorAll('.transfer-tab');
+  const exportArea   = document.getElementById('export-json');
+  const importArea   = document.getElementById('import-json');
+  const importError  = document.getElementById('import-error');
+  const importOk     = document.getElementById('import-success');
+  const fileInput    = document.getElementById('import-file-input');
+  const fileInfo     = document.getElementById('import-file-info');
+  const btnCopy      = document.getElementById('btn-export-copy');
+  const btnDownload  = document.getElementById('btn-export-download');
+  const btnFileOpen  = document.getElementById('btn-import-file');
+  const btnApply     = document.getElementById('btn-import-apply');
+
+  if (!modal || !btnOpen) return;
+
+  // ── Открыть / закрыть ────────────────────────────────────────────────────
+  btnOpen.addEventListener('click', () => {
+    exportArea.value = JSON.stringify(exportToSharedFormat(), null, 2);
+    modal.classList.remove('hidden');
+  });
+
+  function closeModal() {
+    modal.classList.add('hidden');
+    importArea.value = '';
+    importError.classList.add('hidden');
+    importOk.classList.add('hidden');
+    fileInfo.textContent = '';
+  }
+
+  btnClose.addEventListener('click', closeModal);
+  btnCancel.addEventListener('click', closeModal);
+  modal.querySelector('.transfer-modal__backdrop').addEventListener('click', closeModal);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+  });
+
+  // ── Переключение вкладок ─────────────────────────────────────────────────
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const isExport = tab.dataset.tab === 'export';
+      panelExport.classList.toggle('hidden', !isExport);
+      panelImport.classList.toggle('hidden',  isExport);
+      if (isExport) exportArea.value = JSON.stringify(exportToSharedFormat(), null, 2);
+    });
+  });
+
+  // ── Экспорт ──────────────────────────────────────────────────────────────
+  btnCopy.addEventListener('click', () => {
+    navigator.clipboard.writeText(exportArea.value).then(() => {
+      btnCopy.textContent = 'Скопировано ✓';
+      setTimeout(() => { btnCopy.textContent = 'Скопировать'; }, 2000);
+    }).catch(() => {
+      // Фолбэк для окружений без clipboard API
+      exportArea.select();
+      document.execCommand('copy');
+      btnCopy.textContent = 'Скопировано ✓';
+      setTimeout(() => { btnCopy.textContent = 'Скопировать'; }, 2000);
+    });
+  });
+
+  btnDownload.addEventListener('click', downloadExportJson);
+
+  // ── Импорт: загрузка файла ───────────────────────────────────────────────
+  btnFileOpen.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      importArea.value = ev.target.result;
+      fileInfo.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      importError.classList.add('hidden');
+      importOk.classList.add('hidden');
+    };
+    reader.readAsText(file, 'utf-8');
+    fileInput.value = ''; // сбросить, чтобы можно было загрузить тот же файл повторно
+  });
+
+  // ── Импорт: применить к текущему листу ──────────────────────────────────
+  btnApply.addEventListener('click', () => {
+    importError.classList.add('hidden');
+    importOk.classList.add('hidden');
+
+    const result = importFromSharedFormat(importArea.value.trim());
+
+    if (!result.ok) {
+      importError.textContent = result.error;
+      importError.classList.remove('hidden');
+      return;
+    }
+
+    // Мёрджим в текущий sheet и сохраняем
+    Object.assign(sheet, result.sheet);
+    scheduleSave();
+    renderSheet();
+
+    importOk.classList.remove('hidden');
+    document.getElementById('import-success-link').href = location.href;
+  });
 }
 
 function init(char) {
