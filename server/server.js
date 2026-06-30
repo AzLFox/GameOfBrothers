@@ -6,6 +6,8 @@ const PORT = 3000;
 
 // статика
 app.use(express.static(path.join(__dirname, '../public')));
+app.use('/vendor/gsap', express.static(path.join(__dirname, '../node_modules/gsap/dist')));
+app.use('/vendor/pixi', express.static(path.join(__dirname, '../node_modules/pixi.js/dist')));
 
 // api
 app.get('/api/characters', (req, res) => {
