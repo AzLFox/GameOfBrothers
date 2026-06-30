@@ -1852,7 +1852,6 @@ body {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -50%);
   z-index: 20;
   width: min(460px, 96vw);
   max-height: min(92vh, 720px);
@@ -2110,3 +2109,35 @@ body {
   }
 }
 
+/* ================= MOTION (phase 3) ================= */
+body.char-motion-js .combat-tooltip,
+body.char-motion-js .spell-tooltip {
+  transition: none;
+}
+
+body.char-motion-js .spellbook-gold-shell {
+  transform-style: preserve-3d;
+  transform-origin: center center;
+}
+
+body.char-motion-js .spellbook-flip-sheet.is-turning-forward,
+body.char-motion-js .spellbook-flip-sheet.is-turning-backward {
+  animation: none;
+}
+
+body.char-motion-ready .portrait-panel,
+body.char-motion-ready .stats-panel,
+body.char-motion-ready .combat-panel,
+body.char-motion-ready .equipment-panel,
+body.char-motion-ready .backpack-panel,
+body.char-motion-ready .lore-panel {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.char-motion-js .spellbook-flip-sheet.is-turning-forward,
+  body.char-motion-js .spellbook-flip-sheet.is-turning-backward {
+    animation: none;
+  }
+}
+  

@@ -83,8 +83,10 @@ const HIT_DICE = [6, 12, 20, 60, 100];
 
 let combatTooltipEl = null;
 let combatTooltipTimer = null;
+let combatTooltipVisible = false;
 let spellTooltipEl = null;
 let spellTooltipTimer = null;
+let spellTooltipVisible = false;
 
 const PAGE_TURN_MS = 850;
 
@@ -113,9 +115,20 @@ function hideSpellTooltip() {
     spellTooltipTimer = null;
   }
   const tip = ensureSpellTooltip();
-  if (!tip) return;
+  if (!tip || tip.hidden) return;
+
+  if (spellTooltipVisible && typeof CharMotion !== 'undefined') {
+    CharMotion.fadeTooltipOut(tip, () => {
+      tip.hidden = true;
+      tip.style.visibility = '';
+      spellTooltipVisible = false;
+    });
+    return;
+  }
+
   tip.hidden = true;
   tip.style.visibility = '';
+  spellTooltipVisible = false;
 }
 
 function positionSpellTooltip(anchorEl) {
@@ -141,6 +154,11 @@ function positionSpellTooltip(anchorEl) {
   tip.style.left = `${left}px`;
   tip.style.top = `${top}px`;
   tip.style.visibility = 'visible';
+
+  if (!spellTooltipVisible && typeof CharMotion !== 'undefined') {
+    CharMotion.fadeTooltipIn(tip);
+    spellTooltipVisible = true;
+  }
 }
 
 function showSpellTooltip(spell, anchorEl) {
@@ -243,9 +261,20 @@ function hideCombatTooltip() {
     combatTooltipTimer = null;
   }
   const tip = ensureCombatTooltip();
-  if (!tip) return;
+  if (!tip || tip.hidden) return;
+
+  if (combatTooltipVisible && typeof CharMotion !== 'undefined') {
+    CharMotion.fadeTooltipOut(tip, () => {
+      tip.hidden = true;
+      tip.style.visibility = '';
+      combatTooltipVisible = false;
+    });
+    return;
+  }
+
   tip.hidden = true;
   tip.style.visibility = '';
+  combatTooltipVisible = false;
 }
 
 function positionCombatTooltip(anchorEl) {
@@ -271,6 +300,11 @@ function positionCombatTooltip(anchorEl) {
   tip.style.left = `${left}px`;
   tip.style.top = `${top}px`;
   tip.style.visibility = 'visible';
+
+  if (!combatTooltipVisible && typeof CharMotion !== 'undefined') {
+    CharMotion.fadeTooltipIn(tip);
+    combatTooltipVisible = true;
+  }
 }
 
 function showCombatTooltip(html, anchorEl) {
@@ -346,6 +380,7 @@ function bindCombatInputs() {
     el.addEventListener('input', () => {
       sheet.combat[key] = parser(el.value);
       scheduleSave();
+      if (typeof CharMotion !== 'undefined') CharMotion.flashCombatValue(el);
       afterChange?.();
     });
   };
@@ -649,18 +684,33 @@ function selectSlot(group, key, label) {
   document.querySelector(selector)?.classList.add('selected');
 
   const editor = document.getElementById('slot-editor');
-  editor.hidden = false;
   document.getElementById('slot-editor-title').textContent = label;
 
   const item = getItem(group, key);
   document.getElementById('slot-name').value = item.name;
   document.getElementById('slot-desc').value = item.desc;
+
+  if (typeof CharMotion !== 'undefined') {
+    CharMotion.openSidePanel(editor);
+  } else {
+    editor.hidden = false;
+  }
 }
 
 function closeSlotEditor() {
   selectedSlot = null;
   document.querySelectorAll('.item-slot.selected').forEach(el => el.classList.remove('selected'));
-  document.getElementById('slot-editor').hidden = true;
+  const editor = document.getElementById('slot-editor');
+
+  const finish = () => {
+    editor.hidden = true;
+  };
+
+  if (typeof CharMotion !== 'undefined') {
+    CharMotion.closeSidePanel(editor, finish);
+  } else {
+    finish();
+  }
 }
 
 function bindSlotEditor() {
@@ -697,19 +747,31 @@ function bindSpellbook() {
 
   btn.addEventListener('click', () => {
     spreadIndex = 0;
-    modal.showModal();
-    renderSpellGrids();
+    if (typeof CharMotion !== 'undefined') {
+      CharMotion.openSpellbook(modal, () => renderSpellGrids());
+    } else {
+      modal.showModal();
+      renderSpellGrids();
+    }
   });
   close.addEventListener('click', () => {
     hideSpellTooltip();
     closeSpellEditor();
-    modal.close();
+    if (typeof CharMotion !== 'undefined') {
+      CharMotion.closeSpellbook(modal);
+    } else {
+      modal.close();
+    }
   });
   modal.addEventListener('click', (e) => {
     if (e.target === modal) {
       hideSpellTooltip();
       closeSpellEditor();
-      modal.close();
+      if (typeof CharMotion !== 'undefined') {
+        CharMotion.closeSpellbook(modal);
+      } else {
+        modal.close();
+      }
     }
   });
   createBtn.addEventListener('click', () => openSpellEditor(null));
@@ -859,17 +921,11 @@ function turnPage(direction) {
   frame.classList.add('spellbook-frame--turning');
   body.classList.add('spellbook-body--flip-active');
 
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      sheet.classList.add(direction === 'next' ? 'is-turning-forward' : 'is-turning-backward');
-    });
-  });
-
   let finished = false;
-  const onEnd = () => {
+
+  const finishTurn = () => {
     if (finished) return;
     finished = true;
-    sheet.removeEventListener('animationend', onEnd);
 
     spreadIndex = newIndex;
     renderSpellGrids();
@@ -878,14 +934,34 @@ function turnPage(direction) {
     flip.setAttribute('aria-hidden', 'true');
     sheet.classList.remove('is-turning-forward', 'is-turning-backward');
     sheet.style.transform = '';
+    sheet.style.filter = '';
     frame.classList.remove('spellbook-frame--turning');
     body.classList.remove('spellbook-body--flip-active');
     isPageTurning = false;
     updatePageNav(filteredSpells().length);
   };
 
+  if (typeof CharMotion !== 'undefined' && typeof gsap !== 'undefined' && !GobMotion.reduced()) {
+    CharMotion.turnSpellPage(sheet, direction, finishTurn);
+    setTimeout(finishTurn, PAGE_TURN_MS + 100);
+    return;
+  }
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      sheet.classList.add(direction === 'next' ? 'is-turning-forward' : 'is-turning-backward');
+    });
+  });
+
+  const onEnd = () => {
+    if (finished) return;
+    finished = true;
+    sheet.removeEventListener('animationend', onEnd);
+    finishTurn();
+  };
+
   sheet.addEventListener('animationend', onEnd);
-  setTimeout(onEnd, PAGE_TURN_MS + 100);
+  setTimeout(finishTurn, PAGE_TURN_MS + 100);
 }
 
 function renderSpecPicker(active) {
@@ -977,13 +1053,27 @@ function openSpellEditor(spellId) {
   renderSpecPicker(spell.spec);
   renderIconPicker(selectedIconId, spell.spec);
 
-  editor.hidden = false;
-  document.getElementById('spell-name').focus();
+  if (typeof CharMotion !== 'undefined') {
+    CharMotion.openCenterEditor(editor, () => document.getElementById('spell-name').focus());
+  } else {
+    editor.hidden = false;
+    document.getElementById('spell-name').focus();
+  }
 }
 
 function closeSpellEditor() {
   editingSpellId = null;
-  document.getElementById('spell-editor').hidden = true;
+  const editor = document.getElementById('spell-editor');
+
+  const finish = () => {
+    editor.hidden = true;
+  };
+
+  if (typeof CharMotion !== 'undefined') {
+    CharMotion.closeCenterEditor(editor, finish);
+  } else {
+    finish();
+  }
 }
 
 function bindSpellEditor() {
@@ -1058,6 +1148,13 @@ function init(char) {
   renderBackpack();
   bindSlotEditor();
   bindSpellbook();
+
+  if (typeof CharMotion !== 'undefined') {
+    CharMotion.bindBackLink();
+    CharMotion.pageEnter();
+  } else {
+    document.body.classList.add('char-motion-ready');
+  }
 }
 
 if (!id) {
