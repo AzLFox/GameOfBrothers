@@ -29,6 +29,7 @@ const GobSound = (() => {
     open: 0,
     close: 100,
     pageFlip: 120,
+    leather: 200,
   };
 
   const lastAt = {};
@@ -218,6 +219,13 @@ const GobSound = (() => {
     tone(330, { duration: 0.06, volume: VOL.pageFlip * 0.5, type: 'sine' });
   }
 
+  function playLeather() {
+    if (!unlocked || !canPlay('leather')) return;
+    noiseBurst({ duration: 0.16, volume: 0.032 });
+    tone(110, { duration: 0.28, volume: 0.055, type: 'sawtooth' });
+    tone(72, { duration: 0.38, volume: 0.04, type: 'triangle', when: 0.06 });
+  }
+
   function playPageTransition(kind) {
     if (!unlocked) return;
     setAmbientBoost(kind === 'out' ? 0.85 : 0.55);
@@ -256,6 +264,7 @@ const GobSound = (() => {
     playOpen,
     playClose,
     playPageFlip,
+    playLeather,
     playPageTransition,
   };
 })();

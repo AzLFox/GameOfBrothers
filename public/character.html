@@ -101,9 +101,9 @@
 
             <div class="spellbook-well">
               <div id="spellbook-mount" class="spellbook-mount">
+                <div class="spellbook-spine-overlay" aria-hidden="true"></div>
                 <div id="spellbook-flip-root" class="spellbook-flip-root"></div>
               </div>
-              <div class="spellbook-spine-overlay" aria-hidden="true"></div>
             </div>
 
             <nav class="spellbook-tabs" id="spellbook-tabs" aria-label="Специализации"></nav>
@@ -127,6 +127,13 @@
         </div>
 
         <aside class="spell-editor panel" id="spell-editor" hidden>
+          <div class="spell-editor-preview" id="spell-editor-preview" aria-hidden="true">
+            <div class="spell-icon-wrap spell-icon-wrap--damage" id="spell-editor-preview-wrap">
+              <div class="spell-icon-ring">
+                <div class="spell-icon-art spell-icon-art--damage" id="spell-editor-preview-art"></div>
+              </div>
+            </div>
+          </div>
           <header class="spell-editor-header">
             <h3 id="spell-editor-title">Новое заклинание</h3>
             <button type="button" class="spell-editor-close" id="spell-editor-close" aria-label="Закрыть редактор">×</button>

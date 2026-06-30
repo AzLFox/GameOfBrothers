@@ -1,5 +1,106 @@
 const id = new URLSearchParams(location.search).get('id');
 
+const STAT_COMBAT_LINKS = [
+  { stat: 'str', combatId: 'combat-row-hp' },
+  { stat: 'dex', combatId: 'combat-row-hit' },
+  { stat: 'int', combatId: 'combat-row-skills' },
+  { stat: 'spi', combatId: 'combat-row-mp' },
+  { stat: 'end', combatId: 'combat-row-ap' },
+  { stat: 'luck', combatId: 'combat-row-crit' },
+];
+
+const LINK_RUNE_GLYPHS = {
+  str: ['ᚦ', 'ᚢ', 'ᛟ', 'ᚨ', 'ᚱ', 'ᚲ', 'ᛞ', 'ᚠ'],
+  dex: ['ᚠ', 'ᚹ', 'ᛃ', 'ᛇ', 'ᚺ', 'ᚾ', 'ᛁ', 'ᚢ'],
+  int: ['ᚨ', 'ᚱ', 'ᚲ', 'ᛟ', 'ᚦ', 'ᛞ', 'ᚠ', 'ᚹ'],
+  spi: ['ᛁ', 'ᛃ', 'ᛇ', 'ᚾ', 'ᚺ', 'ᛟ', 'ᚲ', 'ᚨ'],
+  end: ['ᚢ', 'ᚦ', 'ᚱ', 'ᛟ', 'ᚲ', 'ᛞ', 'ᚠ', 'ᚾ'],
+  luck: ['ᛟ', 'ᛞ', 'ᚠ', 'ᚨ', 'ᚹ', 'ᛃ', 'ᚺ', 'ᚱ'],
+};
+
+const LINK_RUNE_LAYOUT_STAT = [
+  { x: 8, y: 10, rot: -14, s: 0.92 },
+  { x: 92, y: 12, rot: 12, s: 0.88 },
+  { x: 6, y: 50, rot: -6, s: 0.9 },
+  { x: 94, y: 52, rot: 10, s: 0.88 },
+  { x: 12, y: 90, rot: 8, s: 0.86 },
+  { x: 88, y: 88, rot: -8, s: 0.9 },
+];
+
+const LINK_RUNE_LAYOUT_COMBAT_INNER = [
+  { x: 22, y: 20, rot: -10, s: 0.98 },
+  { x: 50, y: 16, rot: 0, s: 0.96 },
+  { x: 78, y: 22, rot: 12, s: 1 },
+  { x: 26, y: 44, rot: -6, s: 0.98 },
+  { x: 74, y: 46, rot: 8, s: 1 },
+  { x: 20, y: 66, rot: 6, s: 0.96 },
+  { x: 50, y: 62, rot: -4, s: 1.02 },
+  { x: 80, y: 68, rot: 10, s: 0.98 },
+  { x: 34, y: 84, rot: -8, s: 0.94 },
+  { x: 66, y: 82, rot: 6, s: 0.96 },
+];
+
+const LINK_RUNE_LAYOUT_COMBAT_SIDES = [
+  { x: 5, y: 8, rot: -14, s: 1.02 },
+  { x: 95, y: 10, rot: 11, s: 0.98 },
+  { x: 3, y: 32, rot: -8, s: 0.96 },
+  { x: 97, y: 36, rot: 16, s: 1 },
+  { x: 7, y: 58, rot: 6, s: 0.98 },
+  { x: 93, y: 62, rot: -12, s: 1.02 },
+  { x: 5, y: 90, rot: 10, s: 0.94 },
+  { x: 95, y: 88, rot: -6, s: 0.98 },
+];
+
+const LINK_RUNE_LAYOUT_COMBAT = [
+  ...LINK_RUNE_LAYOUT_COMBAT_INNER,
+  ...LINK_RUNE_LAYOUT_COMBAT_SIDES,
+];
+
+function createLinkRunesMarkup(statKey, variant = 'stat') {
+  const glyphs = LINK_RUNE_GLYPHS[statKey] || LINK_RUNE_GLYPHS.str;
+  const layout = variant === 'combat' ? LINK_RUNE_LAYOUT_COMBAT : LINK_RUNE_LAYOUT_STAT;
+  const wrapClass = variant === 'combat' ? 'link-runes link-runes--combat' : 'link-runes link-runes--stat';
+  const items = layout.map((pos, i) => {
+    const ch = glyphs[i % glyphs.length];
+    const delay = (i * 0.11).toFixed(2);
+    return `<span class="link-rune" style="--rx:${pos.x}%;--ry:${pos.y}%;--rr:${pos.rot}deg;--rs:${pos.s};--rd:${delay}s">${ch}</span>`;
+  }).join('');
+  return `<span class="${wrapClass}" aria-hidden="true">${items}</span>`;
+}
+
+function getStatCell(statKey) {
+  return document.querySelector(`.stat-cell input[data-stat="${statKey}"]`)?.closest('.stat-cell');
+}
+
+function setStatCombatRuneLit(statKey, lit) {
+  const link = STAT_COMBAT_LINKS.find((l) => l.stat === statKey);
+  if (!link) return;
+  getStatCell(statKey)?.classList.toggle('is-rune-lit', lit);
+  document.getElementById(link.combatId)?.classList.toggle('is-rune-lit', lit);
+}
+
+function bindStatCombatRunes() {
+  STAT_COMBAT_LINKS.forEach(({ stat, combatId }) => {
+    const statEl = getStatCell(stat);
+    const combatEl = document.getElementById(combatId);
+    if (!statEl || !combatEl) return;
+
+    const light = () => setStatCombatRuneLit(stat, true);
+    const dim = (e) => {
+      const next = e?.relatedTarget;
+      if (statEl.contains(next) || combatEl.contains(next)) return;
+      setStatCombatRuneLit(stat, false);
+    };
+
+    [statEl, combatEl].forEach((el) => {
+      el.addEventListener('mouseenter', light);
+      el.addEventListener('mouseleave', dim);
+      el.addEventListener('focusin', light);
+      el.addEventListener('focusout', dim);
+    });
+  });
+}
+
 const STAT_KEYS = [
   { key: 'str', label: 'Сила' },
   { key: 'dex', label: 'Ловкость' },
@@ -379,7 +480,6 @@ function bindCombatInputs() {
     el.addEventListener('input', () => {
       sheet.combat[key] = parser(el.value);
       scheduleSave();
-      if (typeof CharMotion !== 'undefined') CharMotion.flashCombatValue(el);
       afterChange?.();
     });
   };
@@ -395,7 +495,7 @@ function bindCombatInputs() {
 function renderCombat() {
   const grid = document.getElementById('combat-grid');
   grid.innerHTML = `
-    <div class="combat-row">
+    <div class="combat-row" id="combat-row-hp" data-stat-link="str">
       <span class="combat-label">HP</span>
       <div class="combat-value-combo">
         <input type="number" class="combat-input" id="combat-hp" min="0" max="9999" aria-label="Текущие HP">
@@ -407,31 +507,15 @@ function renderCombat() {
         </span>
       </div>
     </div>
-    <div class="combat-row combat-row--hint" id="combat-row-hit">
+    <div class="combat-row combat-row--hint" id="combat-row-hit" data-stat-link="dex">
       <span class="combat-label">Попадание</span>
       <span class="combat-derived" id="combat-hit"></span>
     </div>
-    <div class="combat-row combat-row--hint" id="combat-row-skills">
+    <div class="combat-row combat-row--hint" id="combat-row-skills" data-stat-link="int">
       <span class="combat-label">Скиллы</span>
       <span class="combat-derived" id="combat-skills"></span>
     </div>
-    <div class="combat-row">
-      <span class="combat-label">AP</span>
-      <div class="combat-value-combo">
-        <input type="number" class="combat-input" id="combat-ap" min="0" max="999" aria-label="Текущие AP">
-        <span class="combat-sep">/</span>
-        <span class="combat-max" id="combat-ap-max" aria-label="Максимальные AP"></span>
-        <span class="combat-bonus-wrap">
-          <span class="combat-bonus-label" title="Дополнительные AP">+</span>
-          <input type="number" class="combat-bonus-input" id="combat-ap-bonus" min="0" max="999" placeholder="0" aria-label="Дополнительные AP">
-        </span>
-      </div>
-    </div>
-    <div class="combat-row combat-row--hint" id="combat-row-crit">
-      <span class="combat-label">Крит</span>
-      <span class="combat-derived" id="combat-crit"></span>
-    </div>
-    <div class="combat-row">
+    <div class="combat-row" id="combat-row-mp" data-stat-link="spi">
       <span class="combat-label">MP</span>
       <div class="combat-value-combo">
         <input type="number" class="combat-input" id="combat-mp" min="0" max="999" aria-label="Текущие MP">
@@ -443,12 +527,32 @@ function renderCombat() {
         </span>
       </div>
     </div>
+    <div class="combat-row" id="combat-row-ap" data-stat-link="end">
+      <span class="combat-label">AP</span>
+      <div class="combat-value-combo">
+        <input type="number" class="combat-input" id="combat-ap" min="0" max="999" aria-label="Текущие AP">
+        <span class="combat-sep">/</span>
+        <span class="combat-max" id="combat-ap-max" aria-label="Максимальные AP"></span>
+        <span class="combat-bonus-wrap">
+          <span class="combat-bonus-label" title="Дополнительные AP">+</span>
+          <input type="number" class="combat-bonus-input" id="combat-ap-bonus" min="0" max="999" placeholder="0" aria-label="Дополнительные AP">
+        </span>
+      </div>
+    </div>
+    <div class="combat-row combat-row--hint" id="combat-row-crit" data-stat-link="luck">
+      <span class="combat-label">Крит</span>
+      <span class="combat-derived" id="combat-crit"></span>
+    </div>
   `;
 
   bindCombatInputs();
   bindCombatHint(document.getElementById('combat-row-hit'), hitTooltipHtml);
   bindCombatHint(document.getElementById('combat-row-skills'), skillsTooltipHtml);
   bindCombatHint(document.getElementById('combat-row-crit'), critTooltipHtml);
+  STAT_COMBAT_LINKS.forEach(({ stat, combatId }) => {
+    const row = document.getElementById(combatId);
+    if (row) row.insertAdjacentHTML('beforeend', createLinkRunesMarkup(stat, 'combat'));
+  });
   syncCombatInputs();
   updateCombatValues();
 }
@@ -601,6 +705,7 @@ function renderStats() {
     cell.innerHTML = `
       <span class="stat-label">${label}</span>
       <input type="number" class="stat-input" data-stat="${key}" min="0" max="999" value="${sheet.stats[key]}">
+      ${createLinkRunesMarkup(key, 'stat')}
     `;
     const input = cell.querySelector('input');
     input.addEventListener('input', () => {
@@ -770,6 +875,21 @@ function bindSpellbook() {
   document.getElementById('spell-page-next').addEventListener('click', () => turnPage('next'));
 }
 
+function formatSpellbookPageNum(pageIndex) {
+  return `— ${String(pageIndex + 1).padStart(2, '0')} —`;
+}
+
+function updateSpellEditorPreview(spec, iconId) {
+  const wrap = document.getElementById('spell-editor-preview-wrap');
+  const art = document.getElementById('spell-editor-preview-art');
+  if (!wrap || !art) return;
+
+  const legendary = isLegendaryIcon(spec, iconId);
+  wrap.className = `spell-icon-wrap spell-icon-wrap--${spec}${legendary ? ' spell-icon-wrap--legendary' : ''}`;
+  art.className = `spell-icon-art spell-icon-art--${spec}`;
+  art.innerHTML = `<img class="spell-icon-img${legendary ? ' spell-icon-img--legendary' : ''}" src="${iconSrc(spec, iconId)}" alt="" draggable="false">`;
+}
+
 function filteredSpells() {
   if (activeSpec === 'all') return sheet.spells;
   return sheet.spells.filter(s => s.spec === activeSpec);
@@ -785,8 +905,10 @@ function renderSpellTabs() {
     tab.title = label;
     tab.textContent = icon;
     tab.addEventListener('click', () => {
+      if (activeSpec === key) return;
       activeSpec = key;
       spreadIndex = 0;
+      if (typeof CharMotion !== 'undefined') CharMotion.flashSpine();
       renderSpellTabs();
       renderSpellGrids();
     });
@@ -822,7 +944,9 @@ function createSpellSlot(spell) {
     </div>
     <span class="spell-slot-name">${spell.name || 'Без названия'}</span>
   `;
-  btn.addEventListener('click', () => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
     hideSpellTooltip();
     openSpellEditor(spell.id);
   });
@@ -878,7 +1002,7 @@ function buildSpellbookPages() {
     page.innerHTML = `
       <div class="spellbook-page-inner${isLeft ? '' : ' spellbook-page-inner--back'}">
         <div class="spell-grid"></div>
-        <span class="spellbook-page-num">${p + 1}</span>
+        <span class="spellbook-page-num">${formatSpellbookPageNum(p)}</span>
       </div>
     `;
     fillSpellGrid(page.querySelector('.spell-grid'), pageSpells);
@@ -972,6 +1096,7 @@ function renderSpecPicker(active) {
         selectedIconId = icons[0];
       }
       renderIconPicker(selectedIconId, key);
+      updateSpellEditorPreview(key, selectedIconId);
     });
     picker.appendChild(btn);
   });
@@ -995,6 +1120,7 @@ function renderIconPicker(active, spec = selectedSpec) {
       btn.addEventListener('click', () => {
         selectedIconId = iconId;
         renderIconPicker(iconId, spec);
+        updateSpellEditorPreview(spec, iconId);
       });
       picker.appendChild(btn);
     });
@@ -1044,9 +1170,10 @@ function openSpellEditor(spellId) {
   document.getElementById('spell-desc').value = spell.desc;
   renderSpecPicker(spell.spec);
   renderIconPicker(selectedIconId, spell.spec);
+  updateSpellEditorPreview(spell.spec, selectedIconId);
 
   if (typeof CharMotion !== 'undefined') {
-    CharMotion.openCenterEditor(editor, () => document.getElementById('spell-name').focus());
+    CharMotion.openSpellEditorSlide(editor, () => document.getElementById('spell-name').focus());
   } else {
     editor.hidden = false;
     document.getElementById('spell-name').focus();
@@ -1062,7 +1189,7 @@ function closeSpellEditor() {
   };
 
   if (typeof CharMotion !== 'undefined') {
-    CharMotion.closeCenterEditor(editor, finish);
+    CharMotion.closeSpellEditorSlide(editor, finish);
   } else {
     finish();
   }
@@ -1136,6 +1263,7 @@ function init(char) {
 
   renderStats();
   renderCombat();
+  bindStatCombatRunes();
   renderEquipment();
   renderBackpack();
   bindSlotEditor();

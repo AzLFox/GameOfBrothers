@@ -22,7 +22,7 @@ function flipSettings() {
     showCover: false,
     mobileScrollSupport: true,
     useMouseEvents: true,
-    disableFlipByClick: false,
+    disableFlipByClick: true,
     clickEventForward: true,
     showPageCorners: true,
     swipeDistance: 28,

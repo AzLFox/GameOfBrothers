@@ -111,6 +111,24 @@ body {
 .lore-panel { grid-area: lore; }
 .equipment-panel { grid-area: equipment; }
 
+.portrait-panel,
+.stats-panel,
+.combat-panel,
+.equipment-panel,
+.backpack-panel,
+.lore-panel {
+  position: relative;
+}
+
+.stats-panel,
+.combat-panel,
+.equipment-panel,
+.backpack-panel,
+.lore-panel {
+  transform: translateY(var(--scroll-shift, 0));
+  will-change: transform;
+}
+
 @media (max-width: 1100px) {
   .char-sheet-wrap {
     flex-direction: column;
@@ -299,6 +317,7 @@ body {
 }
 
 .stat-cell {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -308,6 +327,15 @@ body {
   border: 2px solid var(--slot-border);
   border-radius: 3px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  overflow: visible;
+  transition: box-shadow 0.28s ease, border-color 0.28s ease;
+}
+
+.stat-cell.is-rune-lit {
+  border-color: rgba(94, 240, 200, 0.45);
+  box-shadow:
+    inset 0 0 0 1px rgba(94, 240, 200, 0.18),
+    0 0 14px rgba(94, 240, 200, 0.1);
 }
 
 .stat-label {
@@ -357,6 +385,7 @@ body {
 }
 
 .combat-row {
+  position: relative;
   display: grid;
   grid-template-columns: 100px 1fr;
   align-items: center;
@@ -366,6 +395,15 @@ body {
   border: 2px solid var(--slot-border);
   border-radius: 3px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  overflow: visible;
+  transition: box-shadow 0.28s ease, border-color 0.28s ease, background 0.28s ease;
+}
+
+.combat-row.is-rune-lit {
+  border-color: rgba(94, 240, 200, 0.42);
+  box-shadow:
+    inset 0 0 0 1px rgba(94, 240, 200, 0.16),
+    0 0 14px rgba(94, 240, 200, 0.1);
 }
 
 .combat-row--hint {
@@ -390,11 +428,79 @@ body {
 }
 
 .combat-value-combo {
+  position: relative;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
   justify-content: flex-end;
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+
+.link-runes {
+  position: absolute;
+  inset: -4px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.link-runes--stat {
+  inset: -2px;
+}
+
+.link-runes--combat {
+  inset: -6px;
+}
+
+.stat-cell .stat-label,
+.stat-cell .stat-input,
+.combat-row > :not(.link-runes) {
+  position: relative;
+  z-index: 1;
+}
+
+.link-rune {
+  position: absolute;
+  left: var(--rx);
+  top: var(--ry);
+  transform: translate(-50%, -50%) rotate(var(--rr, 0deg)) scale(var(--rs, 1));
+  font-family: "Cinzel", serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1;
+  color: rgba(94, 240, 200, 0);
+  opacity: 0;
+  text-shadow: none;
+  transition: color 0.32s ease, opacity 0.32s ease, text-shadow 0.32s ease;
+}
+
+.link-runes--stat .link-rune {
+  font-size: 0.82rem;
+}
+
+.link-runes--combat .link-rune {
+  font-size: 1.05rem;
+}
+
+.is-rune-lit .link-rune {
+  color: rgba(176, 248, 228, 0.96);
+  opacity: 0.95;
+  text-shadow:
+    0 0 8px rgba(94, 240, 200, 0.62),
+    0 0 16px rgba(212, 179, 106, 0.28);
+  animation: linkRuneGlow 1.8s ease-in-out var(--rd, 0s) infinite alternate;
+}
+
+@keyframes linkRuneGlow {
+  from {
+    opacity: 0.55;
+    filter: brightness(0.92);
+  }
+  to {
+    opacity: 1;
+    filter: brightness(1.18);
+  }
 }
 
 .combat-input {
@@ -495,7 +601,7 @@ body {
   position: fixed;
   z-index: 9000;
   width: min(280px, calc(100vw - 20px));
-  padding: 10px 12px;
+  padding: 10px 12px 14px;
   border: 2px solid #8b6914;
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(255, 248, 228, 0.98) 0%, rgba(240, 220, 180, 0.98) 100%);
@@ -507,29 +613,50 @@ body {
   font-size: 0.88rem;
   color: #2a1a08;
   line-height: 1.45;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.2));
 }
 
 .combat-tooltip[hidden] {
   display: none !important;
 }
 
+.combat-tooltip::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  width: 24px;
+  height: 14px;
+  margin-left: -12px;
+  background: linear-gradient(180deg, rgba(240, 220, 180, 0.98), rgba(228, 205, 165, 0.98));
+  clip-path: polygon(50% 100%, 8% 0, 92% 0);
+  border-bottom: 2px solid #8b6914;
+}
+
 .combat-tooltip::after {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: -7px;
-  width: 12px;
-  height: 12px;
-  margin-left: -6px;
+  bottom: -8px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
   background: rgba(240, 220, 180, 0.98);
   border-right: 2px solid #8b6914;
   border-bottom: 2px solid #8b6914;
   transform: rotate(45deg);
+  z-index: -1;
+}
+
+.combat-tooltip--below::before {
+  bottom: auto;
+  top: -13px;
+  transform: rotate(180deg);
 }
 
 .combat-tooltip--below::after {
   bottom: auto;
-  top: -7px;
+  top: -8px;
   transform: rotate(225deg);
 }
 
@@ -1078,15 +1205,25 @@ body {
   width: 100%;
   min-height: 500px;
   z-index: 1;
+  isolation: isolate;
 }
 
 .spellbook-flip-root {
+  position: relative;
+  z-index: 2;
   width: 100%;
   min-height: 500px;
 }
 
 .spellbook-mount .stf__parent {
   margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.spellbook-mount .stf__wrapper,
+.spellbook-mount .stf__item {
+  z-index: 2;
 }
 
 .spellbook-spine-overlay {
@@ -1097,7 +1234,7 @@ body {
   width: 20px;
   transform: translateX(-50%);
   pointer-events: none;
-  z-index: 25;
+  z-index: 1;
   border-radius: 1px;
   background:
     linear-gradient(90deg,
@@ -1111,6 +1248,30 @@ body {
   box-shadow:
     inset 5px 0 14px rgba(0, 0, 0, 0.75),
     inset -5px 0 14px rgba(0, 0, 0, 0.75);
+  transition: filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+.spellbook-spine-overlay.is-flash {
+  animation: spineFlash 0.48s ease-out;
+}
+
+@keyframes spineFlash {
+  0% {
+    filter: brightness(1);
+    box-shadow:
+      inset 5px 0 14px rgba(0, 0, 0, 0.75),
+      inset -5px 0 14px rgba(0, 0, 0, 0.75);
+  }
+  40% {
+    filter: brightness(1.65);
+    box-shadow:
+      inset 5px 0 14px rgba(0, 0, 0, 0.55),
+      inset -5px 0 14px rgba(0, 0, 0, 0.55),
+      0 0 18px rgba(255, 220, 150, 0.55);
+  }
+  100% {
+    filter: brightness(1);
+  }
 }
 
 .spellbook-pf-page {
@@ -1333,9 +1494,10 @@ body {
   left: 50%;
   transform: translateX(-50%);
   font-family: "Cinzel", serif;
-  font-size: 0.65rem;
-  color: rgba(74, 53, 32, 0.45);
-  letter-spacing: 0.1em;
+  font-size: 0.62rem;
+  color: rgba(74, 53, 32, 0.5);
+  letter-spacing: 0.18em;
+  white-space: nowrap;
 }
 
 /* spell slot */
@@ -1701,6 +1863,20 @@ body {
   width: 42px;
   border-color: #f0d98a;
   box-shadow: -3px 0 12px rgba(201, 162, 77, 0.5);
+  animation: tabGoldGlow 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes tabGoldGlow {
+  from {
+    box-shadow: -3px 0 12px rgba(201, 162, 77, 0.45);
+    filter: brightness(1);
+  }
+  to {
+    box-shadow:
+      -4px 0 22px rgba(255, 230, 170, 0.75),
+      0 0 14px rgba(212, 179, 106, 0.35);
+    filter: brightness(1.12);
+  }
 }
 
 .spell-tab--all { background: linear-gradient(90deg, #8b6914, #c9a24d); }
@@ -1799,7 +1975,8 @@ body {
 .spell-editor {
   position: absolute;
   top: 50%;
-  left: 50%;
+  right: 3%;
+  left: auto;
   z-index: 20;
   width: min(460px, 96vw);
   max-height: min(92vh, 720px);
@@ -1808,7 +1985,22 @@ body {
   background: linear-gradient(160deg, #f5e8d0, #d8c090);
   border: 3px solid var(--gold-dark);
   border-radius: 4px;
-  box-shadow: 0 0 60px rgba(0, 0, 0, 0.7);
+  box-shadow:
+    -12px 0 40px rgba(0, 0, 0, 0.45),
+    0 0 60px rgba(0, 0, 0, 0.5);
+  transform-origin: 100% 50%;
+}
+
+.spell-editor-preview {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(122, 90, 40, 0.28);
+}
+
+.spell-editor-preview .spell-icon-wrap {
+  transform: scale(1.15);
 }
 
 .spell-editor[hidden] {

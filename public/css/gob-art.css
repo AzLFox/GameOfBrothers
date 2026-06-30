@@ -452,10 +452,23 @@ body.create-page .create-shell h1 {
   box-shadow: var(--gob-shadow-panel);
 }
 
+.combat-tooltip::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  width: 24px;
+  height: 14px;
+  margin-left: -12px;
+  background: var(--gob-parchment-warm);
+  clip-path: polygon(50% 100%, 8% 0, 92% 0);
+}
+
 .combat-tooltip::after {
   background: var(--gob-parchment-warm);
   border-right-color: var(--gob-gold-dark);
   border-bottom-color: var(--gob-gold-dark);
+  z-index: -1;
 }
 
 .combat-tooltip-title {
