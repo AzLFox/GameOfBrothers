@@ -298,11 +298,8 @@ function defaultCombat(stats) {
   const spi = stats.spi ?? 12;
   return {
     hp: str * 4,
-    hpBonus: 0,
     ap: end,
-    apBonus: 0,
     mp: spi,
-    mpBonus: 0,
   };
 }
 
@@ -312,24 +309,25 @@ function migrateCombat(data, stats) {
   const c = data.combat;
   return {
     hp: Number.isFinite(c.hp) ? c.hp : base.hp,
-    hpBonus: parseInt(c.hpBonus, 10) || 0,
     ap: Number.isFinite(c.ap) ? c.ap : base.ap,
-    apBonus: parseInt(c.apBonus, 10) || 0,
     mp: Number.isFinite(c.mp) ? c.mp : base.mp,
-    mpBonus: parseInt(c.mpBonus, 10) || 0,
   };
 }
 
 function maxHp() {
-  return sheet.stats.str * 4 + (sheet.combat.hpBonus || 0);
+  return sheet.stats.str * 4;
 }
 
 function maxAp() {
-  return sheet.stats.end + (sheet.combat.apBonus || 0);
+  return sheet.stats.end;
 }
 
 function maxMp() {
-  return sheet.stats.spi + (sheet.combat.mpBonus || 0);
+  return sheet.stats.spi;
+}
+
+function overheal(current, max) {
+  return Math.max(0, (parseInt(current, 10) || 0) - max);
 }
 
 function hitThreshold(dieSides, dex) {
@@ -453,43 +451,60 @@ function critTooltipHtml() {
 
 function syncCombatInputs() {
   document.getElementById('combat-hp').value = sheet.combat.hp;
-  document.getElementById('combat-hp-bonus').value = sheet.combat.hpBonus || '';
   document.getElementById('combat-ap').value = sheet.combat.ap;
-  document.getElementById('combat-ap-bonus').value = sheet.combat.apBonus || '';
   document.getElementById('combat-mp').value = sheet.combat.mp;
-  document.getElementById('combat-mp-bonus').value = sheet.combat.mpBonus || '';
+}
+
+function updateOverheal(key, current, max) {
+  const wrap = document.getElementById(`combat-${key}-over-wrap`);
+  const val = document.getElementById(`combat-${key}-over`);
+  if (!wrap || !val) return;
+  const over = overheal(current, max);
+  val.textContent = over;
+  wrap.hidden = over <= 0;
 }
 
 function updateCombatValues() {
   if (!sheet?.combat) return;
 
-  document.getElementById('combat-hp-max').textContent = maxHp();
-  document.getElementById('combat-ap-max').textContent = maxAp();
-  document.getElementById('combat-mp-max').textContent = maxMp();
+  const hpMax = maxHp();
+  const apMax = maxAp();
+  const mpMax = maxMp();
+
+  document.getElementById('combat-hp-max').textContent = hpMax;
+  document.getElementById('combat-ap-max').textContent = apMax;
+  document.getElementById('combat-mp-max').textContent = mpMax;
   document.getElementById('combat-hit').textContent = sheet.stats.dex;
   document.getElementById('combat-skills').textContent = sheet.stats.int;
   document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck);
+
+  updateOverheal('hp', sheet.combat.hp, hpMax);
+  updateOverheal('mp', sheet.combat.mp, mpMax);
+  updateOverheal('ap', sheet.combat.ap, apMax);
 
   const skillsRow = document.getElementById('combat-row-skills');
   skillsRow.classList.toggle('combat-row--warning', spellsRemaining() < 0);
 }
 
 function bindCombatInputs() {
-  const bind = (id, key, parser = (v) => parseInt(v, 10) || 0, afterChange) => {
+  const bind = (id, key, maxLen) => {
     const el = document.getElementById(id);
     el.addEventListener('input', () => {
-      sheet.combat[key] = parser(el.value);
+      const clean = el.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, maxLen);
+      if (clean !== el.value) {
+        const atEnd = el.selectionStart === el.value.length;
+        el.value = clean;
+        if (atEnd) el.setSelectionRange(clean.length, clean.length);
+      }
+      sheet.combat[key] = parseInt(clean, 10) || 0;
       scheduleSave();
-      afterChange?.();
+      updateCombatValues();
     });
   };
 
-  bind('combat-hp', 'hp');
-  bind('combat-hp-bonus', 'hpBonus', undefined, updateCombatValues);
-  bind('combat-ap', 'ap');
-  bind('combat-ap-bonus', 'apBonus', undefined, updateCombatValues);
-  bind('combat-mp', 'mp');
-  bind('combat-mp-bonus', 'mpBonus', undefined, updateCombatValues);
+  bind('combat-hp', 'hp', 4);
+  bind('combat-ap', 'ap', 3);
+  bind('combat-mp', 'mp', 3);
 }
 
 function renderCombat() {
@@ -498,12 +513,12 @@ function renderCombat() {
     <div class="combat-row" id="combat-row-hp" data-stat-link="str">
       <span class="combat-label">HP</span>
       <div class="combat-value-combo">
-        <input type="number" class="combat-input" id="combat-hp" min="0" max="9999" aria-label="Текущие HP">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" class="combat-input" id="combat-hp" aria-label="Текущие HP">
         <span class="combat-sep">/</span>
         <span class="combat-max" id="combat-hp-max" aria-label="Максимальные HP"></span>
-        <span class="combat-bonus-wrap">
-          <span class="combat-bonus-label" title="Дополнительные HP">+</span>
-          <input type="number" class="combat-bonus-input" id="combat-hp-bonus" min="0" max="999" placeholder="0" aria-label="Дополнительные HP">
+        <span class="combat-bonus-wrap combat-overheal-wrap" id="combat-hp-over-wrap" hidden>
+          <span class="combat-bonus-label">+</span>
+          <span class="combat-overheal" id="combat-hp-over" title="Оверхил (текущие − макс.)" aria-label="Оверхил HP">0</span>
         </span>
       </div>
     </div>
@@ -518,24 +533,24 @@ function renderCombat() {
     <div class="combat-row" id="combat-row-mp" data-stat-link="spi">
       <span class="combat-label">MP</span>
       <div class="combat-value-combo">
-        <input type="number" class="combat-input" id="combat-mp" min="0" max="999" aria-label="Текущие MP">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="combat-input" id="combat-mp" aria-label="Текущие MP">
         <span class="combat-sep">/</span>
         <span class="combat-max" id="combat-mp-max" aria-label="Максимальные MP"></span>
-        <span class="combat-bonus-wrap">
-          <span class="combat-bonus-label" title="Дополнительные MP">+</span>
-          <input type="number" class="combat-bonus-input" id="combat-mp-bonus" min="0" max="999" placeholder="0" aria-label="Дополнительные MP">
+        <span class="combat-bonus-wrap combat-overheal-wrap" id="combat-mp-over-wrap" hidden>
+          <span class="combat-bonus-label">+</span>
+          <span class="combat-overheal" id="combat-mp-over" title="Оверхил (текущие − макс.)" aria-label="Оверхил MP">0</span>
         </span>
       </div>
     </div>
     <div class="combat-row" id="combat-row-ap" data-stat-link="end">
       <span class="combat-label">AP</span>
       <div class="combat-value-combo">
-        <input type="number" class="combat-input" id="combat-ap" min="0" max="999" aria-label="Текущие AP">
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="combat-input" id="combat-ap" aria-label="Текущие AP">
         <span class="combat-sep">/</span>
         <span class="combat-max" id="combat-ap-max" aria-label="Максимальные AP"></span>
-        <span class="combat-bonus-wrap">
-          <span class="combat-bonus-label" title="Дополнительные AP">+</span>
-          <input type="number" class="combat-bonus-input" id="combat-ap-bonus" min="0" max="999" placeholder="0" aria-label="Дополнительные AP">
+        <span class="combat-bonus-wrap combat-overheal-wrap" id="combat-ap-over-wrap" hidden>
+          <span class="combat-bonus-label">+</span>
+          <span class="combat-overheal" id="combat-ap-over" title="Оверхил (текущие − макс.)" aria-label="Оверхил AP">0</span>
         </span>
       </div>
     </div>

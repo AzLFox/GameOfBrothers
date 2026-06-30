@@ -560,35 +560,21 @@ body {
   color: var(--gold-dark);
 }
 
-.combat-bonus-input {
-  width: 50px;
-  text-align: center;
+.combat-overheal-wrap {
+  cursor: default;
+}
+
+.combat-overheal-wrap[hidden] {
+  display: none;
+}
+
+.combat-overheal {
   font-family: "Cinzel", serif;
   font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.45);
-  border: 1px dashed var(--parchment-dark);
-  border-radius: 3px;
-  padding: 3px;
-  -moz-appearance: textfield;
-}
-
-.combat-bonus-input::-webkit-outer-spin-button,
-.combat-bonus-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.combat-bonus-input:focus {
-  outline: none;
-  border-color: var(--gold);
-  border-style: solid;
-  background: #fff;
-}
-
-.combat-bonus-input::placeholder {
-  color: rgba(74, 53, 32, 0.35);
+  font-weight: 700;
+  color: var(--gold-dark);
+  min-width: 18px;
+  text-align: center;
 }
 
 .combat-derived {
