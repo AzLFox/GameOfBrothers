@@ -42,19 +42,21 @@ function applyCarouselRotation() {
   updateCardSides();
 }
 
-function updateCardSides() {
-  const frontArc = step * 0.52;
+const FACE_ARC_DEG = 70;
 
+/** Угол карточки на кольце относительно зрителя: 0° = центр экрана (+Z). */
+function cardSignedAngleDeg(index) {
+  return ((rotation + index * step + 180) % 360) - 180;
+}
+
+function updateCardSides() {
   cards.forEach((card, i) => {
     if (card.classList.contains('flipped') || card.classList.contains('selected')) return;
 
-    let angle = rotation + i * step;
-    angle = ((angle % 360) + 360) % 360;
+    const inFaceArc = Math.abs(cardSignedAngleDeg(i)) <= FACE_ARC_DEG;
 
-    let distFromFront = angle;
-    if (distFromFront > 180) distFromFront = 360 - distFromFront;
-
-    card.classList.toggle('rear', distFromFront > frontArc);
+    card.classList.toggle('is-locked', !inFaceArc);
+    card.style.setProperty('--card-flip', inFaceArc ? '0deg' : '180deg');
   });
 }
 
@@ -92,7 +94,7 @@ function animateCarouselTo(targetRotation, durationMs, onComplete) {
 
 function bindCardHover(card) {
   card.addEventListener('pointerenter', () => {
-    if (activeCard || cardBusy || dragging) return;
+    if (activeCard || cardBusy || dragging || card.classList.contains('is-locked')) return;
     card.classList.add('is-hover');
     if (typeof GobSound !== 'undefined') GobSound.playHover();
     if (GobMotion.reduced() || typeof gsap === 'undefined') return;
@@ -137,7 +139,7 @@ function revealCards() {
 }
 
 function resetCardInstant(card, index, inner) {
-  card.classList.remove('selected', 'flipped', 'flip-done', 'is-hover');
+  card.classList.remove('selected', 'flipped', 'flip-done', 'is-hover', 'is-locked');
   inner.style.transform = '';
   if (typeof gsap !== 'undefined') gsap.set(inner, { clearProps: 'transform' });
   setCardRingTransform(card, index);
@@ -347,8 +349,9 @@ function openCard(card) {
   setAtmosphereActive(true);
 
   animateCarouselTo(targetRotation, 800, () => {
-    const fromRear = card.classList.contains('rear');
-    card.classList.remove('rear');
+    const fromRear = card.classList.contains('is-locked');
+    card.classList.remove('is-locked');
+    card.style.setProperty('--card-flip', '0deg');
     card.classList.add('selected', 'flipped');
     applyCardTransform(card, index, SELECTED_RADIUS, 0, 1);
 
@@ -418,7 +421,7 @@ function closeCard() {
       },
     }, 0.5)
     .add(() => {
-      card.classList.remove('selected', 'flipped');
+      card.classList.remove('selected', 'flipped', 'is-locked');
       inner.style.transform = '';
       gsap.set(inner, { clearProps: 'transform' });
       setCardRingTransform(card, index);

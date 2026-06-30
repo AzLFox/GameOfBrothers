@@ -238,7 +238,7 @@
     inset 0 0 16px rgba(212, 179, 106, 0.1);
 }
 
-.card:not(.selected).is-hover .card-front {
+.card:not(.selected):not(.is-locked).is-hover .card-front {
   border-color: var(--gob-gold-light);
   box-shadow:
     var(--gob-glow-teal),

@@ -377,12 +377,14 @@ body {
   -webkit-transform-style: preserve-3d;
   transform-origin: center center;
   --card-angle: 0deg;
+  --card-flip: 0deg;
   --card-z: 380px;
   --card-z-hover: 0px;
   --card-scale: 1;
   transform:
     rotateY(var(--card-angle))
     translateZ(calc(var(--card-z) + var(--card-z-hover)))
+    rotateY(var(--card-flip))
     scale(var(--card-scale));
   transition: transform 0.9s var(--gob-ease-out);
   opacity: 0;
@@ -476,14 +478,14 @@ body.motion-js.loaded .card.is-visible {
   transition: transform 0.85s var(--gob-ease-out);
 }
 
-.card:not(.selected).is-hover .card-front {
+.card:not(.selected):not(.is-locked).is-hover .card-front {
   box-shadow:
     0 0 32px rgba(94, 240, 200, 0.38),
     0 0 18px rgba(212, 179, 106, 0.22),
     0 0 25px rgba(0, 0, 0, 0.6);
 }
 
-.card:not(.selected).is-hover::after {
+.card:not(.selected):not(.is-locked).is-hover::after {
   content: "";
   position: absolute;
   inset: -6px;
@@ -509,7 +511,8 @@ body.card-open .card.selected {
   height: 100%;
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
-  transition: transform 0.4s ease;
+  transition: transform 0.55s var(--gob-ease-out);
+  transform: rotateY(0deg);
 }
 
 .card.selected .card-inner {
@@ -517,10 +520,6 @@ body.card-open .card.selected {
 }
 
 .card.flipped .card-inner {
-  transform: rotateY(180deg);
-}
-
-.card.rear:not(.selected) .card-inner {
   transform: rotateY(180deg);
 }
 
@@ -552,6 +551,14 @@ body.card-open .card.selected {
   height: 100%;
   object-fit: cover;
   pointer-events: none;
+}
+
+/* Заблокирована при повороте вне ±70° — обе стороны как рубашка */
+.card.is-locked:not(.selected):not(.flipped) .card-front {
+  background-image: url(/characters/card_back.jpg) !important;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.8);
 }
 
 .card-content {
