@@ -79,11 +79,85 @@ function setStatCombatRuneLit(statKey, lit) {
   document.getElementById(link.combatId)?.classList.toggle('is-rune-lit', lit);
 }
 
+function isTouchRuneMode() {
+  return typeof GobMobile !== 'undefined'
+    && (GobMobile.isMobile() || GobMobile.isCoarsePointer());
+}
+
+let activeRuneStat = null;
+let activeCombatHintRow = null;
+let statCombatRunesBound = false;
+
+function clearAllRuneLit() {
+  STAT_COMBAT_LINKS.forEach(({ stat }) => setStatCombatRuneLit(stat, false));
+  activeRuneStat = null;
+  hideCombatTooltip();
+}
+
+function getCombatHintHtml(combatId) {
+  switch (combatId) {
+    case 'combat-row-hit': return hitTooltipHtml();
+    case 'combat-row-skills': return skillsTooltipHtml();
+    case 'combat-row-crit': return critTooltipHtml();
+    default: return null;
+  }
+}
+
+function handleTouchRuneTap(e, stat, combatId, fromCombatRow) {
+  if (e.target.closest('input, textarea, select, button')) return;
+  e.stopPropagation();
+
+  const combatEl = document.getElementById(combatId);
+  const hasHint = combatEl?.classList.contains('combat-row--hint');
+
+  if (activeRuneStat === stat) {
+    clearAllRuneLit();
+    return;
+  }
+
+  if (activeRuneStat) setStatCombatRuneLit(activeRuneStat, false);
+  hideCombatTooltip();
+
+  activeRuneStat = stat;
+  setStatCombatRuneLit(stat, true);
+
+  if (fromCombatRow && hasHint && combatEl) {
+    const html = getCombatHintHtml(combatId);
+    if (html) {
+      activeCombatHintRow = combatEl;
+      combatEl.classList.add('is-hint-active');
+      showCombatTooltip(html, combatEl);
+    }
+  }
+}
+
 function bindStatCombatRunes() {
+  if (!statCombatRunesBound) {
+    statCombatRunesBound = true;
+
+    if (isTouchRuneMode()) {
+      STAT_COMBAT_LINKS.forEach(({ stat, combatId }) => {
+        const statEl = getStatCell(stat);
+        if (!statEl) return;
+        statEl.addEventListener('click', (e) => handleTouchRuneTap(e, stat, combatId, false));
+      });
+
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('.stat-cell, .combat-row')) return;
+        clearAllRuneLit();
+      });
+    }
+  }
+
   STAT_COMBAT_LINKS.forEach(({ stat, combatId }) => {
     const statEl = getStatCell(stat);
     const combatEl = document.getElementById(combatId);
     if (!statEl || !combatEl) return;
+
+    if (isTouchRuneMode()) {
+      combatEl.addEventListener('click', (e) => handleTouchRuneTap(e, stat, combatId, true));
+      return;
+    }
 
     const light = () => setStatCombatRuneLit(stat, true);
     const dim = (e) => {
@@ -92,11 +166,15 @@ function bindStatCombatRunes() {
       setStatCombatRuneLit(stat, false);
     };
 
+    const bindFocus = (el) => {
+      el.addEventListener('focusin', light);
+      el.addEventListener('focusout', dim);
+    };
+
     [statEl, combatEl].forEach((el) => {
       el.addEventListener('mouseenter', light);
       el.addEventListener('mouseleave', dim);
-      el.addEventListener('focusin', light);
-      el.addEventListener('focusout', dim);
+      bindFocus(el);
     });
   });
 }
@@ -128,6 +206,8 @@ const EXTRA_SLOTS = [
 const BACKPACK_COUNT = 6;
 const SPELLS_PER_PAGE = 7;
 const SPELLS_PER_SPREAD = SPELLS_PER_PAGE * 2;
+/** Порядок заполнения: крупные → средний → мелкие (индексы слотов 0..6) */
+const SPELL_SLOT_FILL_ORDER = [0, 1, 5, 6, 3, 2, 4];
 
 const SPELL_SPECS = [
   { key: 'all', label: 'Все', icon: '☆', tabClass: 'spell-tab--all' },
@@ -181,6 +261,8 @@ let selectedIconId = 'star';
 let selectedSpec = 'damage';
 let isPageTurning = false;
 let spellbookFlipReady = false;
+let spellbookResizeBound = false;
+let spellbookResizeTimer = null;
 const HIT_DICE = [6, 12, 20, 60, 100];
 
 let combatTooltipEl = null;
@@ -349,6 +431,9 @@ function spellsRemaining() {
 function ensureCombatTooltip() {
   if (!combatTooltipEl) {
     combatTooltipEl = document.getElementById('combat-tooltip');
+    if (combatTooltipEl?.parentElement !== document.body) {
+      document.body.appendChild(combatTooltipEl);
+    }
   }
   return combatTooltipEl;
 }
@@ -358,21 +443,23 @@ function hideCombatTooltip() {
     clearTimeout(combatTooltipTimer);
     combatTooltipTimer = null;
   }
+  activeCombatHintRow?.classList.remove('is-hint-active');
+  activeCombatHintRow = null;
+  combatTooltipVisible = false;
   const tip = ensureCombatTooltip();
   if (!tip || tip.hidden) return;
 
-  if (combatTooltipVisible && typeof CharMotion !== 'undefined') {
+  if (typeof CharMotion !== 'undefined') {
     CharMotion.fadeTooltipOut(tip, () => {
       tip.hidden = true;
       tip.style.visibility = '';
-      combatTooltipVisible = false;
+      if (typeof GobMotion !== 'undefined') GobMotion.killOf(tip);
     });
     return;
   }
 
   tip.hidden = true;
   tip.style.visibility = '';
-  combatTooltipVisible = false;
 }
 
 function positionCombatTooltip(anchorEl) {
@@ -399,10 +486,14 @@ function positionCombatTooltip(anchorEl) {
   tip.style.top = `${top}px`;
   tip.style.visibility = 'visible';
 
-  if (!combatTooltipVisible && typeof CharMotion !== 'undefined') {
+  if (typeof GobMotion !== 'undefined') GobMotion.killOf(tip);
+
+  if (typeof CharMotion !== 'undefined') {
     CharMotion.fadeTooltipIn(tip);
-    combatTooltipVisible = true;
+  } else {
+    tip.style.opacity = '1';
   }
+  combatTooltipVisible = true;
 }
 
 function showCombatTooltip(html, anchorEl) {
@@ -412,7 +503,13 @@ function showCombatTooltip(html, anchorEl) {
   positionCombatTooltip(anchorEl);
 }
 
+function combatHintLabel(text) {
+  return `<span class="combat-label">${text}<span class="combat-hint-icon" aria-hidden="true">i</span></span>`;
+}
+
 function bindCombatHint(rowEl, getHtml) {
+  if (isTouchRuneMode()) return;
+
   rowEl.addEventListener('pointerenter', () => {
     if (combatTooltipTimer) clearTimeout(combatTooltipTimer);
     combatTooltipTimer = setTimeout(() => showCombatTooltip(getHtml(), rowEl), 200);
@@ -523,11 +620,11 @@ function renderCombat() {
       </div>
     </div>
     <div class="combat-row combat-row--hint" id="combat-row-hit" data-stat-link="dex">
-      <span class="combat-label">Попадание</span>
+      ${combatHintLabel('Попадание')}
       <span class="combat-derived" id="combat-hit"></span>
     </div>
     <div class="combat-row combat-row--hint" id="combat-row-skills" data-stat-link="int">
-      <span class="combat-label">Скиллы</span>
+      ${combatHintLabel('Скиллы')}
       <span class="combat-derived" id="combat-skills"></span>
     </div>
     <div class="combat-row" id="combat-row-mp" data-stat-link="spi">
@@ -555,7 +652,7 @@ function renderCombat() {
       </div>
     </div>
     <div class="combat-row combat-row--hint" id="combat-row-crit" data-stat-link="luck">
-      <span class="combat-label">Крит</span>
+      ${combatHintLabel('Крит')}
       <span class="combat-derived" id="combat-crit"></span>
     </div>
   `;
@@ -564,6 +661,7 @@ function renderCombat() {
   bindCombatHint(document.getElementById('combat-row-hit'), hitTooltipHtml);
   bindCombatHint(document.getElementById('combat-row-skills'), skillsTooltipHtml);
   bindCombatHint(document.getElementById('combat-row-crit'), critTooltipHtml);
+  bindStatCombatRunes();
   STAT_COMBAT_LINKS.forEach(({ stat, combatId }) => {
     const row = document.getElementById(combatId);
     if (row) row.insertAdjacentHTML('beforeend', createLinkRunesMarkup(stat, 'combat'));
@@ -852,6 +950,48 @@ function bindSlotEditor() {
   descEl.addEventListener('input', apply);
 }
 
+function spellbookFlipHandlers() {
+  return {
+    onFlip(pageIndex) {
+      spreadIndex = Math.floor(pageIndex / 2);
+      updatePageNav(filteredSpells().length);
+    },
+    onFlipping(flipping) {
+      isPageTurning = flipping;
+      updatePageNav(filteredSpells().length);
+    },
+  };
+}
+
+function scheduleSpellbookRelayout() {
+  const modal = document.getElementById('spellbook-modal');
+  if (!modal?.open || !spellbookFlipReady || !window.SpellbookFlip) return;
+
+  clearTimeout(spellbookResizeTimer);
+  spellbookResizeTimer = window.setTimeout(() => {
+    const pages = buildSpellbookPages();
+    const pf = window.SpellbookFlip.getPageFlip();
+    const startPage = pf
+      ? Math.min(pf.getCurrentPageIndex(), pages.length - 1)
+      : Math.min(spreadIndex * 2, pages.length - 1);
+
+    spellbookFlipReady = false;
+    window.SpellbookFlip.createSpellbookFlip(spellbookFlipHandlers());
+    window.SpellbookFlip.loadSpellbookPages(pages, startPage);
+    spellbookFlipReady = true;
+    spreadIndex = Math.floor(startPage / 2);
+    updatePageNav(filteredSpells().length);
+  }, 250);
+}
+
+function bindSpellbookResize() {
+  if (spellbookResizeBound) return;
+  spellbookResizeBound = true;
+  window.addEventListener('resize', scheduleSpellbookRelayout);
+  window.addEventListener('orientationchange', scheduleSpellbookRelayout);
+  window.addEventListener('gobmobilechange', scheduleSpellbookRelayout);
+}
+
 function bindSpellbook() {
   const btn = document.getElementById('spellbook-btn');
   const modal = document.getElementById('spellbook-modal');
@@ -860,6 +1000,7 @@ function bindSpellbook() {
 
   renderSpellTabs();
   bindSpellEditor();
+  bindSpellbookResize();
 
   modal.addEventListener('scroll', hideSpellTooltip, { passive: true });
 
@@ -1031,8 +1172,12 @@ function fillSpellGrid(container, spells) {
   const el = typeof container === 'string' ? document.getElementById(container) : container;
   el.className = 'spell-grid';
   el.innerHTML = '';
+  const placed = Array(SPELLS_PER_PAGE).fill(null);
+  for (let i = 0; i < Math.min(spells.length, SPELLS_PER_PAGE); i++) {
+    placed[SPELL_SLOT_FILL_ORDER[i]] = spells[i];
+  }
   for (let i = 0; i < SPELLS_PER_PAGE; i++) {
-    el.appendChild(createSpellSlot(spells[i]));
+    el.appendChild(createSpellSlot(placed[i]));
   }
 }
 
@@ -1062,16 +1207,7 @@ function renderSpellGrids() {
     : Math.min(spreadIndex * 2, pages.length - 1);
 
   if (!spellbookFlipReady) {
-    window.SpellbookFlip.createSpellbookFlip({
-      onFlip(pageIndex) {
-        spreadIndex = Math.floor(pageIndex / 2);
-        updatePageNav(filteredSpells().length);
-      },
-      onFlipping(flipping) {
-        isPageTurning = flipping;
-        updatePageNav(filteredSpells().length);
-      },
-    });
+    window.SpellbookFlip.createSpellbookFlip(spellbookFlipHandlers());
     window.SpellbookFlip.loadSpellbookPages(pages, startPage);
     spellbookFlipReady = true;
   } else {
@@ -1583,7 +1719,6 @@ function init(char) {
 
   renderStats();
   renderCombat();
-  bindStatCombatRunes();
   renderEquipment();
   renderBackpack();
   bindSlotEditor();

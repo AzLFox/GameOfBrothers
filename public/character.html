@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="css/gob-art.css">
   <link rel="stylesheet" href="css/gob-polish.css">
   <script src="js/gob-transition-guard.js"></script>
+  <script src="js/gob-mobile.js"></script>
 </head>
 <body>
   <div class="char-page">
@@ -43,10 +44,12 @@
         <div class="portrait-frame">
           <img id="char-img" alt="">
         </div>
-        <label class="field-label" for="char-name">Имя</label>
-        <input type="text" class="field-input field-input--name" id="char-name" autocomplete="off" spellcheck="false">
-        <label class="field-label" for="char-desc">Описание</label>
-        <textarea class="field-input field-input--desc" id="char-desc" rows="4" spellcheck="false"></textarea>
+        <div class="char-identity">
+          <label class="field-label" for="char-name">Имя</label>
+          <input type="text" class="field-input field-input--name" id="char-name" autocomplete="off" spellcheck="false">
+          <label class="field-label" for="char-desc">Описание</label>
+          <textarea class="field-input field-input--desc" id="char-desc" rows="4" spellcheck="false"></textarea>
+        </div>
       </aside>
 
       <section class="stats-panel panel">

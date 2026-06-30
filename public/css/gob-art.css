@@ -238,13 +238,26 @@
     inset 0 0 16px rgba(212, 179, 106, 0.1);
 }
 
-.card:not(.selected):not(.is-locked).is-hover .card-front {
-  border-color: var(--gob-gold-light);
-  box-shadow:
-    var(--gob-glow-teal),
-    var(--gob-shadow-gold),
-    0 0 25px var(--gob-grade-shadow-soft),
-    inset 0 0 20px rgba(212, 179, 106, 0.14);
+@media (hover: hover) and (pointer: fine) {
+  .card:not(.selected):not(.is-locked).is-hover .card-front {
+    border-color: var(--gob-gold-light);
+    box-shadow:
+      var(--gob-glow-teal),
+      var(--gob-shadow-gold),
+      0 0 25px var(--gob-grade-shadow-soft),
+      inset 0 0 20px rgba(212, 179, 106, 0.14);
+  }
+}
+
+@media (hover: none) {
+  .card:not(.selected):not(.is-locked):active .card-front {
+    border-color: var(--gob-gold-light);
+    box-shadow:
+      var(--gob-glow-teal),
+      var(--gob-shadow-gold),
+      0 0 25px var(--gob-grade-shadow-soft),
+      inset 0 0 20px rgba(212, 179, 106, 0.14);
+  }
 }
 
 .card-content {

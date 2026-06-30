@@ -133,9 +133,17 @@ const GobSound = (() => {
     return muted;
   }
 
-  function unlock() {
+  function isMobile() {
+    return window.GobMobile?.isMobile?.() ?? false;
+  }
+
+  function unlock({ startAmbient: wantAmbient } = {}) {
     const c = getCtx();
-    if (!c || unlocked) return;
+    if (!c) return;
+    if (unlocked) {
+      if (wantAmbient && !ambientStarted) startAmbient();
+      return;
+    }
     unlocked = true;
     if (c.state === 'suspended') c.resume();
     const g = c.createGain();
@@ -145,7 +153,16 @@ const GobSound = (() => {
     g.connect(c.destination);
     o.start();
     o.stop(c.currentTime + 0.01);
-    startAmbient();
+    const shouldStart = wantAmbient ?? !isMobile();
+    if (shouldStart) startAmbient();
+  }
+
+  function isUnlocked() {
+    return unlocked;
+  }
+
+  function isAmbientStarted() {
+    return ambientStarted;
   }
 
   function canPlay(key) {
@@ -256,6 +273,8 @@ const GobSound = (() => {
 
   return {
     unlock,
+    isUnlocked,
+    isAmbientStarted,
     startAmbient,
     setAmbientBoost,
     toggleMute,

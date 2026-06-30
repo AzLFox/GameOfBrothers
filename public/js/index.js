@@ -11,21 +11,50 @@ let rotationTween = null;
 let introDone = false;
 let cardBusy = false;
 
-const RING_RADIUS = 380;
-const SELECTED_RADIUS = 560;
+const RING_RADIUS_DESKTOP = 380;
+const SELECTED_RADIUS_DESKTOP = 560;
 const HOVER_Z_BONUS = 48;
+const SWIPE_THRESHOLD_PX = 10;
+const DRAG_SENSITIVITY = 0.3;
+const WHEEL_SENSITIVITY = 0.15;
 
 let autoSpin = true;
 let idleTimer = null;
 let carouselWillChangeClear = null;
+let dragWillChangeClear = null;
 
 const SKELETON_COUNT = 6;
 
-/* ====== DRAG ====== */
+/* ====== TOUCH / DRAG ====== */
 let dragging = false;
-let lastX = 0;
+let suppressCardClick = false;
+/** @type {{ pointerId: number, startX: number, lastX: number, lastT: number, velocity: number, dragging: boolean } | null} */
+let swipe = null;
 
-function applyCardTransform(card, index, z = RING_RADIUS, hoverBoost = 0, scale = 1) {
+function getRingRadius() {
+  if (!GobMobile.isMobile()) return RING_RADIUS_DESKTOP;
+  const w = Math.min(window.innerWidth, GobMobile.BREAKPOINT);
+  const scale = 0.42 + (w / GobMobile.BREAKPOINT) * 0.08;
+  return Math.round(RING_RADIUS_DESKTOP * scale);
+}
+
+function getSelectedRadius() {
+  if (!GobMobile.isMobile()) return SELECTED_RADIUS_DESKTOP;
+  return Math.round(getRingRadius() * (SELECTED_RADIUS_DESKTOP / RING_RADIUS_DESKTOP));
+}
+
+function refreshRingRadius() {
+  const ring = getRingRadius();
+  cards.forEach((card, i) => {
+    if (card.classList.contains('selected')) return;
+    setCardRingTransform(card, i);
+  });
+  carousel.querySelectorAll('.card--skeleton').forEach((sk) => {
+    sk.style.setProperty('--card-z', `${ring}px`);
+  });
+}
+
+function applyCardTransform(card, index, z = getRingRadius(), hoverBoost = 0, scale = 1) {
   card.style.setProperty('--card-angle', `${index * step}deg`);
   card.style.setProperty('--card-z', `${z}px`);
   card.style.setProperty('--card-z-hover', `${hoverBoost}px`);
@@ -33,7 +62,7 @@ function applyCardTransform(card, index, z = RING_RADIUS, hoverBoost = 0, scale 
 }
 
 function setCardRingTransform(card, index) {
-  applyCardTransform(card, index, RING_RADIUS, 0, 1);
+  applyCardTransform(card, index, getRingRadius(), 0, 1);
 }
 
 function applyCarouselRotation() {
@@ -69,6 +98,7 @@ function getRotationToCenterCard(index) {
 }
 
 function animateCarouselTo(targetRotation, durationMs, onComplete) {
+  clearDragWillChange();
   if (rotationTween) rotationTween.kill();
   if (carouselWillChangeClear) carouselWillChangeClear();
   carousel.classList.add('is-animating');
@@ -95,6 +125,8 @@ function animateCarouselTo(targetRotation, durationMs, onComplete) {
 }
 
 function bindCardHover(card) {
+  if (GobMobile.isMobile() || GobMobile.isCoarsePointer()) return;
+
   card.addEventListener('pointerenter', () => {
     if (activeCard || cardBusy || dragging || card.classList.contains('is-locked')) return;
     card.classList.add('is-hover');
@@ -132,10 +164,11 @@ function revealCards() {
   }
 
   GobMotion.killOf(cards);
+  const m = GobMotion.mobileMul?.() ?? 1;
   GobMotion.to(cards, {
     opacity: 1,
-    duration: GobMotion.DUR.slow,
-    stagger: 0.1,
+    duration: GobMotion.DUR.slow * m,
+    stagger: 0.1 * m,
     ease: GobMotion.EASE.cinematic,
   });
 }
@@ -189,7 +222,7 @@ function showCarouselSkeleton(count = SKELETON_COUNT) {
     sk.className = 'card card--skeleton';
     sk.setAttribute('aria-hidden', 'true');
     sk.style.setProperty('--card-angle', `${i * angleStep}deg`);
-    sk.style.setProperty('--card-z', `${RING_RADIUS}px`);
+    sk.style.setProperty('--card-z', `${getRingRadius()}px`);
     sk.innerHTML = `
       <div class="card-skeleton-mist">
         <div class="card-skeleton-silhouette" aria-hidden="true"></div>
@@ -230,7 +263,10 @@ function buildCards(data) {
 
     card.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (activeCard || cardBusy) return;
+      if (activeCard || cardBusy || suppressCardClick) {
+        suppressCardClick = false;
+        return;
+      }
       openCard(card);
     });
 
@@ -251,35 +287,150 @@ function buildCards(data) {
   if (introDone) revealCards();
 }
 
-carousel.addEventListener('pointerdown', (e) => {
-  if (activeCard || cardBusy || e.target.closest('.card')) return;
-  dragging = true;
-  lastX = e.clientX;
+function setSceneSwiping(active) {
+  document.body.classList.toggle('scene-swiping', active);
+}
+
+function clearDragWillChange() {
+  dragWillChangeClear?.();
+  dragWillChangeClear = null;
+  if (!rotationTween) carousel.classList.remove('is-animating');
+}
+
+function beginDragWillChange() {
+  if (dragWillChangeClear) return;
+  setSceneSwiping(true);
+  carousel.classList.add('is-animating');
+  dragWillChangeClear = GobMotion.willChangeTemp(carousel, 'transform', 120000);
+}
+
+function getNearestCardIndex() {
+  let best = 0;
+  let bestAbs = Infinity;
+  cards.forEach((_, i) => {
+    const a = Math.abs(cardSignedAngleDeg(i));
+    if (a < bestAbs) {
+      bestAbs = a;
+      best = i;
+    }
+  });
+  return best;
+}
+
+function snapToNearestCard(durationMs = 420) {
+  if (!cards.length || activeCard || cardBusy) {
+    clearDragWillChange();
+    startIdleTimer();
+    return;
+  }
+  animateCarouselTo(getRotationToCenterCard(getNearestCardIndex()), durationMs, () => {
+    clearDragWillChange();
+    startIdleTimer();
+  });
+}
+
+function finishSwipeGesture(velocity) {
+  if (!cards.length) {
+    clearDragWillChange();
+    startIdleTimer();
+    return;
+  }
+  const coast = velocity * DRAG_SENSITIVITY * 220;
+  if (Math.abs(coast) < 4) {
+    snapToNearestCard();
+    return;
+  }
+  const coastDuration = Math.min(520, Math.abs(coast) * 10);
+  animateCarouselTo(rotation + coast, coastDuration, () => snapToNearestCard(380));
+}
+
+function isSceneSwipeEnabled() {
+  return GobMobile.isMobile() || GobMobile.isCoarsePointer();
+}
+
+function onScenePointerDown(e) {
+  if (!isSceneSwipeEnabled()) return;
+  if (activeCard || cardBusy || e.button !== 0) return;
+
+  if (rotationTween) {
+    rotationTween.kill();
+    rotationTween = null;
+    carouselWillChangeClear?.();
+    carouselWillChangeClear = null;
+    carousel.classList.remove('is-animating');
+  }
+
   stopAutoSpin();
-});
+  swipe = {
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    lastX: e.clientX,
+    lastT: performance.now(),
+    velocity: 0,
+    dragging: false,
+  };
+  scene.setPointerCapture(e.pointerId);
+}
 
-window.addEventListener('pointermove', (e) => {
-  if (!dragging) return;
-  const dx = e.clientX - lastX;
-  lastX = e.clientX;
-  rotation += dx * 0.3;
+function onScenePointerMove(e) {
+  if (!isSceneSwipeEnabled()) return;
+  if (!swipe || e.pointerId !== swipe.pointerId) return;
+
+  const dx = e.clientX - swipe.lastX;
+  const now = performance.now();
+  const dt = now - swipe.lastT;
+  if (dt > 0) swipe.velocity = dx / dt;
+  swipe.lastT = now;
+  swipe.lastX = e.clientX;
+
+  if (!swipe.dragging) {
+    if (Math.abs(e.clientX - swipe.startX) < SWIPE_THRESHOLD_PX) return;
+    swipe.dragging = true;
+    dragging = true;
+    beginDragWillChange();
+  }
+
+  e.preventDefault();
+  rotation += dx * DRAG_SENSITIVITY;
   applyCarouselRotation();
-});
+}
 
-window.addEventListener('pointerup', () => {
-  if (!dragging) return;
+function onScenePointerEnd(e) {
+  if (!isSceneSwipeEnabled()) return;
+  if (!swipe || e.pointerId !== swipe.pointerId) return;
+
+  scene.releasePointerCapture(e.pointerId);
+  const wasDragging = swipe.dragging;
+  const velocity = swipe.velocity;
+  swipe = null;
   dragging = false;
-  startIdleTimer();
-});
+  setSceneSwiping(false);
+
+  if (wasDragging) {
+    suppressCardClick = true;
+    finishSwipeGesture(velocity);
+  } else {
+    clearDragWillChange();
+    startIdleTimer();
+  }
+}
+
+scene.addEventListener('pointerdown', onScenePointerDown);
+scene.addEventListener('pointermove', onScenePointerMove);
+scene.addEventListener('pointerup', onScenePointerEnd);
+scene.addEventListener('pointercancel', onScenePointerEnd);
 
 window.addEventListener('wheel', (e) => {
   if (activeCard || cardBusy) return;
   e.preventDefault();
   stopAutoSpin();
-  rotation += e.deltaY * 0.15;
+  rotation += e.deltaY * WHEEL_SENSITIVITY;
   applyCarouselRotation();
   startIdleTimer();
 }, { passive: false });
+
+window.addEventListener('gobmobilechange', refreshRingRadius);
+window.addEventListener('resize', refreshRingRadius);
 
 showCarouselSkeleton();
 
@@ -355,7 +506,7 @@ function openCard(card) {
     card.classList.remove('is-locked');
     card.style.setProperty('--card-flip', '0deg');
     card.classList.add('selected', 'flipped');
-    applyCardTransform(card, index, SELECTED_RADIUS, 0, 1);
+    applyCardTransform(card, index, getSelectedRadius(), 0, 1);
 
     const inner = card.querySelector('.card-inner');
     const clearWillChange = GobMotion.willChangeTemp(inner, 'transform', 1200);
@@ -397,7 +548,7 @@ function closeCard() {
 
   GobMotion.killOf([card, inner, cardSpotlight, overlay, ...others]);
 
-  const zProxy = { z: SELECTED_RADIUS };
+  const zProxy = { z: getSelectedRadius() };
   const flipTl = GobMotion.flipCardBack(inner);
 
   const tl = GobMotion.timeline({
@@ -416,7 +567,7 @@ function closeCard() {
     .to(others, { opacity: 1, duration: 0.45, ease: GobMotion.EASE.soft }, 0.32)
     .add(() => document.body.classList.remove('card-open'), 0.38)
     .to(zProxy, {
-      z: RING_RADIUS,
+      z: getRingRadius(),
       duration: 0.88,
       ease: GobMotion.EASE.cinematic,
       onUpdate: () => {

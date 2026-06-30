@@ -9,6 +9,7 @@ const CharMotion = (() => {
 
   function bindScrollParallax() {
     if (scrollParallaxBound || reduced()) return;
+    if (window.matchMedia('(max-width: 700px)').matches) return;
     scrollParallaxBound = true;
 
     const panels = document.querySelectorAll(
@@ -160,6 +161,10 @@ const CharMotion = (() => {
     });
   }
 
+  function isMobileEditor() {
+    return typeof GobMobile !== 'undefined' && GobMobile.isMobile();
+  }
+
   function openSpellEditorSlide(el, onComplete) {
     if (!el) {
       onComplete?.();
@@ -173,6 +178,31 @@ const CharMotion = (() => {
     }
 
     GobMotion.killOf(el);
+
+    if (isMobileEditor()) {
+      gsap.set(el, {
+        left: 0,
+        right: 0,
+        top: 'auto',
+        bottom: 0,
+        xPercent: 0,
+        yPercent: 0,
+        width: '100%',
+        rotateY: 0,
+      });
+
+      return GobMotion.fromTo(el, {
+        opacity: 0,
+        yPercent: 108,
+      }, {
+        opacity: 1,
+        yPercent: 0,
+        duration: GobMotion.DUR.normal,
+        ease: GobMotion.EASE.cinematic,
+        onComplete,
+      });
+    }
+
     gsap.set(el, {
       left: 'auto',
       right: '3%',
@@ -209,6 +239,21 @@ const CharMotion = (() => {
     }
 
     GobMotion.killOf(el);
+
+    if (isMobileEditor()) {
+      return GobMotion.to(el, {
+        opacity: 0,
+        yPercent: 108,
+        duration: GobMotion.DUR.fast,
+        ease: GobMotion.EASE.exit,
+        onComplete: () => {
+          el.hidden = true;
+          gsap.set(el, { clearProps: 'opacity,transform' });
+          onComplete?.();
+        },
+      });
+    }
+
     return GobMotion.to(el, {
       opacity: 0,
       x: 56,
