@@ -65,6 +65,16 @@ const GobMotion = (() => {
     gsap.killTweensOf('*');
   }
 
+  /** Tear down GPU-heavy runtimes before navigate or page unload (no memory leaks). */
+  function teardownPageResources() {
+    killAll();
+    window.GobSceneLive?.destroy?.();
+    window.SceneAtmosphere?.destroy?.();
+    window.SpellbookFlip?.destroySpellbookFlip?.();
+  }
+
+  window.addEventListener('pagehide', teardownPageResources);
+
   /** Set will-change temporarily during animation (performance). */
   function willChangeTemp(targets, props, ms = 900) {
     if (!hasGsap) return () => {};
@@ -89,10 +99,7 @@ const GobMotion = (() => {
   }
 
   function navigateTo(url, { animate } = {}) {
-    killAll();
-    window.GobSceneLive?.destroy?.();
-    window.SceneAtmosphere?.destroy?.();
-    window.SpellbookFlip?.destroySpellbookFlip?.();
+    teardownPageResources();
 
     const go = () => { window.location.href = url; };
 
@@ -591,6 +598,7 @@ const GobMotion = (() => {
     mobileMul,
     MOBILE_INTRO_MUL,
     killAll,
+    teardownPageResources,
     willChangeTemp,
     timeline,
     to,

@@ -97,6 +97,30 @@ a:focus-visible,
   }
 }
 
+/* ================= Tooltip viewport padding (safe-area) ================= */
+:root {
+  --gob-tooltip-pad-top: 12px;
+  --gob-tooltip-pad-right: 12px;
+  --gob-tooltip-pad-bottom: 12px;
+  --gob-tooltip-pad-left: 12px;
+}
+
+html.gob-mobile {
+  --gob-tooltip-pad-top: max(12px, env(safe-area-inset-top));
+  --gob-tooltip-pad-right: max(12px, env(safe-area-inset-right));
+  --gob-tooltip-pad-bottom: max(12px, env(safe-area-inset-bottom));
+  --gob-tooltip-pad-left: max(12px, env(safe-area-inset-left));
+}
+
+@media (max-width: 700px) {
+  :root {
+    --gob-tooltip-pad-top: max(12px, env(safe-area-inset-top));
+    --gob-tooltip-pad-right: max(12px, env(safe-area-inset-right));
+    --gob-tooltip-pad-bottom: max(12px, env(safe-area-inset-bottom));
+    --gob-tooltip-pad-left: max(12px, env(safe-area-inset-left));
+  }
+}
+
 /* ================= WCAG AA contrast tweaks ================= */
 .page-hint,
 .carousel-loading-hint {
@@ -105,12 +129,22 @@ a:focus-visible,
 
 .char-page {
   --ink-muted: #3d2818;
+  --gob-text-muted: #3d2818;
 }
 
 .combat-bonus-input::placeholder,
 .spellbook-page-num,
 .spell-page-indicator {
-  color: rgba(61, 40, 24, 0.72);
+  color: var(--ink-muted, #3d2818);
+  opacity: 0.85;
+}
+
+@media (max-width: 700px) {
+  .combat-bonus-input::placeholder,
+  .spellbook-page-num,
+  .spell-page-indicator {
+    opacity: 1;
+  }
 }
 
 .portrait-panel .field-input::placeholder {
@@ -227,6 +261,15 @@ a:focus-visible,
   .spellbook-mount--portrait .stf__wrapper,
   .spellbook-mount--portrait .stf__item {
     max-height: 100%;
+    background-color: #e4d0aa;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+  }
+
+  .spellbook-mount--portrait .spellbook-pf-page {
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    transform: translateZ(0);
   }
 
   .spellbook-mount--portrait .spellbook-page-inner {
@@ -280,7 +323,7 @@ a:focus-visible,
 
   .spellbook-mount--portrait .spell-slot-name {
     max-width: 100%;
-    font-size: 0.58rem;
+    font-size: clamp(0.75rem, 2.4vw, 0.85rem);
   }
 
   .spellbook-tabs {
@@ -329,15 +372,16 @@ a:focus-visible,
     margin-left: 0;
   }
 
-  .spell-page-prev,
-  .spell-page-next {
+  .spell-page-btn {
     min-width: 48px;
     min-height: 48px;
+    width: 48px;
+    height: 48px;
     font-size: 1.2rem;
   }
 
   #spell-create-btn {
-    min-height: 44px;
+    min-height: 48px;
     width: 100%;
     font-size: 0.85rem;
   }
@@ -359,7 +403,7 @@ a:focus-visible,
     left: 0;
     width: 100%;
     max-width: none;
-    max-height: min(92dvh, 720px);
+    max-height: 100dvh;
     border-radius: 16px 16px 0 0;
     z-index: 400;
     padding:
@@ -389,6 +433,11 @@ a:focus-visible,
     min-height: 48px;
   }
 
+  .spell-editor-preview {
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+  }
+
   .spell-editor-preview .spell-icon-wrap {
     transform: none;
     width: 68px;
@@ -401,6 +450,50 @@ a:focus-visible,
     min-width: 22px;
     font-size: 0.72rem;
   }
+
+  .spell-tooltip {
+    z-index: 9500;
+    max-width: calc(100vw - 24px);
+    pointer-events: auto;
+  }
+}
+
+/* ================= MOBILE type scale (M7) — matches character layout ≤700px ================= */
+@media (max-width: 700px) {
+  .char-page {
+    font-size: 16px;
+  }
+
+  .char-header-title {
+    font-size: clamp(1.05rem, 4.8vw, 1.35rem);
+  }
+
+  .panel-title {
+    font-size: clamp(0.8rem, 3.2vw, 0.95rem);
+  }
+
+  .field-label,
+  .stat-label,
+  .slot-label {
+    font-size: 0.75rem;
+  }
+
+  .item-slot.has-item .slot-label {
+    font-size: 0.75rem;
+  }
+
+  .field-input--name {
+    font-size: clamp(1rem, 4.2vw, 1.15rem);
+  }
+
+  .spell-slot-name {
+    font-size: clamp(0.75rem, 2.4vw, 0.85rem);
+  }
+}
+
+/* ================= Tier-low: lighter decorative grain ================= */
+html.gob-tier-low .gob-cinematic__grain {
+  opacity: calc(var(--gob-cinematic-grain) * 0.5);
 }
 
 @media (prefers-reduced-motion: reduce) {

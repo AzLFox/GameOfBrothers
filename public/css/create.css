@@ -23,14 +23,17 @@ html.page-enter-pending .create-shell {
 }
 
 .create-back {
-  color: #9ad4c0;
+  font-family: var(--gob-font-display);
+  color: var(--gob-gold-light);
   text-decoration: none;
-  font-size: 0.9rem;
-  opacity: 0.85;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  opacity: 0.92;
 }
 
 .create-back:hover {
   opacity: 1;
+  color: var(--gob-parchment);
 }
 
 .create-shell h1 {
@@ -83,4 +86,55 @@ html.page-enter-pending .create-shell {
   opacity: 0.55;
   cursor: not-allowed;
   margin-top: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .create-page {
+    align-items: flex-start;
+    padding:
+      max(12px, env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      max(24px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
+  }
+
+  .create-shell {
+    width: 100%;
+    max-width: none;
+    padding: 1.25rem 1rem 1.5rem;
+  }
+
+  .create-back {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 4px;
+    opacity: 1;
+  }
+
+  .create-shell h1 {
+    font-size: 1.45rem;
+  }
+
+  .create-form {
+    width: 100%;
+  }
+
+  .create-form input,
+  .create-form textarea {
+    min-height: 44px;
+    font-size: 16px;
+    padding: 10px 12px;
+    box-sizing: border-box;
+  }
+
+  .create-form textarea {
+    min-height: 96px;
+  }
+
+  .create-form .btn-create--static {
+    width: 100%;
+    min-height: 44px;
+    margin-top: 0.75rem;
+  }
 }

@@ -84,6 +84,49 @@ function isTouchRuneMode() {
     && (GobMobile.isMobile() || GobMobile.isCoarsePointer());
 }
 
+function isTouchTooltipMode() {
+  return isTouchRuneMode();
+}
+
+function getTooltipSafePad() {
+  const cs = getComputedStyle(document.documentElement);
+  const num = (prop) => {
+    const v = parseFloat(cs.getPropertyValue(prop));
+    return Number.isFinite(v) ? v : 0;
+  };
+  return {
+    top: Math.max(12, num('--gob-tooltip-pad-top')),
+    right: Math.max(12, num('--gob-tooltip-pad-right')),
+    bottom: Math.max(12, num('--gob-tooltip-pad-bottom')),
+    left: Math.max(12, num('--gob-tooltip-pad-left')),
+  };
+}
+
+function positionFloatingTooltip(tip, anchorEl, belowClass) {
+  if (!tip || !anchorEl) return;
+
+  const rect = anchorEl.getBoundingClientRect();
+  tip.style.left = '0';
+  tip.style.top = '0';
+  tip.style.visibility = 'hidden';
+  tip.hidden = false;
+
+  const tipRect = tip.getBoundingClientRect();
+  const pad = getTooltipSafePad();
+  let left = rect.left + rect.width / 2 - tipRect.width / 2;
+  let top = rect.top - tipRect.height - 12;
+  let preferBelow = top < pad.top;
+  if (preferBelow) top = rect.bottom + 12;
+
+  left = Math.max(pad.left, Math.min(left, window.innerWidth - tipRect.width - pad.right));
+  top = Math.max(pad.top, Math.min(top, window.innerHeight - tipRect.height - pad.bottom));
+
+  tip.classList.toggle(belowClass, preferBelow);
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+  tip.style.visibility = 'visible';
+}
+
 let activeRuneStat = null;
 let activeCombatHintRow = null;
 let statCombatRunesBound = false;
@@ -263,6 +306,7 @@ let isPageTurning = false;
 let spellbookFlipReady = false;
 let spellbookResizeBound = false;
 let spellbookResizeTimer = null;
+let spellbookModulePromise = null;
 const HIT_DICE = [6, 12, 20, 60, 100];
 
 let combatTooltipEl = null;
@@ -271,6 +315,68 @@ let combatTooltipVisible = false;
 let spellTooltipEl = null;
 let spellTooltipTimer = null;
 let spellTooltipVisible = false;
+let activeSpellTooltipBtn = null;
+let spellTooltipTouchBound = false;
+let spellSlotDelegationBound = false;
+let spellLongPressTimer = null;
+let spellLongPressSuppressedClick = false;
+
+function spellForSlotEl(slot) {
+  const id = slot?.dataset?.spellId;
+  return id ? sheet.spells.find((s) => s.id === id) : null;
+}
+
+function bindSpellSlotDelegation(modal) {
+  if (spellSlotDelegationBound) return;
+  spellSlotDelegationBound = true;
+
+  const mount = document.getElementById('spellbook-mount');
+  const pressRoot = mount || modal;
+
+  modal.addEventListener('click', (e) => {
+    const slot = e.target.closest('.spell-slot:not(.spell-slot--empty)');
+    if (!slot || !modal.open) return;
+
+    if (spellLongPressSuppressedClick) {
+      spellLongPressSuppressedClick = false;
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    hideSpellTooltip();
+    const spell = spellForSlotEl(slot);
+    if (spell) openSpellEditor(spell.id);
+  });
+
+  if (!isTouchTooltipMode()) return;
+
+  const clearLongPress = () => {
+    if (spellLongPressTimer) {
+      clearTimeout(spellLongPressTimer);
+      spellLongPressTimer = null;
+    }
+  };
+
+  pressRoot.addEventListener('pointerdown', (e) => {
+    clearLongPress();
+    const slot = e.target.closest('.spell-slot:not(.spell-slot--empty)');
+    if (!slot) return;
+    const spell = spellForSlotEl(slot);
+    if (!spell) return;
+
+    spellLongPressTimer = window.setTimeout(() => {
+      spellLongPressTimer = null;
+      spellLongPressSuppressedClick = true;
+      activeSpellTooltipBtn = slot;
+      showSpellTooltip(spell, slot);
+    }, 480);
+  }, { passive: true });
+
+  pressRoot.addEventListener('pointerup', clearLongPress);
+  pressRoot.addEventListener('pointercancel', clearLongPress);
+  pressRoot.addEventListener('pointerleave', clearLongPress);
+}
 
 function escapeHtml(str) {
   return String(str ?? '')
@@ -287,6 +393,9 @@ function specLabel(spec) {
 function ensureSpellTooltip() {
   if (!spellTooltipEl) {
     spellTooltipEl = document.getElementById('spell-tooltip');
+    if (spellTooltipEl?.parentElement !== document.body) {
+      document.body.appendChild(spellTooltipEl);
+    }
   }
   return spellTooltipEl;
 }
@@ -304,6 +413,7 @@ function hideSpellTooltip() {
       tip.hidden = true;
       tip.style.visibility = '';
       spellTooltipVisible = false;
+      activeSpellTooltipBtn = null;
     });
     return;
   }
@@ -311,31 +421,14 @@ function hideSpellTooltip() {
   tip.hidden = true;
   tip.style.visibility = '';
   spellTooltipVisible = false;
+  activeSpellTooltipBtn = null;
 }
 
 function positionSpellTooltip(anchorEl) {
   const tip = spellTooltipEl;
   if (!tip) return;
 
-  const rect = anchorEl.getBoundingClientRect();
-  tip.style.left = '0';
-  tip.style.top = '0';
-  tip.style.visibility = 'hidden';
-  tip.hidden = false;
-
-  const tipRect = tip.getBoundingClientRect();
-  let left = rect.left + rect.width / 2 - tipRect.width / 2;
-  let top = rect.top - tipRect.height - 12;
-  const preferBelow = top < 10;
-  if (preferBelow) top = rect.bottom + 12;
-
-  left = Math.max(10, Math.min(left, window.innerWidth - tipRect.width - 10));
-  top = Math.max(10, Math.min(top, window.innerHeight - tipRect.height - 10));
-
-  tip.classList.toggle('spell-tooltip--below', preferBelow);
-  tip.style.left = `${left}px`;
-  tip.style.top = `${top}px`;
-  tip.style.visibility = 'visible';
+  positionFloatingTooltip(tip, anchorEl, 'spell-tooltip--below');
 
   if (!spellTooltipVisible && typeof CharMotion !== 'undefined') {
     CharMotion.fadeTooltipIn(tip);
@@ -363,7 +456,21 @@ function showSpellTooltip(spell, anchorEl) {
   positionSpellTooltip(anchorEl);
 }
 
+function bindSpellTooltipTouchDismiss() {
+  if (spellTooltipTouchBound || !isTouchTooltipMode()) return;
+  spellTooltipTouchBound = true;
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.spell-slot, .spell-tooltip')) return;
+    hideSpellTooltip();
+  });
+}
+
 function bindSpellTooltip(btn, spell) {
+  if (isTouchTooltipMode()) {
+    bindSpellTooltipTouchDismiss();
+    return;
+  }
+
   btn.addEventListener('pointerenter', () => {
     if (spellTooltipTimer) clearTimeout(spellTooltipTimer);
     spellTooltipTimer = setTimeout(() => showSpellTooltip(spell, btn), 200);
@@ -466,25 +573,7 @@ function positionCombatTooltip(anchorEl) {
   const tip = combatTooltipEl;
   if (!tip) return;
 
-  const rect = anchorEl.getBoundingClientRect();
-  tip.style.left = '0';
-  tip.style.top = '0';
-  tip.style.visibility = 'hidden';
-  tip.hidden = false;
-
-  const tipRect = tip.getBoundingClientRect();
-  let left = rect.left + rect.width / 2 - tipRect.width / 2;
-  let top = rect.top - tipRect.height - 12;
-  const preferBelow = top < 10;
-  if (preferBelow) top = rect.bottom + 12;
-
-  left = Math.max(10, Math.min(left, window.innerWidth - tipRect.width - 10));
-  top = Math.max(10, Math.min(top, window.innerHeight - tipRect.height - 10));
-
-  tip.classList.toggle('combat-tooltip--below', preferBelow);
-  tip.style.left = `${left}px`;
-  tip.style.top = `${top}px`;
-  tip.style.visibility = 'visible';
+  positionFloatingTooltip(tip, anchorEl, 'combat-tooltip--below');
 
   if (typeof GobMotion !== 'undefined') GobMotion.killOf(tip);
 
@@ -990,6 +1079,10 @@ function bindSpellbookResize() {
   window.addEventListener('resize', scheduleSpellbookRelayout);
   window.addEventListener('orientationchange', scheduleSpellbookRelayout);
   window.addEventListener('gobmobilechange', scheduleSpellbookRelayout);
+  window.addEventListener('pagehide', () => {
+    clearTimeout(spellbookResizeTimer);
+    destroySpellbookInstance();
+  });
 }
 
 function bindSpellbook() {
@@ -1001,12 +1094,14 @@ function bindSpellbook() {
   renderSpellTabs();
   bindSpellEditor();
   bindSpellbookResize();
+  bindSpellSlotDelegation(modal);
 
   modal.addEventListener('scroll', hideSpellTooltip, { passive: true });
 
   btn.addEventListener('click', () => {
     spreadIndex = 0;
     destroySpellbookInstance();
+    loadSpellbookFlip();
 
     const mountSpellbook = () => {
       requestAnimationFrame(() => {
@@ -1087,6 +1182,7 @@ function createSpellSlot(spell) {
 
   const btn = document.createElement('button');
   btn.type = 'button';
+  btn.dataset.spellId = spell.id;
   const legendary = isLegendaryIcon(spell.spec, spell.icon);
   btn.className = `spell-slot${legendary ? ' spell-slot--legendary' : ''}`;
   btn.innerHTML = `
@@ -1100,12 +1196,6 @@ function createSpellSlot(spell) {
     </div>
     <span class="spell-slot-name">${spell.name || 'Без названия'}</span>
   `;
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    hideSpellTooltip();
-    openSpellEditor(spell.id);
-  });
   bindSpellTooltip(btn, spell);
   return btn;
 }
@@ -1130,6 +1220,14 @@ function closeSpellbookModal() {
   } else {
     modal?.close();
   }
+}
+
+function loadSpellbookFlip() {
+  if (window.SpellbookFlip) return Promise.resolve(window.SpellbookFlip);
+  if (!spellbookModulePromise) {
+    spellbookModulePromise = import('./spellbook-bootstrap.mjs').then(() => window.SpellbookFlip);
+  }
+  return spellbookModulePromise;
 }
 
 function destroySpellbookInstance() {
@@ -1197,25 +1295,32 @@ function updatePageNav(totalSpells) {
 function renderSpellGrids() {
   const modal = document.getElementById('spellbook-modal');
   const mount = document.getElementById('spellbook-mount');
-  if (!mount || !window.SpellbookFlip || !modal?.open) return;
+  if (!mount || !modal?.open) return;
 
-  const spells = filteredSpells();
-  const pages = buildSpellbookPages();
-  const pf = window.SpellbookFlip.getPageFlip();
-  const startPage = pf
-    ? Math.min(pf.getCurrentPageIndex(), pages.length - 1)
-    : Math.min(spreadIndex * 2, pages.length - 1);
+  hideSpellTooltip();
+  activeSpellTooltipBtn = null;
 
-  if (!spellbookFlipReady) {
-    window.SpellbookFlip.createSpellbookFlip(spellbookFlipHandlers());
-    window.SpellbookFlip.loadSpellbookPages(pages, startPage);
-    spellbookFlipReady = true;
-  } else {
-    window.SpellbookFlip.updateSpellbookPages(pages, startPage);
-  }
+  loadSpellbookFlip().then(() => {
+    if (!modal.open) return;
 
-  spreadIndex = Math.floor(startPage / 2);
-  updatePageNav(spells.length);
+    const spells = filteredSpells();
+    const pages = buildSpellbookPages();
+    const pf = window.SpellbookFlip.getPageFlip();
+    const startPage = pf
+      ? Math.min(pf.getCurrentPageIndex(), pages.length - 1)
+      : Math.min(spreadIndex * 2, pages.length - 1);
+
+    if (!spellbookFlipReady) {
+      window.SpellbookFlip.createSpellbookFlip(spellbookFlipHandlers());
+      window.SpellbookFlip.loadSpellbookPages(pages, startPage);
+      spellbookFlipReady = true;
+    } else {
+      window.SpellbookFlip.updateSpellbookPages(pages, startPage);
+    }
+
+    spreadIndex = Math.floor(startPage / 2);
+    updatePageNav(spells.length);
+  });
 }
 
 function turnPage(direction) {

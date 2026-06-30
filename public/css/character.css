@@ -129,13 +129,7 @@ body {
   transform: translateY(var(--scroll-shift, 0));
 }
 
-.stats-panel.is-scroll-parallax,
-.combat-panel.is-scroll-parallax,
-.equipment-panel.is-scroll-parallax,
-.backpack-panel.is-scroll-parallax,
-.lore-panel.is-scroll-parallax {
-  will-change: transform;
-}
+/* will-change applied via GobMotion.willChangeTemp during scroll only */
 
 @media (max-width: 1100px) {
   .char-sheet-wrap {
@@ -225,6 +219,7 @@ body {
   .portrait-frame img {
     max-height: min(34vh, 220px);
     width: 100%;
+    aspect-ratio: 3 / 4;
     object-fit: cover;
     object-position: center top;
   }
@@ -407,7 +402,7 @@ body {
   }
 
   .slot-label {
-    font-size: 0.52rem;
+    font-size: 0.75rem;
     letter-spacing: 0.03em;
     max-width: 100%;
     overflow: hidden;
@@ -988,14 +983,14 @@ body {
 }
 
 .combat-tooltip-muted {
-  color: rgba(61, 40, 24, 0.72);
+  color: var(--ink-muted, #3d2818);
   font-weight: 400;
 }
 
 .combat-tooltip-line--note {
   margin-top: 6px;
   font-size: 0.82rem;
-  color: rgba(61, 40, 24, 0.78);
+  color: var(--ink-muted, #3d2818);
   line-height: 1.4;
 }
 
@@ -1839,8 +1834,9 @@ body {
   left: 50%;
   transform: translateX(-50%);
   font-family: "Cinzel", serif;
-  font-size: 0.62rem;
-  color: rgba(74, 53, 32, 0.5);
+  font-size: 0.75rem;
+  color: var(--ink-muted, #3d2818);
+  opacity: 0.85;
   letter-spacing: 0.18em;
   white-space: nowrap;
 }
@@ -1868,7 +1864,10 @@ body {
 
 .spell-slot--empty {
   cursor: default;
-  opacity: 0.35;
+}
+
+.spell-slot--empty .spell-icon-wrap {
+  opacity: 0.45;
 }
 
 .spell-slot--empty .spell-icon-ring {
@@ -2087,7 +2086,7 @@ body {
 }
 
 .spell-slot--empty .spell-slot-name {
-  color: rgba(74, 53, 32, 0.5);
+  color: var(--ink-muted, #3d2818);
   font-style: italic;
 }
 
@@ -2149,9 +2148,9 @@ body {
   flex-wrap: wrap;
   gap: 4px 8px;
   margin: 0 0 6px;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   letter-spacing: 0.03em;
-  color: rgba(74, 53, 32, 0.75);
+  color: var(--ink-muted, #3d2818);
   text-transform: uppercase;
 }
 
@@ -2168,7 +2167,8 @@ body {
 
 .spell-tooltip-desc--empty {
   font-style: italic;
-  color: rgba(74, 53, 32, 0.55);
+  color: var(--ink-muted, #3d2818);
+  opacity: 0.85;
 }
 
 /* school tabs (right edge) */
@@ -2434,10 +2434,10 @@ body {
   grid-column: 1 / -1;
   margin: 4px 0 0;
   font-family: "Cinzel", serif;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(74, 53, 32, 0.75);
+  color: var(--ink-muted, #3d2818);
 }
 
 .spell-icon-picker-label--legendary {
@@ -2586,12 +2586,24 @@ html.gob-mobile .lore-panel {
   --scroll-shift: 0px;
 }
 
-html.gob-mobile .stats-panel.is-scroll-parallax,
-html.gob-mobile .combat-panel.is-scroll-parallax,
-html.gob-mobile .equipment-panel.is-scroll-parallax,
-html.gob-mobile .backpack-panel.is-scroll-parallax,
-html.gob-mobile .lore-panel.is-scroll-parallax {
-  will-change: auto;
+html.gob-tier-low .spellbook-modal::backdrop {
+  backdrop-filter: none;
+}
+
+/* M9: large-layer GPU budget — spellbook backdrop on mobile */
+html.gob-mobile .spellbook-modal::backdrop {
+  backdrop-filter: blur(4px);
+}
+
+html.gob-mobile.gob-tier-low .spellbook-modal::backdrop,
+html.gob-reduced-motion .spellbook-modal::backdrop {
+  backdrop-filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spellbook-modal::backdrop {
+    backdrop-filter: none;
+  }
 }
 
 @media (hover: none) and (pointer: coarse) {

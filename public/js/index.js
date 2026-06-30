@@ -647,3 +647,13 @@ document.addEventListener('DOMContentLoaded', () => {
     onComplete: bootstrapMainPage,
   });
 });
+
+window.addEventListener('pagehide', () => {
+  clearDragWillChange();
+  carouselWillChangeClear?.();
+  carouselWillChangeClear = null;
+  if (rotationTween) {
+    rotationTween.kill();
+    rotationTween = null;
+  }
+});

@@ -1,5 +1,15 @@
 /**
  * GoB mobile context — single source of truth for breakpoint, tier, and motion prefs.
+ *
+ * Performance budgets (mobile mid-tier, Chrome Lighthouse / WebPageTest 4G slow):
+ *   Lighthouse Performance — index ≥70, character ≥75
+ *   Lighthouse Accessibility ≥90
+ *   LCP <2.5s (character sheet)
+ *   INP / tap response <200ms
+ *   Intro до карусели <2.5s
+ *   Pixi particles — mid ≤80, low 0 (off)
+ *   Touch target ≥44×44px
+ *   No memory growth after 10 page transitions (Pixi + StPageFlip teardown on navigate)
  */
 const GobMobile = (() => {
   const BREAKPOINT = 640;

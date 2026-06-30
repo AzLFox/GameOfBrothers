@@ -21,11 +21,16 @@ const CharMotion = (() => {
     let currentY = 0;
     let targetY = 0;
     let scrollIdleTimer = null;
+    let parallaxWillChangeClear = null;
 
     const setParallaxActive = (active) => {
       panels.forEach((panel) => {
         panel.classList.toggle('is-scroll-parallax', active);
       });
+      if (!active) {
+        parallaxWillChangeClear?.();
+        parallaxWillChangeClear = null;
+      }
     };
 
     const tick = () => {
@@ -40,6 +45,8 @@ const CharMotion = (() => {
     window.addEventListener('scroll', () => {
       targetY = Math.min(window.scrollY, 480);
       setParallaxActive(true);
+      parallaxWillChangeClear?.();
+      parallaxWillChangeClear = GobMotion.willChangeTemp(panels, 'transform', 280);
       clearTimeout(scrollIdleTimer);
       scrollIdleTimer = setTimeout(() => setParallaxActive(false), 180);
     }, { passive: true });

@@ -4,11 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#0a0604">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Gates of Beyond · Лист персонажа</title>
   <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"></noscript>
   <link rel="stylesheet" href="css/gob-tokens.css">
   <link rel="stylesheet" href="css/character.css">
   <link rel="stylesheet" href="css/gob-art.css">
@@ -42,7 +46,7 @@
     <div class="char-layout">
       <aside class="portrait-panel">
         <div class="portrait-frame">
-          <img id="char-img" alt="">
+          <img id="char-img" alt="" loading="lazy" decoding="async" width="240" height="320">
         </div>
         <div class="char-identity">
           <label class="field-label" for="char-name">Имя</label>
@@ -175,10 +179,9 @@
     </dialog>
   </div>
 
-  <script src="/vendor/gsap/gsap.min.js"></script>
-  <script src="js/gob-sound.js"></script>
-  <script src="js/gob-motion.js"></script>
-  <script type="module" src="js/spellbook-bootstrap.mjs"></script>
+  <script src="/vendor/gsap/gsap.min.js" defer></script>
+  <script src="js/gob-sound.js" defer></script>
+  <script src="js/gob-motion.js" defer></script>
   <script src="js/character-motion.js" defer></script>
   <script src="js/character.js" defer></script>
 
