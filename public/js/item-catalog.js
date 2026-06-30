@@ -104,7 +104,9 @@
         tiers: { 1: { evasion: 1, hpBonus: 3 }, 2: { evasion: 2, hpBonus: 6 }, 3: { evasion: 3, hpBonus: 9 }, 4: { evasion: 4, hpBonus: 12 } } },
       { id: 'mantle', label: 'Мантия', family: 'cloth',
         mods: ['bubble'],
-        tiers: { 1: { bubble: 10 }, 2: { bubble: 20 }, 3: { bubble: 30 }, 4: { bubble: 40 } } },
+        // баблы считаются единицами: каждая единица = 10% шанс, что бабл
+        // останется (этот бросок делается в игре, не в системе)
+        tiers: { 1: { bubble: 1 }, 2: { bubble: 2 }, 3: { bubble: 3 }, 4: { bubble: 4 } } },
       { id: 'robe', label: 'Ряса', family: 'cloth',
         mods: ['effectDuration'],
         tiers: { 1: { effectDuration: 1 }, 2: { effectDuration: 2 }, 3: { effectDuration: 3 }, 4: { effectDuration: 4 } } },
