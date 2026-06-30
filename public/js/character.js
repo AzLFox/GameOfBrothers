@@ -79,6 +79,7 @@ let editingSpellId = null;
 let selectedIconId = 'star';
 let selectedSpec = 'damage';
 let isPageTurning = false;
+let spellbookFlipReady = false;
 const HIT_DICE = [6, 12, 20, 60, 100];
 
 let combatTooltipEl = null;
@@ -87,8 +88,6 @@ let combatTooltipVisible = false;
 let spellTooltipEl = null;
 let spellTooltipTimer = null;
 let spellTooltipVisible = false;
-
-const PAGE_TURN_MS = 850;
 
 function escapeHtml(str) {
   return String(str ?? '')
@@ -740,39 +739,30 @@ function bindSpellbook() {
   const createBtn = document.getElementById('spell-create-btn');
 
   renderSpellTabs();
-  renderSpellGrids();
   bindSpellEditor();
 
   modal.addEventListener('scroll', hideSpellTooltip, { passive: true });
 
   btn.addEventListener('click', () => {
     spreadIndex = 0;
+    destroySpellbookInstance();
+
+    const mountSpellbook = () => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => renderSpellGrids());
+      });
+    };
+
     if (typeof CharMotion !== 'undefined') {
-      CharMotion.openSpellbook(modal, () => renderSpellGrids());
+      CharMotion.openSpellbook(modal, mountSpellbook);
     } else {
       modal.showModal();
-      renderSpellGrids();
+      mountSpellbook();
     }
   });
-  close.addEventListener('click', () => {
-    hideSpellTooltip();
-    closeSpellEditor();
-    if (typeof CharMotion !== 'undefined') {
-      CharMotion.closeSpellbook(modal);
-    } else {
-      modal.close();
-    }
-  });
+  close.addEventListener('click', () => closeSpellbookModal());
   modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      hideSpellTooltip();
-      closeSpellEditor();
-      if (typeof CharMotion !== 'undefined') {
-        CharMotion.closeSpellbook(modal);
-      } else {
-        modal.close();
-      }
-    }
+    if (e.target === modal) closeSpellbookModal();
   });
   createBtn.addEventListener('click', () => openSpellEditor(null));
 
@@ -850,6 +840,54 @@ function getSpreadSpells(index) {
   };
 }
 
+function closeSpellbookModal() {
+  const modal = document.getElementById('spellbook-modal');
+  hideSpellTooltip();
+  closeSpellEditor();
+  destroySpellbookInstance();
+  if (typeof CharMotion !== 'undefined') {
+    CharMotion.closeSpellbook(modal);
+  } else {
+    modal?.close();
+  }
+}
+
+function destroySpellbookInstance() {
+  if (window.SpellbookFlip) {
+    window.SpellbookFlip.destroySpellbookFlip();
+  }
+  spellbookFlipReady = false;
+  isPageTurning = false;
+}
+
+function buildSpellbookPages() {
+  const spells = filteredSpells();
+  const totalSpreads = Math.max(1, Math.ceil(spells.length / SPELLS_PER_SPREAD));
+  const pages = [];
+
+  for (let p = 0; p < totalSpreads * 2; p++) {
+    const spreadIdx = Math.floor(p / 2);
+    const isLeft = p % 2 === 0;
+    const start = spreadIdx * SPELLS_PER_SPREAD;
+    const pageSpells = isLeft
+      ? spells.slice(start, start + SPELLS_PER_PAGE)
+      : spells.slice(start + SPELLS_PER_PAGE, start + SPELLS_PER_SPREAD);
+
+    const page = document.createElement('div');
+    page.className = 'spellbook-pf-page';
+    page.innerHTML = `
+      <div class="spellbook-page-inner${isLeft ? '' : ' spellbook-page-inner--back'}">
+        <div class="spell-grid"></div>
+        <span class="spellbook-page-num">${p + 1}</span>
+      </div>
+    `;
+    fillSpellGrid(page.querySelector('.spell-grid'), pageSpells);
+    pages.push(page);
+  }
+
+  return pages;
+}
+
 function fillSpellGrid(container, spells) {
   const el = typeof container === 'string' ? document.getElementById(container) : container;
   el.className = 'spell-grid';
@@ -873,16 +911,40 @@ function updatePageNav(totalSpells) {
 }
 
 function renderSpellGrids() {
-  const { left, right, total } = getSpreadSpells(spreadIndex);
-  fillSpellGrid('spell-grid-left', left);
-  fillSpellGrid('spell-grid-right', right);
-  document.getElementById('spell-page-left-num').textContent = spreadIndex * 2 + 1;
-  document.getElementById('spell-page-right-num').textContent = spreadIndex * 2 + 2;
-  updatePageNav(total);
+  const modal = document.getElementById('spellbook-modal');
+  const mount = document.getElementById('spellbook-mount');
+  if (!mount || !window.SpellbookFlip || !modal?.open) return;
+
+  const spells = filteredSpells();
+  const pages = buildSpellbookPages();
+  const pf = window.SpellbookFlip.getPageFlip();
+  const startPage = pf
+    ? Math.min(pf.getCurrentPageIndex(), pages.length - 1)
+    : Math.min(spreadIndex * 2, pages.length - 1);
+
+  if (!spellbookFlipReady) {
+    window.SpellbookFlip.createSpellbookFlip({
+      onFlip(pageIndex) {
+        spreadIndex = Math.floor(pageIndex / 2);
+        updatePageNav(filteredSpells().length);
+      },
+      onFlipping(flipping) {
+        isPageTurning = flipping;
+        updatePageNav(filteredSpells().length);
+      },
+    });
+    window.SpellbookFlip.loadSpellbookPages(pages, startPage);
+    spellbookFlipReady = true;
+  } else {
+    window.SpellbookFlip.updateSpellbookPages(pages, startPage);
+  }
+
+  spreadIndex = Math.floor(startPage / 2);
+  updatePageNav(spells.length);
 }
 
 function turnPage(direction) {
-  if (isPageTurning) return;
+  if (isPageTurning || !spellbookFlipReady) return;
   hideSpellTooltip();
 
   const spells = filteredSpells();
@@ -890,78 +952,8 @@ function turnPage(direction) {
   if (direction === 'next' && spreadIndex >= maxSpread) return;
   if (direction === 'prev' && spreadIndex <= 0) return;
 
-  const newIndex = direction === 'next' ? spreadIndex + 1 : spreadIndex - 1;
-  const oldSpread = getSpreadSpells(spreadIndex);
-  const newSpread = getSpreadSpells(newIndex);
-
-  const flip = document.getElementById('spellbook-flip');
-  const sheet = document.getElementById('spellbook-flip-sheet');
-  const frame = document.querySelector('.spellbook-frame');
-  const body = document.querySelector('.spellbook-body');
-
-  isPageTurning = true;
-  updatePageNav(spells.length);
-
-  if (direction === 'next') {
-    fillSpellGrid('spell-grid-flip-front', oldSpread.right);
-    fillSpellGrid('spell-grid-flip-back', newSpread.left);
-    fillSpellGrid('spell-grid-right', newSpread.right);
-    flip.className = 'spellbook-flip spellbook-flip--from-right';
-  } else {
-    fillSpellGrid('spell-grid-flip-front', oldSpread.left);
-    fillSpellGrid('spell-grid-flip-back', newSpread.right);
-    fillSpellGrid('spell-grid-left', newSpread.left);
-    flip.className = 'spellbook-flip spellbook-flip--from-left';
-  }
-
-  sheet.classList.remove('is-turning-forward', 'is-turning-backward');
-  sheet.style.transform = '';
-  flip.hidden = false;
-  flip.setAttribute('aria-hidden', 'false');
-  frame.classList.add('spellbook-frame--turning');
-  body.classList.add('spellbook-body--flip-active');
-
-  let finished = false;
-
-  const finishTurn = () => {
-    if (finished) return;
-    finished = true;
-
-    spreadIndex = newIndex;
-    renderSpellGrids();
-
-    flip.hidden = true;
-    flip.setAttribute('aria-hidden', 'true');
-    sheet.classList.remove('is-turning-forward', 'is-turning-backward');
-    sheet.style.transform = '';
-    sheet.style.filter = '';
-    frame.classList.remove('spellbook-frame--turning');
-    body.classList.remove('spellbook-body--flip-active');
-    isPageTurning = false;
-    updatePageNav(filteredSpells().length);
-  };
-
-  if (typeof CharMotion !== 'undefined' && typeof gsap !== 'undefined' && !GobMotion.reduced()) {
-    CharMotion.turnSpellPage(sheet, direction, finishTurn);
-    setTimeout(finishTurn, PAGE_TURN_MS + 100);
-    return;
-  }
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      sheet.classList.add(direction === 'next' ? 'is-turning-forward' : 'is-turning-backward');
-    });
-  });
-
-  const onEnd = () => {
-    if (finished) return;
-    finished = true;
-    sheet.removeEventListener('animationend', onEnd);
-    finishTurn();
-  };
-
-  sheet.addEventListener('animationend', onEnd);
-  setTimeout(finishTurn, PAGE_TURN_MS + 100);
+  if (direction === 'next') window.SpellbookFlip.flipNext();
+  else window.SpellbookFlip.flipPrev();
 }
 
 function renderSpecPicker(active) {

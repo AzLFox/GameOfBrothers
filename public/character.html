@@ -99,40 +99,10 @@
             </div>
 
             <div class="spellbook-well">
-              <div class="spellbook-body">
-                <div class="spellbook-page spellbook-page--left">
-                  <div class="spellbook-page-inner">
-                    <div class="spell-grid" id="spell-grid-left"></div>
-                    <span class="spellbook-page-num" id="spell-page-left-num">1</span>
-                  </div>
-                </div>
-                <div class="spellbook-spine" aria-hidden="true"></div>
-                <div class="spellbook-page spellbook-page--right">
-                  <div class="spellbook-page-inner">
-                    <div class="spell-grid" id="spell-grid-right"></div>
-                    <span class="spellbook-page-num" id="spell-page-right-num">2</span>
-                  </div>
-                </div>
-
-                <div class="spellbook-flip spellbook-flip--from-right" id="spellbook-flip" hidden aria-hidden="true">
-                  <div class="spellbook-flip-sheet" id="spellbook-flip-sheet">
-                    <div class="spellbook-flip-face spellbook-flip-face--front">
-                      <div class="spellbook-page spellbook-page--flip">
-                        <div class="spellbook-page-inner">
-                          <div class="spell-grid" id="spell-grid-flip-front"></div>
-                        </div>
-                      </div>
-                    </div>
-                    <div class="spellbook-flip-face spellbook-flip-face--back">
-                      <div class="spellbook-page spellbook-page--flip">
-                        <div class="spellbook-page-inner spellbook-page-inner--back">
-                          <div class="spell-grid" id="spell-grid-flip-back"></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              <div id="spellbook-mount" class="spellbook-mount">
+                <div id="spellbook-flip-root" class="spellbook-flip-root"></div>
               </div>
+              <div class="spellbook-spine-overlay" aria-hidden="true"></div>
             </div>
 
             <nav class="spellbook-tabs" id="spellbook-tabs" aria-label="Специализации"></nav>
@@ -191,7 +161,8 @@
   <script src="/vendor/gsap/gsap.min.js"></script>
   <script src="js/gob-sound.js"></script>
   <script src="js/gob-motion.js"></script>
-  <script src="js/character-motion.js"></script>
-  <script src="js/character.js"></script>
+  <script type="module" src="js/spellbook-bootstrap.mjs"></script>
+  <script src="js/character-motion.js" defer></script>
+  <script src="js/character.js" defer></script>
 </body>
 </html>

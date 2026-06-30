@@ -153,9 +153,11 @@ const CharMotion = (() => {
     modal.showModal();
     const shell = modal.querySelector('.spellbook-gold-shell');
     if (typeof GobSound !== 'undefined') GobSound.playOpen();
-    onReady?.();
 
-    if (reduced() || !shell) return null;
+    if (reduced() || !shell) {
+      onReady?.();
+      return null;
+    }
 
     GobMotion.killOf(shell);
     return GobMotion.fromTo(shell, {
@@ -169,6 +171,7 @@ const CharMotion = (() => {
       duration: GobMotion.DUR.slow,
       ease: GobMotion.EASE.cinematic,
       transformPerspective: 1200,
+      onComplete: () => onReady?.(),
     });
   }
 
@@ -200,52 +203,6 @@ const CharMotion = (() => {
       onComplete: () => {
         gsap.set(shell, { clearProps: 'opacity,transform' });
         modal.close();
-        onComplete?.();
-      },
-    });
-  }
-
-  function pageShadow(progress) {
-    const blur = 4 + Math.sin(progress * Math.PI) * 24;
-    const spread = 2 + Math.sin(progress * Math.PI) * 14;
-    const ox = -6 + progress * 12;
-    return `drop-shadow(${ox}px 6px ${blur}px rgba(0,0,0,${0.2 + progress * 0.35}))`;
-  }
-
-  function turnSpellPage(sheet, direction, onComplete) {
-    if (!sheet) {
-      onComplete?.();
-      return null;
-    }
-
-    if (reduced()) {
-      onComplete?.();
-      return null;
-    }
-
-    if (typeof GobSound !== 'undefined') GobSound.playPageFlip();
-
-    const forward = direction === 'next';
-    const end = forward ? -180 : 180;
-    const origin = forward ? 'left center' : 'right center';
-
-    GobMotion.killOf(sheet);
-    sheet.style.transformOrigin = origin;
-    gsap.set(sheet, { rotateY: 0, transformPerspective: 900 });
-
-    const proxy = { r: 0 };
-    return gsap.to(proxy, {
-      r: end,
-      duration: 0.85,
-      ease: 'power2.inOut',
-      onUpdate: () => {
-        const progress = Math.abs(proxy.r / end);
-        sheet.style.transform = `rotateY(${proxy.r}deg)`;
-        sheet.style.filter = pageShadow(progress);
-      },
-      onComplete: () => {
-        sheet.style.transform = '';
-        sheet.style.filter = '';
         onComplete?.();
       },
     });
@@ -322,7 +279,6 @@ const CharMotion = (() => {
     closeCenterEditor,
     openSpellbook,
     closeSpellbook,
-    turnSpellPage,
     fadeTooltipIn,
     fadeTooltipOut,
     flashCombatValue,
