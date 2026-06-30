@@ -5,11 +5,10 @@
 const GobMotion = (() => {
   const hasGsap = typeof gsap !== 'undefined';
 
-  const reducedQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let reduced = reducedQuery.matches;
+  let reduced = window.GobMobile.isReducedMotion();
 
-  reducedQuery.addEventListener?.('change', (e) => {
-    reduced = e.matches;
+  window.addEventListener('gobmobilechange', () => {
+    reduced = window.GobMobile.isReducedMotion();
     if (reduced && hasGsap) gsap.globalTimeline.pause();
   });
 
@@ -34,14 +33,47 @@ const GobMotion = (() => {
     return reduced ? 0.01 : seconds;
   }
 
+  const MOBILE_INTRO_MUL = 0.35;
+  const MOBILE_WIPE_MUL = 0.55;
+
   function isMobile() {
-    return window.matchMedia('(max-width: 640px)').matches;
+    return window.GobMobile.isMobile();
+  }
+
+  function getDeviceTier() {
+    return window.GobMobile.getDeviceTier();
+  }
+
+  function mobileMul() {
+    return isMobile() ? MOBILE_INTRO_MUL : 1;
+  }
+
+  function wipeMul() {
+    return isMobile() ? MOBILE_WIPE_MUL : 1;
+  }
+
+  function wDur(seconds) {
+    return dur(seconds * wipeMul());
+  }
+
+  function wAt(seconds) {
+    return seconds * wipeMul();
   }
 
   function killAll() {
     if (!hasGsap) return;
     gsap.killTweensOf('*');
   }
+
+  /** Tear down GPU-heavy runtimes before navigate or page unload (no memory leaks). */
+  function teardownPageResources() {
+    killAll();
+    window.GobSceneLive?.destroy?.();
+    window.SceneAtmosphere?.destroy?.();
+    window.SpellbookFlip?.destroySpellbookFlip?.();
+  }
+
+  window.addEventListener('pagehide', teardownPageResources);
 
   /** Set will-change temporarily during animation (performance). */
   function willChangeTemp(targets, props, ms = 900) {
@@ -67,10 +99,7 @@ const GobMotion = (() => {
   }
 
   function navigateTo(url, { animate } = {}) {
-    killAll();
-    window.GobSceneLive?.destroy?.();
-    window.SceneAtmosphere?.destroy?.();
-    window.SpellbookFlip?.destroySpellbookFlip?.();
+    teardownPageResources();
 
     const go = () => { window.location.href = url; };
 
@@ -246,8 +275,11 @@ const GobMotion = (() => {
     document.body.classList.add('motion-js');
 
     const mobile = isMobile();
-    const m = mobile ? 0.48 : 1;
+    const tier = getDeviceTier();
+    const skipVeilsRunes = mobile && tier === 'low';
+    const m = mobileMul();
     const at = (t) => t * m;
+    const cardsAt = mobile ? (tier === 'low' ? 0.65 : 0.9) : 1.35;
 
     const tl = timeline({
       defaults: { ease: EASE.cinematic },
@@ -272,8 +304,13 @@ const GobMotion = (() => {
 
     gsap.set(mountains, { opacity: 0, y: 48 });
     gsap.set(mists, { opacity: 0 });
-    gsap.set(veils, { opacity: 1, x: 0 });
-    gsap.set(runes, { opacity: 0, scale: 0.6, filter: 'blur(8px)' });
+    if (skipVeilsRunes) {
+      gsap.set(veils, { opacity: 0, x: (i) => (i === 0 ? '-22%' : '22%') });
+      gsap.set(runes, { opacity: 0, scale: 1, filter: 'blur(0px)' });
+    } else {
+      gsap.set(veils, { opacity: 1, x: 0 });
+      gsap.set(runes, { opacity: 0, scale: 0.6, filter: 'blur(8px)' });
+    }
     gsap.set([header, btnCreate, ambientToggle, scene, tree, hint], { opacity: 0 });
     gsap.set(header, { y: -20 });
     gsap.set(btnCreate, { y: -12, scale: 0.96 });
@@ -281,29 +318,33 @@ const GobMotion = (() => {
     gsap.set(hint, { y: 16 });
 
     tl.to(mountains, { opacity: 1, y: 0, duration: 1.6 * m, stagger: 0.18 * m }, at(0.15))
-      .to(mists, { opacity: 1, duration: 1.2 * m }, at(0.5))
-      .to(veils, {
+      .to(mists, { opacity: 1, duration: 1.2 * m }, at(0.5));
+
+    if (!skipVeilsRunes) {
+      tl.to(veils, {
         opacity: 0,
         x: (i) => (i === 0 ? '-22%' : '22%'),
         duration: 1.8 * m,
         stagger: 0.06 * m,
         ease: EASE.snap,
       }, at(0.35))
-      .to(runes, {
-        opacity: 1,
-        scale: 1,
-        filter: 'blur(0px)',
-        duration: 0.9 * m,
-        stagger: 0.07 * m,
-      }, at(0.9))
-      .to(scene, { opacity: 1, duration: 0.8 * m }, at(0.55))
+        .to(runes, {
+          opacity: 1,
+          scale: 1,
+          filter: 'blur(0px)',
+          duration: 0.9 * m,
+          stagger: 0.07 * m,
+        }, at(0.9));
+    }
+
+    tl.to(scene, { opacity: 1, duration: 0.8 * m }, at(0.55))
       .to(tree, { opacity: 1, duration: 1.2 * m, ease: EASE.enter }, at(0.65))
       .to(header, { opacity: 1, y: 0, duration: 0.85 * m }, at(1.1))
       .to(btnCreate, { opacity: 1, y: 0, scale: 1, duration: 0.75 * m, ease: EASE.elastic }, at(1.25))
       .to(ambientToggle, { opacity: 1, y: 0, scale: 1, duration: 0.7 * m, ease: EASE.elastic }, at(1.3))
       .to(hint, { opacity: 1, y: 0, duration: 0.65 * m }, at(1.5));
 
-    tl.call(() => onCardsReady?.(), null, at(1.35));
+    tl.call(() => onCardsReady?.(), null, at(cardsAt));
 
     return tl;
   }
@@ -417,20 +458,41 @@ const GobMotion = (() => {
     const { voidLayer, mist, crack, runes, sigil } = layers;
     resetWipeOut(layers);
     playTransitionSound('out');
+
+    const tierLow = isMobile() && getDeviceTier() === 'low';
+    const finish = () => onComplete?.();
+
+    if (tierLow) {
+      gsap.set([crack, sigil, ...runes], { opacity: 0 });
+      const clearWillChange = willChangeTemp([voidLayer, mist], 'clip-path, opacity, transform', 600);
+      return timeline({
+        onComplete: () => {
+          clearWillChange();
+          finish();
+        },
+      })
+        .to(voidLayer, {
+          clipPath: 'circle(150% at 50% 50%)',
+          duration: wDur(0.72),
+          ease: 'power3.in',
+        }, 0)
+        .to(mist, { opacity: 0.6, y: 0, duration: wDur(0.45), ease: EASE.soft }, wAt(0.1));
+    }
+
     const clearWillChange = willChangeTemp([...runes, sigil], 'transform, opacity, filter', 1400);
 
     return timeline({
       onComplete: () => {
         clearWillChange();
-        onComplete?.();
+        finish();
       },
     })
       .to(runes, {
         opacity: 0.75,
         scale: 1,
         filter: 'blur(0px)',
-        duration: 0.32,
-        stagger: 0.035,
+        duration: wDur(0.32),
+        stagger: wDur(0.035),
         ease: EASE.enter,
       }, 0)
       .to(sigil, {
@@ -438,38 +500,38 @@ const GobMotion = (() => {
         scale: 1,
         rotation: 0,
         filter: 'blur(0px)',
-        duration: 0.38,
+        duration: wDur(0.38),
         ease: EASE.elastic,
-      }, 0.06)
+      }, wAt(0.06))
       .to(crack, {
         opacity: 0.85,
         scale: 1.08,
         rotation: 8,
-        duration: 0.28,
+        duration: wDur(0.28),
         ease: EASE.snap,
-      }, 0.14)
+      }, wAt(0.14))
       .to(voidLayer, {
         clipPath: 'circle(150% at 50% 50%)',
-        duration: 0.72,
+        duration: wDur(0.72),
         ease: 'power3.in',
-      }, 0.18)
-      .to(mist, { opacity: 0.6, y: 0, duration: 0.45, ease: EASE.soft }, 0.28)
+      }, wAt(0.18))
+      .to(mist, { opacity: 0.6, y: 0, duration: wDur(0.45), ease: EASE.soft }, wAt(0.28))
       .to(runes, {
         opacity: 0,
         scale: 0.15,
-        duration: 0.4,
-        stagger: 0.025,
+        duration: wDur(0.4),
+        stagger: wDur(0.025),
         ease: 'power2.in',
-      }, 0.32)
+      }, wAt(0.32))
       .to(sigil, {
         opacity: 0,
         scale: 0.05,
         rotation: 120,
         filter: 'blur(8px)',
-        duration: 0.35,
+        duration: wDur(0.35),
         ease: 'power2.in',
-      }, 0.38)
-      .to(crack, { opacity: 0, scale: 1.2, duration: 0.3, ease: EASE.exit }, 0.42);
+      }, wAt(0.38))
+      .to(crack, { opacity: 0, scale: 1.2, duration: wDur(0.3), ease: EASE.exit }, wAt(0.42));
   }
 
   /** Enter: dissolve the seal left by pageWipeOut (no second portal). */
@@ -484,7 +546,13 @@ const GobMotion = (() => {
     const layers = getWipeLayers(wipe);
     const { voidLayer, mist, crack, runes, sigil } = layers;
     resetWipeIn(layers);
-    const clearWillChange = willChangeTemp([...runes, sigil], 'transform, opacity, filter', 900);
+
+    const tierLow = isMobile() && getDeviceTier() === 'low';
+    const clearWillChange = willChangeTemp(
+      tierLow ? [voidLayer, mist] : [...runes, sigil],
+      'transform, opacity, filter, clip-path',
+      tierLow ? 500 : 900,
+    );
 
     return timeline({
       onComplete: () => {
@@ -497,8 +565,8 @@ const GobMotion = (() => {
         onComplete?.();
       },
     })
-      .to(mist, { opacity: 0, duration: 0.38, ease: EASE.cinematic }, 0.04)
-      .to(voidLayer, { opacity: 0, duration: 0.48, ease: EASE.cinematic }, 0);
+      .to(mist, { opacity: 0, duration: wDur(0.38), ease: EASE.cinematic }, wAt(0.04))
+      .to(voidLayer, { opacity: 0, duration: wDur(0.48), ease: EASE.cinematic }, 0);
   }
 
   function initPageTransitionEnter({ onComplete } = {}) {
@@ -526,7 +594,11 @@ const GobMotion = (() => {
     dur,
     reduced: () => reduced,
     isMobile,
+    getDeviceTier,
+    mobileMul,
+    MOBILE_INTRO_MUL,
     killAll,
+    teardownPageResources,
     willChangeTemp,
     timeline,
     to,

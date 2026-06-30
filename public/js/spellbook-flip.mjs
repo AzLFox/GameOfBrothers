@@ -5,28 +5,40 @@ import { PageFlip } from '/vendor/page-flip/page-flip.module.js';
 
 let pageFlip = null;
 
+function mountBox() {
+  const mount = document.getElementById('spellbook-mount');
+  return mount?.closest('.spellbook-well') || mount;
+}
+
 function flipSettings() {
-  const portrait = window.matchMedia('(max-width: 640px)').matches;
+  const portrait = window.GobMobile.isMobile();
+  const box = mountBox();
+  const rect = box?.getBoundingClientRect();
+  const padW = portrait ? 16 : 24;
+  const padH = portrait ? 12 : 20;
+  const availW = rect?.width ? Math.max(240, Math.floor(rect.width - padW)) : (portrait ? 320 : 420);
+  const availH = rect?.height ? Math.max(320, Math.floor(rect.height - padH)) : (portrait ? 460 : 500);
+
   return {
-    width: portrait ? 320 : 420,
-    height: portrait ? 500 : 500,
+    width: portrait ? availW : 420,
+    height: portrait ? availH : 500,
     size: 'stretch',
-    minWidth: portrait ? 260 : 260,
-    maxWidth: portrait ? 380 : 480,
-    minHeight: portrait ? 400 : 360,
-    maxHeight: portrait ? 580 : 560,
-    drawShadow: true,
-    flippingTime: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 920,
+    minWidth: portrait ? Math.min(240, availW) : 260,
+    maxWidth: portrait ? availW : 480,
+    minHeight: portrait ? Math.min(320, availH) : 360,
+    maxHeight: portrait ? availH : 560,
+    drawShadow: !portrait,
+    flippingTime: window.GobMobile.isReducedMotion() ? 1 : (portrait ? 780 : 920),
     usePortrait: portrait,
     autoSize: true,
-    maxShadowOpacity: 0.62,
+    maxShadowOpacity: portrait ? 0.45 : 0.62,
     showCover: false,
     mobileScrollSupport: true,
     useMouseEvents: true,
     disableFlipByClick: true,
     clickEventForward: true,
-    showPageCorners: true,
-    swipeDistance: 28,
+    showPageCorners: !portrait,
+    swipeDistance: portrait ? 24 : 28,
   };
 }
 
@@ -127,4 +139,17 @@ export function getPageFlip() {
 
 export function isFlipping() {
   return pageFlip?.getState() === 'flipping';
+}
+
+/** Пересоздать flip после resize/orientation — сохраняет текущую страницу. */
+export function recreateSpellbookFlip({ onFlip, onFlipping } = {}) {
+  const current = pageFlip?.getCurrentPageIndex?.() ?? 0;
+  createSpellbookFlip({ onFlip, onFlipping });
+  const pages = document.querySelectorAll('.spellbook-pf-page');
+  if (pages.length) {
+    loadSpellbookPages([...pages], current);
+  } else {
+    refreshLayout();
+  }
+  return pageFlip;
 }

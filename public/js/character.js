@@ -79,11 +79,128 @@ function setStatCombatRuneLit(statKey, lit) {
   document.getElementById(link.combatId)?.classList.toggle('is-rune-lit', lit);
 }
 
+function isTouchRuneMode() {
+  return typeof GobMobile !== 'undefined'
+    && (GobMobile.isMobile() || GobMobile.isCoarsePointer());
+}
+
+function isTouchTooltipMode() {
+  return isTouchRuneMode();
+}
+
+function getTooltipSafePad() {
+  const cs = getComputedStyle(document.documentElement);
+  const num = (prop) => {
+    const v = parseFloat(cs.getPropertyValue(prop));
+    return Number.isFinite(v) ? v : 0;
+  };
+  return {
+    top: Math.max(12, num('--gob-tooltip-pad-top')),
+    right: Math.max(12, num('--gob-tooltip-pad-right')),
+    bottom: Math.max(12, num('--gob-tooltip-pad-bottom')),
+    left: Math.max(12, num('--gob-tooltip-pad-left')),
+  };
+}
+
+function positionFloatingTooltip(tip, anchorEl, belowClass) {
+  if (!tip || !anchorEl) return;
+
+  const rect = anchorEl.getBoundingClientRect();
+  tip.style.left = '0';
+  tip.style.top = '0';
+  tip.style.visibility = 'hidden';
+  tip.hidden = false;
+
+  const tipRect = tip.getBoundingClientRect();
+  const pad = getTooltipSafePad();
+  let left = rect.left + rect.width / 2 - tipRect.width / 2;
+  let top = rect.top - tipRect.height - 12;
+  let preferBelow = top < pad.top;
+  if (preferBelow) top = rect.bottom + 12;
+
+  left = Math.max(pad.left, Math.min(left, window.innerWidth - tipRect.width - pad.right));
+  top = Math.max(pad.top, Math.min(top, window.innerHeight - tipRect.height - pad.bottom));
+
+  tip.classList.toggle(belowClass, preferBelow);
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+  tip.style.visibility = 'visible';
+}
+
+let activeRuneStat = null;
+let activeCombatHintRow = null;
+let statCombatRunesBound = false;
+
+function clearAllRuneLit() {
+  STAT_COMBAT_LINKS.forEach(({ stat }) => setStatCombatRuneLit(stat, false));
+  activeRuneStat = null;
+  hideCombatTooltip();
+}
+
+function getCombatHintHtml(combatId) {
+  switch (combatId) {
+    case 'combat-row-hit': return hitTooltipHtml();
+    case 'combat-row-skills': return skillsTooltipHtml();
+    case 'combat-row-crit': return critTooltipHtml();
+    default: return null;
+  }
+}
+
+function handleTouchRuneTap(e, stat, combatId, fromCombatRow) {
+  if (e.target.closest('input, textarea, select, button')) return;
+  e.stopPropagation();
+
+  const combatEl = document.getElementById(combatId);
+  const hasHint = combatEl?.classList.contains('combat-row--hint');
+
+  if (activeRuneStat === stat) {
+    clearAllRuneLit();
+    return;
+  }
+
+  if (activeRuneStat) setStatCombatRuneLit(activeRuneStat, false);
+  hideCombatTooltip();
+
+  activeRuneStat = stat;
+  setStatCombatRuneLit(stat, true);
+
+  if (fromCombatRow && hasHint && combatEl) {
+    const html = getCombatHintHtml(combatId);
+    if (html) {
+      activeCombatHintRow = combatEl;
+      combatEl.classList.add('is-hint-active');
+      showCombatTooltip(html, combatEl);
+    }
+  }
+}
+
 function bindStatCombatRunes() {
+  if (!statCombatRunesBound) {
+    statCombatRunesBound = true;
+
+    if (isTouchRuneMode()) {
+      STAT_COMBAT_LINKS.forEach(({ stat, combatId }) => {
+        const statEl = getStatCell(stat);
+        if (!statEl) return;
+        statEl.addEventListener('click', (e) => handleTouchRuneTap(e, stat, combatId, false));
+      });
+
+      document.addEventListener('click', (e) => {
+        if (e.target.closest('.stat-cell, .combat-row')) return;
+        clearAllRuneLit();
+      });
+    }
+  }
+
   STAT_COMBAT_LINKS.forEach(({ stat, combatId }) => {
     const statEl = getStatCell(stat);
     const combatEl = document.getElementById(combatId);
     if (!statEl || !combatEl) return;
+
+    if (isTouchRuneMode()) {
+      combatEl.addEventListener('click', (e) => handleTouchRuneTap(e, stat, combatId, true));
+      return;
+    }
 
     const light = () => setStatCombatRuneLit(stat, true);
     const dim = (e) => {
@@ -92,11 +209,15 @@ function bindStatCombatRunes() {
       setStatCombatRuneLit(stat, false);
     };
 
+    const bindFocus = (el) => {
+      el.addEventListener('focusin', light);
+      el.addEventListener('focusout', dim);
+    };
+
     [statEl, combatEl].forEach((el) => {
       el.addEventListener('mouseenter', light);
       el.addEventListener('mouseleave', dim);
-      el.addEventListener('focusin', light);
-      el.addEventListener('focusout', dim);
+      bindFocus(el);
     });
   });
 }
@@ -191,6 +312,8 @@ function meetsTierReq(slotKey, item) {
 const BACKPACK_COUNT = 6;
 const SPELLS_PER_PAGE = 7;
 const SPELLS_PER_SPREAD = SPELLS_PER_PAGE * 2;
+/** Порядок заполнения: крупные → средний → мелкие (индексы слотов 0..6) */
+const SPELL_SLOT_FILL_ORDER = [0, 1, 5, 6, 3, 2, 4];
 
 const SPELL_SPECS = [
   { key: 'all', label: 'Все', icon: '☆', tabClass: 'spell-tab--all' },
@@ -244,6 +367,9 @@ let selectedIconId = 'star';
 let selectedSpec = 'damage';
 let isPageTurning = false;
 let spellbookFlipReady = false;
+let spellbookResizeBound = false;
+let spellbookResizeTimer = null;
+let spellbookModulePromise = null;
 const HIT_DICE = [6, 12, 20, 60, 100];
 
 let combatTooltipEl = null;
@@ -252,6 +378,68 @@ let combatTooltipVisible = false;
 let spellTooltipEl = null;
 let spellTooltipTimer = null;
 let spellTooltipVisible = false;
+let activeSpellTooltipBtn = null;
+let spellTooltipTouchBound = false;
+let spellSlotDelegationBound = false;
+let spellLongPressTimer = null;
+let spellLongPressSuppressedClick = false;
+
+function spellForSlotEl(slot) {
+  const id = slot?.dataset?.spellId;
+  return id ? sheet.spells.find((s) => s.id === id) : null;
+}
+
+function bindSpellSlotDelegation(modal) {
+  if (spellSlotDelegationBound) return;
+  spellSlotDelegationBound = true;
+
+  const mount = document.getElementById('spellbook-mount');
+  const pressRoot = mount || modal;
+
+  modal.addEventListener('click', (e) => {
+    const slot = e.target.closest('.spell-slot:not(.spell-slot--empty)');
+    if (!slot || !modal.open) return;
+
+    if (spellLongPressSuppressedClick) {
+      spellLongPressSuppressedClick = false;
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    hideSpellTooltip();
+    const spell = spellForSlotEl(slot);
+    if (spell) openSpellEditor(spell.id);
+  });
+
+  if (!isTouchTooltipMode()) return;
+
+  const clearLongPress = () => {
+    if (spellLongPressTimer) {
+      clearTimeout(spellLongPressTimer);
+      spellLongPressTimer = null;
+    }
+  };
+
+  pressRoot.addEventListener('pointerdown', (e) => {
+    clearLongPress();
+    const slot = e.target.closest('.spell-slot:not(.spell-slot--empty)');
+    if (!slot) return;
+    const spell = spellForSlotEl(slot);
+    if (!spell) return;
+
+    spellLongPressTimer = window.setTimeout(() => {
+      spellLongPressTimer = null;
+      spellLongPressSuppressedClick = true;
+      activeSpellTooltipBtn = slot;
+      showSpellTooltip(spell, slot);
+    }, 480);
+  }, { passive: true });
+
+  pressRoot.addEventListener('pointerup', clearLongPress);
+  pressRoot.addEventListener('pointercancel', clearLongPress);
+  pressRoot.addEventListener('pointerleave', clearLongPress);
+}
 
 function escapeHtml(str) {
   return String(str ?? '')
@@ -268,6 +456,9 @@ function specLabel(spec) {
 function ensureSpellTooltip() {
   if (!spellTooltipEl) {
     spellTooltipEl = document.getElementById('spell-tooltip');
+    if (spellTooltipEl?.parentElement !== document.body) {
+      document.body.appendChild(spellTooltipEl);
+    }
   }
   return spellTooltipEl;
 }
@@ -285,6 +476,7 @@ function hideSpellTooltip() {
       tip.hidden = true;
       tip.style.visibility = '';
       spellTooltipVisible = false;
+      activeSpellTooltipBtn = null;
     });
     return;
   }
@@ -292,31 +484,14 @@ function hideSpellTooltip() {
   tip.hidden = true;
   tip.style.visibility = '';
   spellTooltipVisible = false;
+  activeSpellTooltipBtn = null;
 }
 
 function positionSpellTooltip(anchorEl) {
   const tip = spellTooltipEl;
   if (!tip) return;
 
-  const rect = anchorEl.getBoundingClientRect();
-  tip.style.left = '0';
-  tip.style.top = '0';
-  tip.style.visibility = 'hidden';
-  tip.hidden = false;
-
-  const tipRect = tip.getBoundingClientRect();
-  let left = rect.left + rect.width / 2 - tipRect.width / 2;
-  let top = rect.top - tipRect.height - 12;
-  const preferBelow = top < 10;
-  if (preferBelow) top = rect.bottom + 12;
-
-  left = Math.max(10, Math.min(left, window.innerWidth - tipRect.width - 10));
-  top = Math.max(10, Math.min(top, window.innerHeight - tipRect.height - 10));
-
-  tip.classList.toggle('spell-tooltip--below', preferBelow);
-  tip.style.left = `${left}px`;
-  tip.style.top = `${top}px`;
-  tip.style.visibility = 'visible';
+  positionFloatingTooltip(tip, anchorEl, 'spell-tooltip--below');
 
   if (!spellTooltipVisible && typeof CharMotion !== 'undefined') {
     CharMotion.fadeTooltipIn(tip);
@@ -344,7 +519,21 @@ function showSpellTooltip(spell, anchorEl) {
   positionSpellTooltip(anchorEl);
 }
 
+function bindSpellTooltipTouchDismiss() {
+  if (spellTooltipTouchBound || !isTouchTooltipMode()) return;
+  spellTooltipTouchBound = true;
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.spell-slot, .spell-tooltip')) return;
+    hideSpellTooltip();
+  });
+}
+
 function bindSpellTooltip(btn, spell) {
+  if (isTouchTooltipMode()) {
+    bindSpellTooltipTouchDismiss();
+    return;
+  }
+
   btn.addEventListener('pointerenter', () => {
     if (spellTooltipTimer) clearTimeout(spellTooltipTimer);
     spellTooltipTimer = setTimeout(() => showSpellTooltip(spell, btn), 200);
@@ -435,6 +624,9 @@ function spellsRemaining() {
 function ensureCombatTooltip() {
   if (!combatTooltipEl) {
     combatTooltipEl = document.getElementById('combat-tooltip');
+    if (combatTooltipEl?.parentElement !== document.body) {
+      document.body.appendChild(combatTooltipEl);
+    }
   }
   return combatTooltipEl;
 }
@@ -444,51 +636,39 @@ function hideCombatTooltip() {
     clearTimeout(combatTooltipTimer);
     combatTooltipTimer = null;
   }
+  activeCombatHintRow?.classList.remove('is-hint-active');
+  activeCombatHintRow = null;
+  combatTooltipVisible = false;
   const tip = ensureCombatTooltip();
   if (!tip || tip.hidden) return;
 
-  if (combatTooltipVisible && typeof CharMotion !== 'undefined') {
+  if (typeof CharMotion !== 'undefined') {
     CharMotion.fadeTooltipOut(tip, () => {
       tip.hidden = true;
       tip.style.visibility = '';
-      combatTooltipVisible = false;
+      if (typeof GobMotion !== 'undefined') GobMotion.killOf(tip);
     });
     return;
   }
 
   tip.hidden = true;
   tip.style.visibility = '';
-  combatTooltipVisible = false;
 }
 
 function positionCombatTooltip(anchorEl) {
   const tip = combatTooltipEl;
   if (!tip) return;
 
-  const rect = anchorEl.getBoundingClientRect();
-  tip.style.left = '0';
-  tip.style.top = '0';
-  tip.style.visibility = 'hidden';
-  tip.hidden = false;
+  positionFloatingTooltip(tip, anchorEl, 'combat-tooltip--below');
 
-  const tipRect = tip.getBoundingClientRect();
-  let left = rect.left + rect.width / 2 - tipRect.width / 2;
-  let top = rect.top - tipRect.height - 12;
-  const preferBelow = top < 10;
-  if (preferBelow) top = rect.bottom + 12;
+  if (typeof GobMotion !== 'undefined') GobMotion.killOf(tip);
 
-  left = Math.max(10, Math.min(left, window.innerWidth - tipRect.width - 10));
-  top = Math.max(10, Math.min(top, window.innerHeight - tipRect.height - 10));
-
-  tip.classList.toggle('combat-tooltip--below', preferBelow);
-  tip.style.left = `${left}px`;
-  tip.style.top = `${top}px`;
-  tip.style.visibility = 'visible';
-
-  if (!combatTooltipVisible && typeof CharMotion !== 'undefined') {
+  if (typeof CharMotion !== 'undefined') {
     CharMotion.fadeTooltipIn(tip);
-    combatTooltipVisible = true;
+  } else {
+    tip.style.opacity = '1';
   }
+  combatTooltipVisible = true;
 }
 
 function showCombatTooltip(html, anchorEl) {
@@ -498,7 +678,13 @@ function showCombatTooltip(html, anchorEl) {
   positionCombatTooltip(anchorEl);
 }
 
+function combatHintLabel(text) {
+  return `<span class="combat-label">${text}<span class="combat-hint-icon" aria-hidden="true">i</span></span>`;
+}
+
 function bindCombatHint(rowEl, getHtml) {
+  if (isTouchRuneMode()) return;
+
   rowEl.addEventListener('pointerenter', () => {
     if (combatTooltipTimer) clearTimeout(combatTooltipTimer);
     combatTooltipTimer = setTimeout(() => showCombatTooltip(getHtml(), rowEl), 200);
@@ -637,11 +823,11 @@ function renderCombat() {
       </div>
     </div>
     <div class="combat-row combat-row--hint" id="combat-row-hit" data-stat-link="dex">
-      <span class="combat-label">Попадание</span>
+      ${combatHintLabel('Попадание')}
       <span class="combat-derived" id="combat-hit"></span>
     </div>
     <div class="combat-row combat-row--hint" id="combat-row-skills" data-stat-link="int">
-      <span class="combat-label">Скиллы</span>
+      ${combatHintLabel('Скиллы')}
       <span class="combat-derived" id="combat-skills"></span>
     </div>
     <div class="combat-row" id="combat-row-mp" data-stat-link="spi">
@@ -669,7 +855,7 @@ function renderCombat() {
       </div>
     </div>
     <div class="combat-row combat-row--hint" id="combat-row-crit" data-stat-link="luck">
-      <span class="combat-label">Крит</span>
+      ${combatHintLabel('Крит')}
       <span class="combat-derived" id="combat-crit"></span>
     </div>
     <div class="combat-extra-rows" id="combat-extra-rows"></div>
@@ -679,6 +865,7 @@ function renderCombat() {
   bindCombatHint(document.getElementById('combat-row-hit'), hitTooltipHtml);
   bindCombatHint(document.getElementById('combat-row-skills'), skillsTooltipHtml);
   bindCombatHint(document.getElementById('combat-row-crit'), critTooltipHtml);
+  bindStatCombatRunes();
   STAT_COMBAT_LINKS.forEach(({ stat, combatId }) => {
     const row = document.getElementById(combatId);
     if (row) row.insertAdjacentHTML('beforeend', createLinkRunesMarkup(stat, 'combat'));
@@ -1194,6 +1381,52 @@ function bindSlotEditor() {
   descEl.addEventListener('input', apply);
 }
 
+function spellbookFlipHandlers() {
+  return {
+    onFlip(pageIndex) {
+      spreadIndex = Math.floor(pageIndex / 2);
+      updatePageNav(filteredSpells().length);
+    },
+    onFlipping(flipping) {
+      isPageTurning = flipping;
+      updatePageNav(filteredSpells().length);
+    },
+  };
+}
+
+function scheduleSpellbookRelayout() {
+  const modal = document.getElementById('spellbook-modal');
+  if (!modal?.open || !spellbookFlipReady || !window.SpellbookFlip) return;
+
+  clearTimeout(spellbookResizeTimer);
+  spellbookResizeTimer = window.setTimeout(() => {
+    const pages = buildSpellbookPages();
+    const pf = window.SpellbookFlip.getPageFlip();
+    const startPage = pf
+      ? Math.min(pf.getCurrentPageIndex(), pages.length - 1)
+      : Math.min(spreadIndex * 2, pages.length - 1);
+
+    spellbookFlipReady = false;
+    window.SpellbookFlip.createSpellbookFlip(spellbookFlipHandlers());
+    window.SpellbookFlip.loadSpellbookPages(pages, startPage);
+    spellbookFlipReady = true;
+    spreadIndex = Math.floor(startPage / 2);
+    updatePageNav(filteredSpells().length);
+  }, 250);
+}
+
+function bindSpellbookResize() {
+  if (spellbookResizeBound) return;
+  spellbookResizeBound = true;
+  window.addEventListener('resize', scheduleSpellbookRelayout);
+  window.addEventListener('orientationchange', scheduleSpellbookRelayout);
+  window.addEventListener('gobmobilechange', scheduleSpellbookRelayout);
+  window.addEventListener('pagehide', () => {
+    clearTimeout(spellbookResizeTimer);
+    destroySpellbookInstance();
+  });
+}
+
 function bindSpellbook() {
   const btn = document.getElementById('spellbook-btn');
   const modal = document.getElementById('spellbook-modal');
@@ -1202,12 +1435,15 @@ function bindSpellbook() {
 
   renderSpellTabs();
   bindSpellEditor();
+  bindSpellbookResize();
+  bindSpellSlotDelegation(modal);
 
   modal.addEventListener('scroll', hideSpellTooltip, { passive: true });
 
   btn.addEventListener('click', () => {
     spreadIndex = 0;
     destroySpellbookInstance();
+    loadSpellbookFlip();
 
     const mountSpellbook = () => {
       requestAnimationFrame(() => {
@@ -1288,6 +1524,7 @@ function createSpellSlot(spell) {
 
   const btn = document.createElement('button');
   btn.type = 'button';
+  btn.dataset.spellId = spell.id;
   const legendary = isLegendaryIcon(spell.spec, spell.icon);
   btn.className = `spell-slot${legendary ? ' spell-slot--legendary' : ''}`;
   btn.innerHTML = `
@@ -1301,12 +1538,6 @@ function createSpellSlot(spell) {
     </div>
     <span class="spell-slot-name">${spell.name || 'Без названия'}</span>
   `;
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    hideSpellTooltip();
-    openSpellEditor(spell.id);
-  });
   bindSpellTooltip(btn, spell);
   return btn;
 }
@@ -1331,6 +1562,14 @@ function closeSpellbookModal() {
   } else {
     modal?.close();
   }
+}
+
+function loadSpellbookFlip() {
+  if (window.SpellbookFlip) return Promise.resolve(window.SpellbookFlip);
+  if (!spellbookModulePromise) {
+    spellbookModulePromise = import('./spellbook-bootstrap.mjs').then(() => window.SpellbookFlip);
+  }
+  return spellbookModulePromise;
 }
 
 function destroySpellbookInstance() {
@@ -1373,8 +1612,12 @@ function fillSpellGrid(container, spells) {
   const el = typeof container === 'string' ? document.getElementById(container) : container;
   el.className = 'spell-grid';
   el.innerHTML = '';
+  const placed = Array(SPELLS_PER_PAGE).fill(null);
+  for (let i = 0; i < Math.min(spells.length, SPELLS_PER_PAGE); i++) {
+    placed[SPELL_SLOT_FILL_ORDER[i]] = spells[i];
+  }
   for (let i = 0; i < SPELLS_PER_PAGE; i++) {
-    el.appendChild(createSpellSlot(spells[i]));
+    el.appendChild(createSpellSlot(placed[i]));
   }
 }
 
@@ -1394,34 +1637,32 @@ function updatePageNav(totalSpells) {
 function renderSpellGrids() {
   const modal = document.getElementById('spellbook-modal');
   const mount = document.getElementById('spellbook-mount');
-  if (!mount || !window.SpellbookFlip || !modal?.open) return;
+  if (!mount || !modal?.open) return;
 
-  const spells = filteredSpells();
-  const pages = buildSpellbookPages();
-  const pf = window.SpellbookFlip.getPageFlip();
-  const startPage = pf
-    ? Math.min(pf.getCurrentPageIndex(), pages.length - 1)
-    : Math.min(spreadIndex * 2, pages.length - 1);
+  hideSpellTooltip();
+  activeSpellTooltipBtn = null;
 
-  if (!spellbookFlipReady) {
-    window.SpellbookFlip.createSpellbookFlip({
-      onFlip(pageIndex) {
-        spreadIndex = Math.floor(pageIndex / 2);
-        updatePageNav(filteredSpells().length);
-      },
-      onFlipping(flipping) {
-        isPageTurning = flipping;
-        updatePageNav(filteredSpells().length);
-      },
-    });
-    window.SpellbookFlip.loadSpellbookPages(pages, startPage);
-    spellbookFlipReady = true;
-  } else {
-    window.SpellbookFlip.updateSpellbookPages(pages, startPage);
-  }
+  loadSpellbookFlip().then(() => {
+    if (!modal.open) return;
 
-  spreadIndex = Math.floor(startPage / 2);
-  updatePageNav(spells.length);
+    const spells = filteredSpells();
+    const pages = buildSpellbookPages();
+    const pf = window.SpellbookFlip.getPageFlip();
+    const startPage = pf
+      ? Math.min(pf.getCurrentPageIndex(), pages.length - 1)
+      : Math.min(spreadIndex * 2, pages.length - 1);
+
+    if (!spellbookFlipReady) {
+      window.SpellbookFlip.createSpellbookFlip(spellbookFlipHandlers());
+      window.SpellbookFlip.loadSpellbookPages(pages, startPage);
+      spellbookFlipReady = true;
+    } else {
+      window.SpellbookFlip.updateSpellbookPages(pages, startPage);
+    }
+
+    spreadIndex = Math.floor(startPage / 2);
+    updatePageNav(spells.length);
+  });
 }
 
 function turnPage(direction) {
@@ -1605,6 +1846,311 @@ function deleteSpell() {
   updateCombatValues();
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// TRANSFER MODULE — экспорт / импорт с GameOfBraza
+// ────────────────────────────────────────────────────────────────────────────
+
+function toInt(v, fallback = 0) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n) : fallback;
+}
+
+function strVal(v) {
+  return typeof v === 'string' ? v : '';
+}
+
+/**
+ * Сериализует текущий `sheet` в нейтральный JSON-формат обмена.
+ * Вызывается перед скачиванием файла или копированием в буфер.
+ */
+function exportToSharedFormat() {
+  const s = sheet;
+
+  const allSlots = [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS];
+  const equipment = Object.fromEntries(
+    allSlots.map(({ key }) => [
+      key,
+      { name: s.equipment[key]?.name ?? '', desc: s.equipment[key]?.desc ?? '' },
+    ])
+  );
+
+  const backpack = (s.backpack ?? [])
+    .slice(0, 6)
+    .map(item => ({ name: item?.name ?? '', desc: item?.desc ?? '' }));
+  // Добить до 6 слотов на случай неполного массива
+  while (backpack.length < 6) backpack.push({ name: '', desc: '' });
+
+  return {
+    schemaVersion: 1,
+    source: 'GameOfBrothers',
+    name: s.name ?? '',
+    description: s.description ?? '',
+    lore: s.lore ?? '',
+    stats: {
+      str:  s.stats?.str  ?? 12,
+      dex:  s.stats?.dex  ?? 12,
+      int:  s.stats?.int  ?? 12,
+      spi:  s.stats?.spi  ?? 12,
+      end:  s.stats?.end  ?? 12,
+      luck: s.stats?.luck ?? 12,
+    },
+    combat: {
+      hp:      s.combat?.hp      ?? 0,
+      hpBonus: s.combat?.hpBonus ?? 0,
+      ap:      s.combat?.ap      ?? 0,
+      apBonus: s.combat?.apBonus ?? 0,
+      mp:      s.combat?.mp      ?? 0,
+      mpBonus: s.combat?.mpBonus ?? 0,
+    },
+    equipment,
+    backpack,
+    spells: (s.spells ?? []).map(sp => ({
+      id:        sp.id        ?? uid(),
+      name:      sp.name      ?? '',
+      desc:      sp.desc      ?? '',
+      spec:      sp.spec      ?? 'buff',
+      level:     sp.level     ?? 1,
+      mana:      sp.mana      ?? 0,
+      icon:      sp.icon      ?? 'default',
+      iconImage: sp.iconImage ?? '',
+    })),
+  };
+}
+
+/** Скачивает JSON-файл с данными персонажа. */
+function downloadExportJson() {
+  const data = exportToSharedFormat();
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${(sheet.name || 'character').replace(/[^\wА-яЁё]/g, '_')}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Принимает JSON-строку в формате обмена и возвращает объект,
+ * совместимый со структурой `sheet`.
+ *
+ * @param {string} jsonString
+ * @returns {{ ok: true, sheet: object } | { ok: false, error: string }}
+ */
+function importFromSharedFormat(jsonString) {
+  let raw;
+  try {
+    raw = JSON.parse(jsonString);
+  } catch {
+    return { ok: false, error: 'Невалидный JSON. Проверьте формат файла.' };
+  }
+
+  if (!raw || typeof raw !== 'object') {
+    return { ok: false, error: 'Ожидался JSON-объект.' };
+  }
+
+  const schemaVersion = raw.schemaVersion;
+  if (schemaVersion !== 1) {
+    return { ok: false, error: `Неизвестная версия схемы: ${schemaVersion}. Ожидается 1.` };
+  }
+
+  // ── Характеристики ──────────────────────────────────────────────────
+  const stats = {
+    str:  toInt(raw.stats?.str,  12),
+    dex:  toInt(raw.stats?.dex,  12),
+    int:  toInt(raw.stats?.int,  12),
+    spi:  toInt(raw.stats?.spi,  12),
+    end:  toInt(raw.stats?.end,  12),
+    luck: toInt(raw.stats?.luck, 12),
+  };
+
+  // ── Боевые показатели ───────────────────────────────────────────────
+  const combat = defaultCombat(stats);
+  combat.hp      = toInt(raw.combat?.hp,      combat.hp);
+  combat.hpBonus = toInt(raw.combat?.hpBonus, 0);
+  combat.ap      = toInt(raw.combat?.ap,      combat.ap);
+  combat.apBonus = toInt(raw.combat?.apBonus, 0);
+  combat.mp      = toInt(raw.combat?.mp,      combat.mp);
+  combat.mpBonus = toInt(raw.combat?.mpBonus, 0);
+
+  // ── Снаряжение ──────────────────────────────────────────────────────
+  const allSlots = [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS];
+  const equipment = Object.fromEntries(
+    allSlots.map(({ key }) => {
+      const item = raw.equipment?.[key];
+      return [key, { name: strVal(item?.name), desc: strVal(item?.desc) }];
+    })
+  );
+
+  // ── Рюкзак ─────────────────────────────────────────────────────────
+  const rawBackpack = Array.isArray(raw.backpack) ? raw.backpack : [];
+  const backpack = Array.from({ length: BACKPACK_COUNT }, (_, i) => {
+    const item = rawBackpack[i];
+    return { name: strVal(item?.name), desc: strVal(item?.desc) };
+  });
+
+  // ── Спеллы ─────────────────────────────────────────────────────────
+  const rawSpells = Array.isArray(raw.spells) ? raw.spells : [];
+  const spells = rawSpells.map(s => normalizeSpell({
+    id:        strVal(s?.id) || uid(),
+    name:      strVal(s?.name),
+    desc:      strVal(s?.desc),
+    spec:      ['damage', 'buff', 'heal', 'debuff'].includes(s?.spec) ? s.spec : 'buff',
+    level:     Math.min(5, Math.max(1, toInt(s?.level, 1))),
+    mana:      Math.max(0, toInt(s?.mana, 0)),
+    icon:      strVal(s?.icon) || 'default',
+    iconImage: strVal(s?.iconImage),
+  }));
+
+  // ── Описание / квента ───────────────────────────────────────────────
+  const description = strVal(raw.description);
+  const lore        = strVal(raw.lore);
+
+  return {
+    ok: true,
+    sheet: {
+      name: strVal(raw.name) || 'Импортированный персонаж',
+      description,
+      lore,
+      stats,
+      combat,
+      equipment,
+      backpack,
+      spells,
+    },
+  };
+}
+
+/**
+ * Полностью пересинхронизирует UI листа с текущим объектом `sheet`.
+ * Используется после импорта, когда заменяются все поля персонажа.
+ */
+function renderSheet() {
+  document.getElementById('char-name').value = sheet.name ?? '';
+  document.getElementById('char-desc').value = sheet.description ?? '';
+  document.getElementById('char-lore').value = sheet.lore ?? '';
+  document.title = `GoB — ${sheet.name || 'Персонаж'}`;
+
+  closeSlotEditor();
+  renderStats();
+  renderCombat();
+  renderEquipment();
+  renderBackpack();
+
+  spreadIndex = 0;
+  renderSpellGrids();
+}
+
+function initTransfer() {
+  const modal        = document.getElementById('transfer-modal');
+  const btnOpen      = document.getElementById('btn-transfer');
+  const btnClose     = document.getElementById('btn-transfer-close');
+  const btnCancel    = document.getElementById('btn-transfer-cancel');
+  const panelExport  = document.getElementById('transfer-panel-export');
+  const panelImport  = document.getElementById('transfer-panel-import');
+  const tabs         = document.querySelectorAll('.transfer-tab');
+  const exportArea   = document.getElementById('export-json');
+  const importArea   = document.getElementById('import-json');
+  const importError  = document.getElementById('import-error');
+  const importOk     = document.getElementById('import-success');
+  const fileInput    = document.getElementById('import-file-input');
+  const fileInfo     = document.getElementById('import-file-info');
+  const btnCopy      = document.getElementById('btn-export-copy');
+  const btnDownload  = document.getElementById('btn-export-download');
+  const btnFileOpen  = document.getElementById('btn-import-file');
+  const btnApply     = document.getElementById('btn-import-apply');
+
+  if (!modal || !btnOpen) return;
+
+  // ── Открыть / закрыть ────────────────────────────────────────────────────
+  btnOpen.addEventListener('click', () => {
+    exportArea.value = JSON.stringify(exportToSharedFormat(), null, 2);
+    modal.classList.remove('hidden');
+  });
+
+  function closeModal() {
+    modal.classList.add('hidden');
+    importArea.value = '';
+    importError.classList.add('hidden');
+    importOk.classList.add('hidden');
+    fileInfo.textContent = '';
+  }
+
+  btnClose.addEventListener('click', closeModal);
+  btnCancel.addEventListener('click', closeModal);
+  modal.querySelector('.transfer-modal__backdrop').addEventListener('click', closeModal);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+  });
+
+  // ── Переключение вкладок ─────────────────────────────────────────────────
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const isExport = tab.dataset.tab === 'export';
+      panelExport.classList.toggle('hidden', !isExport);
+      panelImport.classList.toggle('hidden',  isExport);
+      if (isExport) exportArea.value = JSON.stringify(exportToSharedFormat(), null, 2);
+    });
+  });
+
+  // ── Экспорт ──────────────────────────────────────────────────────────────
+  btnCopy.addEventListener('click', () => {
+    navigator.clipboard.writeText(exportArea.value).then(() => {
+      btnCopy.textContent = 'Скопировано ✓';
+      setTimeout(() => { btnCopy.textContent = 'Скопировать'; }, 2000);
+    }).catch(() => {
+      // Фолбэк для окружений без clipboard API
+      exportArea.select();
+      document.execCommand('copy');
+      btnCopy.textContent = 'Скопировано ✓';
+      setTimeout(() => { btnCopy.textContent = 'Скопировать'; }, 2000);
+    });
+  });
+
+  btnDownload.addEventListener('click', downloadExportJson);
+
+  // ── Импорт: загрузка файла ───────────────────────────────────────────────
+  btnFileOpen.addEventListener('click', () => fileInput.click());
+
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      importArea.value = ev.target.result;
+      fileInfo.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      importError.classList.add('hidden');
+      importOk.classList.add('hidden');
+    };
+    reader.readAsText(file, 'utf-8');
+    fileInput.value = ''; // сбросить, чтобы можно было загрузить тот же файл повторно
+  });
+
+  // ── Импорт: применить к текущему листу ──────────────────────────────────
+  btnApply.addEventListener('click', () => {
+    importError.classList.add('hidden');
+    importOk.classList.add('hidden');
+
+    const result = importFromSharedFormat(importArea.value.trim());
+
+    if (!result.ok) {
+      importError.textContent = result.error;
+      importError.classList.remove('hidden');
+      return;
+    }
+
+    // Мёрджим в текущий sheet и сохраняем
+    Object.assign(sheet, result.sheet);
+    scheduleSave();
+    renderSheet();
+
+    importOk.classList.remove('hidden');
+    document.getElementById('import-success-link').href = location.href;
+  });
+}
+
 function init(char) {
   sheet = loadSheet(char);
 
@@ -1620,7 +2166,6 @@ function init(char) {
 
   renderStats();
   renderCombat();
-  bindStatCombatRunes();
   renderEquipment();
   renderBackpack();
   bindSlotEditor();

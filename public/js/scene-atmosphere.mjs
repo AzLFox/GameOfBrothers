@@ -1,10 +1,22 @@
 /**
  * Pixi.js atmosphere for the main page — particles, god-rays, root glow.
+ * Mobile budgets via GobMobile.getDeviceTier(): low=off, mid≤40, high≤80.
  */
 import { Application, Container, Graphics, Sprite, Texture } from '/vendor/pixi/pixi.min.mjs';
 
-const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const isMobile = () => window.innerWidth < 640;
+const reduced = () => window.GobMobile.isReducedMotion();
+const isMobile = () => window.GobMobile.isMobile();
+const getTier = () => window.GobMobile.getDeviceTier();
+
+function pixiEnabled() {
+  return !isMobile() || getTier() !== 'low';
+}
+
+function usePixiGodRays() {
+  if (reduced()) return false;
+  if (!isMobile()) return true;
+  return getTier() === 'high';
+}
 
 let targetIntensity = 0;
 let currentIntensity = 0;
@@ -20,9 +32,30 @@ let glowWarm = null;
 let godRays = null;
 let particleGfx = null;
 let particles = [];
+let paused = false;
+let visibilityHandler = null;
+let tierChangeHandler = null;
+let imgLoadHandler = null;
+let destroyed = false;
+let lastPixiTier = null;
+let lastPixiEnabled = null;
 
 function lerp(a, b, t) {
   return a + (b - a) * t;
+}
+
+function particleCaps() {
+  if (reduced()) return { cap: 0, base: 0 };
+  if (!isMobile()) return { cap: 120, base: 72 };
+  const tier = getTier();
+  if (tier === 'high') return { cap: 80, base: 48 };
+  if (tier === 'mid') return { cap: 40, base: 24 };
+  return { cap: 0, base: 0 };
+}
+
+function canvasResolution() {
+  const dpr = window.devicePixelRatio || 1;
+  return Math.min(dpr, isMobile() ? 1.5 : 2);
 }
 
 function makeGlowTexture(inner, mid, outer) {
@@ -64,11 +97,9 @@ function toLocal(screenX, screenY) {
 }
 
 function particleBudget(intensity) {
-  if (reduced) return 0;
-  const cap = isMobile() ? 60 : 120;
-  const base = isMobile() ? 38 : 72;
-  const selected = cap;
-  return Math.min(cap, Math.round(lerp(base, selected, intensity)));
+  const { cap, base } = particleCaps();
+  if (!cap) return 0;
+  return Math.min(cap, Math.round(lerp(base, cap, intensity)));
 }
 
 function spawnParticle(anchor, intensity) {
@@ -170,7 +201,7 @@ function updateGlow(intensity) {
     anchorScreen.x + parallaxX * 0.35,
     anchorScreen.y + parallaxY * 0.25,
   );
-  const pulse = reduced ? 0.6 : 0.55 + Math.sin(time * 1.15) * 0.14;
+  const pulse = reduced() ? 0.6 : 0.55 + Math.sin(time * 1.15) * 0.14;
 
   glowTeal.position.set(anchor.x, anchor.y);
   glowWarm.position.set(anchor.x, anchor.y - 8);
@@ -184,8 +215,11 @@ function updateGlow(intensity) {
 
   if (godRays) {
     godRays.position.set(anchor.x, anchor.y + 6);
-    godRays.alpha = lerp(0.1, 0.38, intensity) * (0.72 + Math.sin(time * 0.95) * 0.28);
-    godRays.rotation = Math.sin(time * 0.18) * 0.05;
+    const animateRays = usePixiGodRays();
+    godRays.alpha = animateRays
+      ? lerp(0.1, 0.38, intensity) * (0.72 + Math.sin(time * 0.95) * 0.28)
+      : lerp(0.1, 0.32, intensity) * 0.85;
+    godRays.rotation = animateRays ? Math.sin(time * 0.18) * 0.05 : 0;
     godRays.scale.set(lerp(0.9, 1.18, intensity));
   }
 }
@@ -194,11 +228,11 @@ function tick(ticker) {
   const dt = Math.min(0.05, ticker.deltaMS / 1000);
   time += dt;
 
-  currentIntensity = lerp(currentIntensity, targetIntensity, reduced ? 1 : 0.06);
+  currentIntensity = lerp(currentIntensity, targetIntensity, reduced() ? 1 : 0.06);
   syncParticleCount(currentIntensity);
   updateGlow(currentIntensity);
 
-  if (!reduced && particles.length) {
+  if (!reduced() && particles.length) {
     updateParticles(dt, currentIntensity);
   }
 
@@ -207,22 +241,52 @@ function tick(ticker) {
   }
 }
 
+function teardownPixi() {
+  if (!app) return;
+
+  app.ticker.remove(tick);
+  app.destroy(true, { children: true });
+  app = null;
+  fxLayer = null;
+  glowTeal = null;
+  glowWarm = null;
+  godRays = null;
+  particleGfx = null;
+  particles = [];
+  paused = false;
+  api.ready = false;
+  if (host) {
+    host.replaceChildren();
+  }
+}
+
 async function boot() {
+  if (destroyed || !pixiEnabled() || app) return;
+
   host = document.getElementById('scene-atmosphere');
-  if (!host || reduced === undefined) return;
+  if (!host) return;
 
   app = new Application();
   await app.init({
     resizeTo: host,
     backgroundAlpha: 0,
-    antialias: true,
-    resolution: Math.min(window.devicePixelRatio || 1, 2),
+    antialias: !isMobile(),
+    resolution: canvasResolution(),
     autoDensity: true,
     preference: 'webgl',
   });
 
+  if (destroyed) {
+    if (app) {
+      app.destroy(true, { children: true });
+      app = null;
+    }
+    return;
+  }
+
   host.appendChild(app.canvas);
   app.canvas.style.display = 'block';
+  app.canvas.style.pointerEvents = 'none';
 
   fxLayer = new Container();
   app.stage.addChild(fxLayer);
@@ -245,7 +309,7 @@ async function boot() {
   glowTeal.blendMode = 'add';
   glowWarm.blendMode = 'add';
 
-  godRays = reduced ? null : buildGodRays();
+  godRays = usePixiGodRays() ? buildGodRays() : null;
 
   particleGfx = new Graphics();
   const children = [glowTeal, glowWarm];
@@ -258,7 +322,61 @@ async function boot() {
   drawParticles(0);
 
   app.ticker.add(tick);
-  window.SceneAtmosphere.ready = true;
+  if (paused || document.hidden) {
+    app.ticker.stop();
+    paused = true;
+  }
+
+  api.ready = true;
+}
+
+function pause() {
+  if (!app || paused) return;
+  app.ticker.stop();
+  paused = true;
+}
+
+function resume() {
+  if (!app || !paused || document.hidden) return;
+  app.ticker.start();
+  paused = false;
+}
+
+function onVisibilityChange() {
+  if (document.hidden) pause();
+  else resume();
+}
+
+function onTierChange() {
+  const enabled = pixiEnabled();
+  const tier = getTier();
+
+  if (enabled === lastPixiEnabled && tier === lastPixiTier) return;
+
+  const prevEnabled = lastPixiEnabled;
+  const prevTier = lastPixiTier;
+  lastPixiEnabled = enabled;
+  lastPixiTier = tier;
+
+  if (!enabled) {
+    teardownPixi();
+    return;
+  }
+
+  if (!app) {
+    boot().catch(() => {});
+    return;
+  }
+
+  const godRaysChanged = isMobile()
+    && ((prevTier === 'mid' && tier === 'high') || (prevTier === 'high' && tier === 'mid'));
+
+  if (!prevEnabled || godRaysChanged) {
+    teardownPixi();
+    boot().catch(() => {});
+  } else {
+    syncParticleCount(currentIntensity);
+  }
 }
 
 const api = {
@@ -271,24 +389,55 @@ const api = {
     parallaxX = x;
     parallaxY = y;
   },
+  pause,
+  resume,
   destroy() {
-    app?.destroy(true, { children: true });
-    app = null;
-    particles = [];
+    destroyed = true;
+    teardownPixi();
+    if (visibilityHandler) {
+      document.removeEventListener('visibilitychange', visibilityHandler);
+      visibilityHandler = null;
+    }
+    if (tierChangeHandler) {
+      window.removeEventListener('gobmobilechange', tierChangeHandler);
+      tierChangeHandler = null;
+    }
+    if (imgLoadHandler) {
+      const img = document.querySelector('#worldTree img');
+      if (img) img.removeEventListener('load', imgLoadHandler);
+      imgLoadHandler = null;
+    }
     window.SceneAtmosphere = null;
   },
 };
 
 window.SceneAtmosphere = api;
 
+visibilityHandler = onVisibilityChange;
+document.addEventListener('visibilitychange', visibilityHandler);
+
+tierChangeHandler = onTierChange;
+window.addEventListener('gobmobilechange', tierChangeHandler);
+
 function startWhenReady() {
+  lastPixiEnabled = pixiEnabled();
+  lastPixiTier = getTier();
+
+  if (!pixiEnabled()) {
+    api.ready = true;
+    return;
+  }
+
   const img = document.querySelector('#worldTree img');
   if (!img) {
     boot().catch(() => {});
     return;
   }
   if (img.complete) boot().catch(() => {});
-  else img.addEventListener('load', () => boot().catch(() => {}), { once: true });
+  else {
+    imgLoadHandler = () => boot().catch(() => {});
+    img.addEventListener('load', imgLoadHandler, { once: true });
+  }
 }
 
 if (document.readyState === 'loading') {

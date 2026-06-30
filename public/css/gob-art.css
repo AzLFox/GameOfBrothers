@@ -238,13 +238,26 @@
     inset 0 0 16px rgba(212, 179, 106, 0.1);
 }
 
-.card:not(.selected):not(.is-locked).is-hover .card-front {
-  border-color: var(--gob-gold-light);
-  box-shadow:
-    var(--gob-glow-teal),
-    var(--gob-shadow-gold),
-    0 0 25px var(--gob-grade-shadow-soft),
-    inset 0 0 20px rgba(212, 179, 106, 0.14);
+@media (hover: hover) and (pointer: fine) {
+  .card:not(.selected):not(.is-locked).is-hover .card-front {
+    border-color: var(--gob-gold-light);
+    box-shadow:
+      var(--gob-glow-teal),
+      var(--gob-shadow-gold),
+      0 0 25px var(--gob-grade-shadow-soft),
+      inset 0 0 20px rgba(212, 179, 106, 0.14);
+  }
+}
+
+@media (hover: none) {
+  .card:not(.selected):not(.is-locked):active .card-front {
+    border-color: var(--gob-gold-light);
+    box-shadow:
+      var(--gob-glow-teal),
+      var(--gob-shadow-gold),
+      0 0 25px var(--gob-grade-shadow-soft),
+      inset 0 0 20px rgba(212, 179, 106, 0.14);
+  }
 }
 
 .card-content {
@@ -497,8 +510,10 @@ body.create-page .create-shell h1 {
   box-shadow: 0 1px 0 rgba(94, 240, 200, 0.08);
 }
 
-.char-back {
+.char-back,
+.create-back {
   color: var(--gob-gold-light);
+  text-shadow: 0 1px 10px var(--gob-grade-shadow-soft);
 }
 
 .char-header-title {
@@ -633,4 +648,23 @@ html.page-enter-pending .char-page {
   .gob-page-wipe__sigil {
     display: none;
   }
+}
+
+/* ================= Tier-low: softer parchment noise (M7) ================= */
+html.gob-tier-low {
+  --gob-parchment-noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.25'/%3E%3C/svg%3E");
+}
+
+html.gob-tier-low .char-layout .panel::after,
+html.gob-tier-low .gob-parchment-bg,
+html.gob-tier-low .card.selected .card-content {
+  background-blend-mode: normal, normal, soft-light;
+}
+
+html.gob-tier-low .char-layout .portrait-panel::after {
+  background-blend-mode: normal, normal, normal, soft-light;
+}
+
+html.gob-tier-low body.create-page .create-shell::before {
+  background-blend-mode: normal, normal, soft-light, normal;
 }

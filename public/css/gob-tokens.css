@@ -13,7 +13,7 @@
   --gob-parchment-base: #ebe0c4;
   --gob-parchment-warm: #e6d4ac;
   --gob-text-body: #2a1a08;
-  --gob-text-muted: #3d2e1c;
+  --gob-text-muted: #3d2818;
   --gob-text-on-dark: #f5e6c8;
   --gob-veil: #030508;
 
@@ -64,6 +64,12 @@
   --gob-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --gob-ease-snap: cubic-bezier(0.4, 0, 0.2, 1);
   --gob-ease-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gob-cinematic-vignette: 0.26;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

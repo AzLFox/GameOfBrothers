@@ -6,8 +6,9 @@ const GobCursorGlow = (() => {
     '.btn-create, .card:not(.card--skeleton), .ambient-toggle, .page-header a';
 
   function canRun() {
+    if (window.GobMobile.isMobile()) return false;
     if (!document.body.classList.contains('main-page')) return false;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    if (window.GobMobile.isReducedMotion()) return false;
     if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return false;
     return true;
   }
