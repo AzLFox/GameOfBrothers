@@ -125,6 +125,69 @@ const EXTRA_SLOTS = [
   { key: 'pet', label: 'Питомец', icon: '🐾' },
 ];
 
+// ===== Каталог снаряжения (классы внутри слотов + модификаторы) =====
+const CATALOG = window.ItemCatalog || {
+  TIER_REQ: {}, FAMILIES: {}, MODIFIERS: {}, REDUCTION_MODS: [], PLAIN_MODS: [], SLOT_CLASSES: {},
+};
+
+function equipSlotDef(key) {
+  return [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS].find(s => s.key === key);
+}
+
+function slotClassList(slotKey) {
+  return CATALOG.SLOT_CLASSES[slotKey] || null;
+}
+
+function slotSupportsClasses(slotKey) {
+  return Array.isArray(slotClassList(slotKey));
+}
+
+function findItemClass(slotKey, classId) {
+  if (!classId) return null;
+  return (slotClassList(slotKey) || []).find(c => c.id === classId) || null;
+}
+
+// ----- слоты рук и двуручное оружие -----
+const HAND_SLOTS = ['leftHand', 'rightHand'];
+
+function isHandSlot(slotKey) {
+  return HAND_SLOTS.includes(slotKey);
+}
+
+function otherHand(slotKey) {
+  return slotKey === 'leftHand' ? 'rightHand' : 'leftHand';
+}
+
+function isTwoHanded(slotKey, item) {
+  const cls = findItemClass(slotKey, item?.classId);
+  return Boolean(cls && cls.hands === 2);
+}
+
+function familyDef(family) {
+  return CATALOG.FAMILIES[family] || null;
+}
+
+function statLabel(statKey) {
+  return STAT_KEYS.find(s => s.key === statKey)?.label || statKey;
+}
+
+function tierThreshold(tier) {
+  return CATALOG.TIER_REQ[tier] ?? 0;
+}
+
+function classDefaults(cls, tier) {
+  return { ...(cls?.tiers?.[tier] || {}) };
+}
+
+// требование тира по управляющей характеристике семейства выполнено?
+function meetsTierReq(slotKey, item) {
+  const cls = findItemClass(slotKey, item?.classId);
+  if (!cls) return true;
+  const fam = familyDef(cls.family);
+  if (!fam?.stat) return true;
+  return (sheet.stats[fam.stat] || 0) >= tierThreshold(item.tier);
+}
+
 const BACKPACK_COUNT = 6;
 const SPELLS_PER_PAGE = 7;
 const SPELLS_PER_SPREAD = SPELLS_PER_PAGE * 2;
@@ -314,8 +377,31 @@ function migrateCombat(data, stats) {
   };
 }
 
+// суммирует плоские (flat) модификаторы со всех надетых предметов
+function sumEquipmentMods() {
+  const sums = {};
+  Object.values(sheet.equipment || {}).forEach((item) => {
+    if (!item || !item.classId || !item.mods) return;
+    if (item.mirror) return; // зеркало двуручного оружия — не считаем дважды
+    Object.entries(item.mods).forEach(([key, val]) => {
+      const def = CATALOG.MODIFIERS[key];
+      if (!def || def.type !== 'flat') return;
+      sums[key] = (sums[key] || 0) + (parseInt(val, 10) || 0);
+    });
+  });
+  return sums;
+}
+
 function maxHp() {
-  return sheet.stats.str * 4;
+  return sheet.stats.str * 4 + (sumEquipmentMods().hpBonus || 0);
+}
+
+function effectiveHit() {
+  return sheet.stats.dex + (sumEquipmentMods().hit || 0);
+}
+
+function effectiveCrit() {
+  return critValue(sheet.stats.luck) + (sumEquipmentMods().critDie || 0);
 }
 
 function maxAp() {
@@ -424,9 +510,9 @@ function bindCombatHint(rowEl, getHtml) {
 }
 
 function hitTooltipHtml() {
-  const dex = sheet.stats.dex;
+  const hit = effectiveHit();
   const lines = HIT_DICE.map((sides) => {
-    const threshold = hitThreshold(sides, dex);
+    const threshold = hitThreshold(sides, hit);
     return `<p class="combat-tooltip-line">D${sides} попадания: <strong>от ${sides} до ${threshold}</strong></p>`;
   }).join('');
   return `<p class="combat-tooltip-title">Пороги попадания</p>${lines}`;
@@ -441,9 +527,9 @@ function skillsTooltipHtml() {
 }
 
 function critTooltipHtml() {
-  const luck = sheet.stats.luck;
+  const crit = effectiveCrit();
   const lines = HIT_DICE.map((sides) => {
-    const threshold = critThreshold(sides, luck);
+    const threshold = Math.max(2, sides - crit);
     return `<p class="combat-tooltip-line">D${sides} крит: <strong>от ${sides} до ${threshold}</strong></p>`;
   }).join('');
   return `<p class="combat-tooltip-title">Пороги крита</p>${lines}`;
@@ -464,23 +550,51 @@ function updateOverheal(key, current, max) {
   wrap.hidden = over <= 0;
 }
 
+function formatModValue(key, val) {
+  if (CATALOG.PLAIN_MODS.includes(key)) return `${val}`;
+  if (CATALOG.REDUCTION_MODS.includes(key)) return `−${val}`;
+  return `+${val}`;
+}
+
+// строки боевой панели, возникающие только при надевании снаряжения
+function renderExtraCombatRows(mods) {
+  const host = document.getElementById('combat-extra-rows');
+  if (!host) return;
+  host.innerHTML = '';
+  Object.entries(CATALOG.MODIFIERS).forEach(([key, def]) => {
+    if (def.combat !== 'row') return;
+    const val = mods[key] || 0;
+    if (!val) return;
+    const row = document.createElement('div');
+    row.className = 'combat-row combat-row--equip';
+    row.innerHTML = `
+      <span class="combat-label">${def.label}</span>
+      <span class="combat-derived">${formatModValue(key, val)}</span>
+    `;
+    host.appendChild(row);
+  });
+}
+
 function updateCombatValues() {
   if (!sheet?.combat) return;
 
-  const hpMax = maxHp();
+  const mods = sumEquipmentMods();
+  const hpMax = sheet.stats.str * 4 + (mods.hpBonus || 0);
   const apMax = maxAp();
   const mpMax = maxMp();
 
   document.getElementById('combat-hp-max').textContent = hpMax;
   document.getElementById('combat-ap-max').textContent = apMax;
   document.getElementById('combat-mp-max').textContent = mpMax;
-  document.getElementById('combat-hit').textContent = sheet.stats.dex;
+  document.getElementById('combat-hit').textContent = sheet.stats.dex + (mods.hit || 0);
   document.getElementById('combat-skills').textContent = sheet.stats.int;
-  document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck);
+  document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck) + (mods.critDie || 0);
 
   updateOverheal('hp', sheet.combat.hp, hpMax);
   updateOverheal('mp', sheet.combat.mp, mpMax);
   updateOverheal('ap', sheet.combat.ap, apMax);
+
+  renderExtraCombatRows(mods);
 
   const skillsRow = document.getElementById('combat-row-skills');
   skillsRow.classList.toggle('combat-row--warning', spellsRemaining() < 0);
@@ -558,6 +672,7 @@ function renderCombat() {
       <span class="combat-label">Крит</span>
       <span class="combat-derived" id="combat-crit"></span>
     </div>
+    <div class="combat-extra-rows" id="combat-extra-rows"></div>
   `;
 
   bindCombatInputs();
@@ -577,7 +692,24 @@ function storageKey() {
 }
 
 function emptyItem() {
-  return { name: '', desc: '' };
+  return { name: '', desc: '', classId: null, tier: 1, mods: {} };
+}
+
+// копия предмета без служебного флага зеркала (его выставляет вызывающий)
+function cloneItem(item) {
+  return {
+    name: item.name || '',
+    desc: item.desc || '',
+    classId: item.classId ?? null,
+    tier: Number.isFinite(item.tier) ? item.tier : 1,
+    mods: { ...(item.mods || {}) },
+  };
+}
+
+function normalizeItem(item) {
+  const out = cloneItem(item);
+  if (item.mirror) out.mirror = true;
+  return out;
 }
 
 function uid() {
@@ -651,7 +783,19 @@ function migrateEquipment(data, base) {
   delete eq.accessory;
 
   [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS].forEach(({ key }) => {
-    if (!eq[key]) eq[key] = emptyItem();
+    eq[key] = eq[key] ? normalizeItem(eq[key]) : emptyItem();
+  });
+
+  // двуручное оружие из старых сохранений отражаем во вторую руку, если она пуста
+  HAND_SLOTS.forEach((key) => {
+    const item = eq[key];
+    if (!item || item.mirror || !isTwoHanded(key, item)) return;
+    const other = otherHand(key);
+    const otherItem = eq[other];
+    const otherEmpty = otherItem && !otherItem.classId && !otherItem.name;
+    if (otherEmpty) {
+      eq[other] = { ...cloneItem(item), mirror: true };
+    }
   });
 
   return eq;
@@ -727,9 +871,39 @@ function renderStats() {
       sheet.stats[key] = parseInt(input.value, 10) || 0;
       scheduleSave();
       updateCombatValues();
+      updateSlotWarnings();
+      if (selectedSlot?.group === 'equipment' && slotSupportsClasses(selectedSlot.key)) {
+        renderReqHint(selectedSlot.key);
+      }
     });
     grid.appendChild(cell);
   });
+}
+
+function paintSlotButton(btn, slotDef, slotKey, group) {
+  const item = group === 'backpack' ? sheet.backpack[slotKey] : sheet.equipment[slotKey];
+  const cls = group === 'equipment' ? findItemClass(slotKey, item.classId) : null;
+  const fam = cls ? familyDef(cls.family) : null;
+
+  btn.classList.toggle('has-item', Boolean(item.name || cls));
+  btn.classList.toggle('item-slot--warning', Boolean(cls && !meetsTierReq(slotKey, item)));
+  btn.classList.toggle('item-slot--two-handed', Boolean(cls && cls.hands === 2));
+
+  const previewText = item.name || (cls ? cls.label : '');
+  const badge = fam ? `<span class="slot-family-badge" title="${escapeHtml(fam.label)}">${fam.icon}</span>` : '';
+  const tierBadge = cls ? `<span class="slot-tier-badge">Т${item.tier}</span>` : '';
+  const twoHandedBadge = cls && cls.hands === 2
+    ? `<span class="slot-twohand-badge" title="Двуручное оружие — занимает обе руки">⚔</span>`
+    : '';
+
+  btn.innerHTML = `
+    ${badge}
+    ${tierBadge}
+    ${twoHandedBadge}
+    <span class="slot-icon" aria-hidden="true">${slotDef.icon}</span>
+    <span class="slot-label">${slotDef.label}</span>
+    <span class="slot-preview">${escapeHtml(previewText)}</span>
+  `;
 }
 
 function createSlotButton(slotDef, slotKey, group) {
@@ -738,19 +912,7 @@ function createSlotButton(slotDef, slotKey, group) {
   btn.className = 'item-slot';
   btn.dataset.group = group;
   btn.dataset.slot = slotKey;
-
-  const item = group === 'backpack'
-    ? sheet.backpack[slotKey]
-    : sheet.equipment[slotKey];
-
-  if (item.name) btn.classList.add('has-item');
-
-  btn.innerHTML = `
-    <span class="slot-icon" aria-hidden="true">${slotDef.icon}</span>
-    <span class="slot-label">${slotDef.label}</span>
-    <span class="slot-preview">${item.name || ''}</span>
-  `;
-
+  paintSlotButton(btn, slotDef, slotKey, group);
   btn.addEventListener('click', () => selectSlot(group, slotKey, slotDef.label));
   return btn;
 }
@@ -781,26 +943,31 @@ function getItem(group, key) {
 }
 
 function updateSlotUI(group, key) {
-  const selector = group === 'backpack'
-    ? `.item-slot[data-group="backpack"][data-slot="${key}"]`
-    : `.item-slot[data-group="${group}"][data-slot="${key}"]`;
-  const btn = document.querySelector(selector);
+  const btn = document.querySelector(`.item-slot[data-group="${group}"][data-slot="${key}"]`);
   if (!btn) return;
+  const slotDef = group === 'backpack'
+    ? { label: `Слот ${Number(key) + 1}`, icon: '📦' }
+    : equipSlotDef(key);
+  paintSlotButton(btn, slotDef, key, group);
+}
 
-  const item = getItem(group, key);
-  const preview = btn.querySelector('.slot-preview');
-  preview.textContent = item.name || '';
-  btn.classList.toggle('has-item', Boolean(item.name));
+// при изменении характеристик пересматриваем индикацию требований тира
+function updateSlotWarnings() {
+  [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS].forEach(({ key }) => {
+    if (!slotSupportsClasses(key)) return;
+    const btn = document.querySelector(`.item-slot[data-group="equipment"][data-slot="${key}"]`);
+    if (!btn) return;
+    const item = sheet.equipment[key];
+    const cls = findItemClass(key, item.classId);
+    btn.classList.toggle('item-slot--warning', Boolean(cls && !meetsTierReq(key, item)));
+  });
 }
 
 function selectSlot(group, key, label) {
   selectedSlot = { group, key };
 
   document.querySelectorAll('.item-slot.selected').forEach(el => el.classList.remove('selected'));
-  const selector = group === 'backpack'
-    ? `.item-slot[data-group="backpack"][data-slot="${key}"]`
-    : `.item-slot[data-group="${group}"][data-slot="${key}"]`;
-  document.querySelector(selector)?.classList.add('selected');
+  document.querySelector(`.item-slot[data-group="${group}"][data-slot="${key}"]`)?.classList.add('selected');
 
   const editor = document.getElementById('slot-editor');
   document.getElementById('slot-editor-title').textContent = label;
@@ -809,11 +976,185 @@ function selectSlot(group, key, label) {
   document.getElementById('slot-name').value = item.name;
   document.getElementById('slot-desc').value = item.desc;
 
+  renderClassSection(group, key);
+
+  editor.querySelector('.slot-editor-body')?.scrollTo(0, 0);
+
   if (typeof CharMotion !== 'undefined') {
     CharMotion.openSidePanel(editor);
   } else {
     editor.hidden = false;
   }
+}
+
+// ===== Редактор слота: класс / тир / модификаторы =====
+function renderClassSection(group, key) {
+  const section = document.getElementById('slot-class-section');
+  if (group !== 'equipment' || !slotSupportsClasses(key)) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  renderClassPicker(key);
+  renderTierPicker(key);
+  renderModFields(key);
+  renderReqHint(key);
+}
+
+function renderClassPicker(slotKey) {
+  const picker = document.getElementById('slot-class-picker');
+  const item = sheet.equipment[slotKey];
+  picker.innerHTML = '';
+
+  const select = document.createElement('select');
+  select.className = 'slot-class-select';
+  select.setAttribute('aria-label', 'Класс снаряжения');
+
+  const none = document.createElement('option');
+  none.value = '';
+  none.textContent = '— Без класса';
+  if (!item.classId) none.selected = true;
+  select.appendChild(none);
+
+  (slotClassList(slotKey) || []).forEach((cls) => {
+    const fam = familyDef(cls.family);
+    const opt = document.createElement('option');
+    opt.value = cls.id;
+    const icon = fam?.icon ? `${fam.icon} ` : '';
+    opt.textContent = `${icon}${cls.label}`;
+    opt.title = fam ? `Семейство: ${fam.label}${cls.hands ? ` · ${cls.hands}р` : ''}` : cls.label;
+    if (item.classId === cls.id) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  select.addEventListener('change', () => setItemClass(slotKey, select.value || null));
+  picker.appendChild(select);
+}
+
+function renderTierPicker(slotKey) {
+  const picker = document.getElementById('slot-tier-picker');
+  const item = sheet.equipment[slotKey];
+  picker.innerHTML = '';
+  [1, 2, 3, 4].forEach((tier) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `slot-tier-btn${item.tier === tier ? ' selected' : ''}`;
+    btn.textContent = `Т${tier}`;
+    btn.disabled = !item.classId;
+    btn.addEventListener('click', () => setItemTier(slotKey, tier));
+    picker.appendChild(btn);
+  });
+}
+
+function renderModFields(slotKey) {
+  const host = document.getElementById('slot-mods');
+  const item = sheet.equipment[slotKey];
+  host.innerHTML = '';
+  const cls = findItemClass(slotKey, item.classId);
+  if (!cls) return;
+
+  cls.mods.forEach((modKey) => {
+    const def = CATALOG.MODIFIERS[modKey];
+    if (!def) return;
+    const id = `slot-mod-${modKey}`;
+    const cur = item.mods[modKey];
+    const row = document.createElement('div');
+    row.className = 'slot-mod-field';
+
+    let control;
+    if (def.type === 'flag') {
+      control = `<input type="checkbox" id="${id}" ${cur ? 'checked' : ''}>`;
+    } else if (def.type === 'dice') {
+      control = `<input type="text" id="${id}" class="slot-mod-input" value="${escapeHtml(cur ?? '')}" spellcheck="false">`;
+    } else {
+      control = `<input type="number" id="${id}" class="slot-mod-input" value="${cur ?? 0}">`;
+    }
+    row.innerHTML = `<label class="slot-mod-label" for="${id}">${def.label}</label>${control}`;
+    host.appendChild(row);
+
+    const input = row.querySelector('input');
+    input.addEventListener('input', () => {
+      if (def.type === 'flag') item.mods[modKey] = input.checked;
+      else if (def.type === 'dice') item.mods[modKey] = input.value;
+      else item.mods[modKey] = parseInt(input.value, 10) || 0;
+      reconcileHands(slotKey);
+      scheduleSave();
+      updateSlotUI('equipment', slotKey);
+      updateCombatValues();
+    });
+  });
+
+  const reset = document.createElement('button');
+  reset.type = 'button';
+  reset.className = 'slot-mod-reset';
+  reset.textContent = 'Сбросить к тиру';
+  reset.addEventListener('click', () => {
+    item.mods = classDefaults(cls, item.tier);
+    reconcileHands(slotKey);
+    scheduleSave();
+    renderModFields(slotKey);
+    updateSlotUI('equipment', slotKey);
+    updateCombatValues();
+  });
+  host.appendChild(reset);
+}
+
+function renderReqHint(slotKey) {
+  const hint = document.getElementById('slot-req-hint');
+  const item = sheet.equipment[slotKey];
+  const cls = findItemClass(slotKey, item.classId);
+  if (!cls) { hint.hidden = true; return; }
+  const fam = familyDef(cls.family);
+  const need = tierThreshold(item.tier);
+  const have = sheet.stats[fam.stat] || 0;
+  hint.hidden = false;
+  hint.classList.toggle('slot-req-hint--warn', have < need);
+  hint.textContent = `Требуется ${statLabel(fam.stat)} ≥ ${need} (есть ${have})`;
+}
+
+// Синхронизирует обе руки: двуручное оружие отражается во вторую руку,
+// одноручное/пустой слот распускают связку. Активный слот — владелец предмета.
+function reconcileHands(activeKey) {
+  if (!isHandSlot(activeKey)) return;
+  const other = otherHand(activeKey);
+  const item = sheet.equipment[activeKey];
+  if (item) delete item.mirror; // тот слот, что редактируют, всегда владелец
+  if (isTwoHanded(activeKey, item)) {
+    const mirror = cloneItem(item);
+    mirror.mirror = true;
+    sheet.equipment[other] = mirror;
+  } else {
+    const otherItem = sheet.equipment[other];
+    // освобождаем вторую руку, если её занимало то же двуручное оружие
+    if (otherItem && (otherItem.mirror || isTwoHanded(other, otherItem))) {
+      sheet.equipment[other] = emptyItem();
+    }
+  }
+  updateSlotUI('equipment', other);
+}
+
+function setItemClass(slotKey, classId) {
+  const item = sheet.equipment[slotKey];
+  if (classId === item.classId) return;
+  item.classId = classId;
+  item.mods = classId ? classDefaults(findItemClass(slotKey, classId), item.tier) : {};
+  reconcileHands(slotKey);
+  scheduleSave();
+  renderClassSection('equipment', slotKey);
+  updateSlotUI('equipment', slotKey);
+  updateCombatValues();
+}
+
+function setItemTier(slotKey, tier) {
+  const item = sheet.equipment[slotKey];
+  if (!item.classId || item.tier === tier) return;
+  item.tier = tier;
+  item.mods = classDefaults(findItemClass(slotKey, item.classId), tier);
+  reconcileHands(slotKey);
+  scheduleSave();
+  renderClassSection('equipment', slotKey);
+  updateSlotUI('equipment', slotKey);
+  updateCombatValues();
 }
 
 function closeSlotEditor() {
@@ -844,6 +1185,7 @@ function bindSlotEditor() {
     const item = getItem(group, key);
     item.name = nameEl.value;
     item.desc = descEl.value;
+    if (group === 'equipment') reconcileHands(key);
     scheduleSave();
     updateSlotUI(group, key);
   };
