@@ -26,5 +26,5 @@ app.get('/create', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log('Server running: http://localhost:${PORT}');
+  console.log('Server running: http://localhost:', PORT);
 });

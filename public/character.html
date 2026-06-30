@@ -14,6 +14,9 @@
     <header class="char-header">
       <a href="/" class="char-back">← К миру</a>
       <h1 class="char-header-title">Лист персонажа</h1>
+      <button type="button" id="btn-transfer" class="btn-transfer" title="Экспорт / Импорт">
+        Перенос ↕
+      </button>
       <span class="save-hint" id="save-hint" aria-live="polite"></span>
     </header>
 
@@ -184,6 +187,59 @@
       </div>
       <div id="spell-tooltip" class="spell-tooltip" hidden role="tooltip"></div>
     </dialog>
+  </div>
+
+  <!-- Модальное окно переноса данных -->
+  <div id="transfer-modal" class="transfer-modal hidden">
+    <div class="transfer-modal__backdrop"></div>
+    <div class="transfer-modal__box">
+      <div class="transfer-modal__header">
+        <h2>Перенос данных</h2>
+        <button type="button" id="btn-transfer-close" class="transfer-modal__close" aria-label="Закрыть">✕</button>
+      </div>
+
+      <!-- Переключатель вкладок -->
+      <div class="transfer-modal__tabs">
+        <button type="button" class="transfer-tab active" data-tab="export">Экспорт</button>
+        <button type="button" class="transfer-tab"        data-tab="import">Импорт</button>
+      </div>
+
+      <!-- Вкладка: Экспорт -->
+      <div class="transfer-panel" id="transfer-panel-export">
+        <p class="transfer-hint">
+          JSON с данными персонажа в формате GameOfBraza.
+          Скиллы экспортируются со своими иконками.
+        </p>
+        <textarea id="export-json" class="transfer-json" readonly rows="14"></textarea>
+        <div class="transfer-actions">
+          <button type="button" id="btn-export-copy">Скопировать</button>
+          <button type="button" id="btn-export-download" class="btn-primary">Скачать .json</button>
+        </div>
+      </div>
+
+      <!-- Вкладка: Импорт -->
+      <div class="transfer-panel hidden" id="transfer-panel-import">
+        <p class="transfer-hint">
+          Вставьте JSON из GameOfBraza или загрузите файл.
+          Скиллы переносятся как спеллы; репутация и валюта не импортируются.
+        </p>
+        <div class="transfer-file-row">
+          <button type="button" id="btn-import-file">Загрузить файл…</button>
+          <span id="import-file-info" class="transfer-file-info"></span>
+          <input id="import-file-input" type="file" accept=".json,application/json" style="display:none">
+        </div>
+        <textarea id="import-json" class="transfer-json" rows="14"
+          placeholder='{ "schemaVersion": 1, "name": "...", ... }'></textarea>
+        <div id="import-error" class="transfer-error hidden"></div>
+        <div id="import-success" class="transfer-success hidden">
+          Персонаж загружен. <a id="import-success-link" href="#">Открыть →</a>
+        </div>
+        <div class="transfer-actions">
+          <button type="button" id="btn-import-apply" class="btn-primary">Применить к текущему листу</button>
+          <button type="button" id="btn-transfer-cancel">Отмена</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="js/character.js"></script>
