@@ -452,10 +452,23 @@ body.create-page .create-shell h1 {
   box-shadow: var(--gob-shadow-panel);
 }
 
+.combat-tooltip::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -13px;
+  width: 24px;
+  height: 14px;
+  margin-left: -12px;
+  background: var(--gob-parchment-warm);
+  clip-path: polygon(50% 100%, 8% 0, 92% 0);
+}
+
 .combat-tooltip::after {
   background: var(--gob-parchment-warm);
   border-right-color: var(--gob-gold-dark);
   border-bottom-color: var(--gob-gold-dark);
+  z-index: -1;
 }
 
 .combat-tooltip-title {
@@ -599,7 +612,6 @@ html.page-enter-pending .char-page {
     0 0 18px rgba(212, 179, 106, 0.55),
     0 0 36px rgba(94, 240, 200, 0.15);
   opacity: 0;
-  will-change: transform, opacity, filter;
 }
 
 .gob-page-wipe__sigil {
@@ -614,7 +626,6 @@ html.page-enter-pending .char-page {
     0 0 60px rgba(94, 240, 200, 0.2),
     0 0 100px rgba(212, 179, 106, 0.15);
   opacity: 0;
-  will-change: transform, opacity, filter;
 }
 
 @media (prefers-reduced-motion: reduce) {

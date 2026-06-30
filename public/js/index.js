@@ -71,6 +71,7 @@ function getRotationToCenterCard(index) {
 function animateCarouselTo(targetRotation, durationMs, onComplete) {
   if (rotationTween) rotationTween.kill();
   if (carouselWillChangeClear) carouselWillChangeClear();
+  carousel.classList.add('is-animating');
   carouselWillChangeClear = GobMotion.willChangeTemp(carousel, 'transform', durationMs + 120);
 
   const from = rotation;
@@ -87,6 +88,7 @@ function animateCarouselTo(targetRotation, durationMs, onComplete) {
       rotationTween = null;
       carouselWillChangeClear?.();
       carouselWillChangeClear = null;
+      carousel.classList.remove('is-animating');
       onComplete?.();
     },
   });
@@ -473,6 +475,7 @@ function initCreateButton() {
 
 function bootstrapMainPage() {
   initCreateButton();
+  GobCursorGlow?.init?.();
 
   document.body.classList.remove('motion-intro-done', 'motion-js');
   introDone = false;
