@@ -1,0 +1,47 @@
+/* GoB design & motion tokens — shared across pages */
+
+:root {
+  /* Color */
+  --gob-gold: #d4b36a;
+  --gob-gold-light: #f0d98a;
+  --gob-teal: #5ef0c8;
+  --gob-ink: #1a120a;
+  --gob-parchment: #f5e6c8;
+  --gob-parchment-base: #ebe0c4;
+  --gob-text-body: #2a1a08;
+  --gob-text-muted: #3d2e1c;
+  --gob-text-on-dark: #f5e6c8;
+  --gob-veil: #030508;
+
+  /* Motion durations (seconds) */
+  --gob-dur-instant: 0.15s;
+  --gob-dur-fast: 0.35s;
+  --gob-dur-normal: 0.6s;
+  --gob-dur-slow: 0.9s;
+  --gob-dur-cinematic: 1.4s;
+  --gob-dur-intro: 2.4s;
+
+  /* Stagger */
+  --gob-stagger-tight: 0.06s;
+  --gob-stagger-normal: 0.1s;
+  --gob-stagger-wide: 0.14s;
+
+  /* Easing (for CSS transitions; GSAP uses gob-motion.js presets) */
+  --gob-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --gob-ease-snap: cubic-bezier(0.4, 0, 0.2, 1);
+  --gob-ease-soft: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --gob-dur-instant: 0.01ms;
+    --gob-dur-fast: 0.01ms;
+    --gob-dur-normal: 0.01ms;
+    --gob-dur-slow: 0.01ms;
+    --gob-dur-cinematic: 0.01ms;
+    --gob-dur-intro: 0.01ms;
+    --gob-stagger-tight: 0s;
+    --gob-stagger-normal: 0s;
+    --gob-stagger-wide: 0s;
+  }
+}
