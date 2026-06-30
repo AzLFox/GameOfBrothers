@@ -7,10 +7,10 @@
 :root {
   --orbit-height: 42vh;
   --tree-height: 100vh;
-  --gold: #d4b36a;
-  --gold-light: #f0d98a;
-  --teal: #5ef0c8;
-  --veil-dark: #030508;
+  --gold: var(--gob-gold);
+  --gold-light: var(--gob-gold-light);
+  --teal: var(--gob-teal);
+  --veil-dark: var(--gob-veil);
 }
 
 body {
@@ -239,6 +239,23 @@ body {
   transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
 }
 
+.btn-create-shine {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.18) 48%,
+    transparent 100%
+  );
+  transform: translateX(-160%) skewX(-18deg);
+  pointer-events: none;
+  z-index: 1;
+}
+
 .btn-create:hover {
   border-color: rgba(94, 240, 200, 0.45);
   box-shadow:
@@ -289,6 +306,22 @@ body {
   left: 50%;
   bottom: var(--orbit-height);
   transform-style: preserve-3d;
+  z-index: 1;
+}
+
+/* ================= SCENE ATMOSPHERE (Pixi) ================= */
+.scene-atmosphere {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.scene-atmosphere canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .carousel {
@@ -343,18 +376,85 @@ body {
   transform-style: preserve-3d;
   -webkit-transform-style: preserve-3d;
   transform-origin: center center;
-  transition: transform 0.9s ease;
+  --card-angle: 0deg;
+  --card-z: 380px;
+  --card-z-hover: 0px;
+  --card-scale: 1;
+  transform:
+    rotateY(var(--card-angle))
+    translateZ(calc(var(--card-z) + var(--card-z-hover)))
+    scale(var(--card-scale));
+  transition: transform 0.9s var(--gob-ease-out);
   opacity: 0;
 }
 
-body.loaded .card {
-  animation: cardEnter 1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+body.loaded:not(.motion-js) .card {
+  animation: cardEnter 1s var(--gob-ease-out) forwards;
   animation-delay: calc(1.1s + var(--enter-delay, 0s));
+}
+
+body.motion-js.loaded .card {
+  animation: none;
+}
+
+body.motion-js.loaded .card.is-visible {
+  opacity: 1;
+}
+
+.card--skeleton {
+  pointer-events: none;
+  opacity: 1 !important;
+  background: linear-gradient(145deg, rgba(28, 24, 18, 0.85), rgba(12, 16, 22, 0.9));
+  border: 1px solid rgba(176, 141, 87, 0.22);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.card-skeleton-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(154, 212, 192, 0.08) 48%,
+    rgba(212, 179, 106, 0.14) 52%,
+    transparent 62%
+  );
+  background-size: 220% 100%;
+  animation: cardSkeletonShimmer 1.6s ease-in-out infinite;
+}
+
+.carousel.is-loading {
+  pointer-events: none;
+}
+
+@keyframes cardSkeletonShimmer {
+  0% { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
 }
 
 .card.selected {
   z-index: 12;
-  transition: transform 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 0.85s var(--gob-ease-out);
+}
+
+.card:not(.selected).is-hover .card-front {
+  box-shadow:
+    0 0 32px rgba(94, 240, 200, 0.38),
+    0 0 18px rgba(212, 179, 106, 0.22),
+    0 0 25px rgba(0, 0, 0, 0.6);
+}
+
+.card:not(.selected).is-hover::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 18px;
+  border: 1px solid rgba(94, 240, 200, 0.35);
+  box-shadow: 0 0 20px rgba(94, 240, 200, 0.2);
+  pointer-events: none;
+  z-index: 2;
 }
 
 body.card-open .card:not(.selected) {
@@ -419,8 +519,7 @@ body.card-open .card.selected {
 
 .card-content {
   display: none;
-  background: #1a120a;
-  color: #f5e6c8;
+  color: var(--gob-text-body, #2a1a08);
   transform: rotateY(180deg);
   padding: 14px;
   flex-direction: column;
@@ -443,7 +542,6 @@ body.card-open .card.selected {
 
 .card.selected.flip-done .card-content {
   pointer-events: auto;
-  box-shadow: inset 0 0 30px rgba(212, 179, 106, 0.1);
 }
 
 .card-content h3 {
@@ -457,7 +555,6 @@ body.card-open .card.selected {
 .card-content p {
   font-size: 14px;
   line-height: 1.45;
-  opacity: 0.92;
 }
 
 .open-btn {
@@ -551,7 +648,33 @@ body.card-open .page-hint {
   animation: rimGlow 2.5s ease-in-out infinite alternate;
 }
 
-/* ================= KEYFRAMES ================= */
+body.motion-js .overlay,
+body.motion-js .card-spotlight {
+  transition: none;
+}
+
+.page-transition-dim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  background: radial-gradient(ellipse 40% 50% at 50% 48%, transparent 0%, rgba(0, 0, 0, 0.92) 100%);
+  opacity: 0;
+}
+
+/* GSAP intro takes over when motion-js is set */
+body.motion-js .mountains,
+body.motion-js .mist,
+body.motion-js .veil-side,
+body.motion-js .rune--veil,
+body.motion-js .page-header,
+body.motion-js .btn-create,
+body.motion-js .scene,
+body.motion-js .world-tree,
+body.motion-js .page-hint {
+  animation: none !important;
+}
+
 @keyframes veilCrack {
   0% {
     opacity: 1;

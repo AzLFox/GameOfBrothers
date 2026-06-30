@@ -6,7 +6,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/gob-tokens.css">
   <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/gob-art.css">
 </head>
 <body class="main-page">
   <div class="realm-depth" aria-hidden="true">
@@ -53,6 +55,7 @@
   </header>
 
   <a href="/create" class="btn-create" id="btnCreate">
+    <span class="btn-create-shine" aria-hidden="true"></span>
     <span class="btn-create-glow"></span>
     <span class="btn-create-icon">✦</span>
     <span class="btn-create-text">Новый персонаж</span>
@@ -62,6 +65,7 @@
   <div class="overlay" id="overlay"></div>
 
   <div class="scene" id="scene">
+    <div class="scene-atmosphere" id="scene-atmosphere" aria-hidden="true"></div>
     <div class="orbit-hub">
       <div class="world-tree" id="worldTree">
         <img src="characters/world-tree.png" alt="" draggable="false">
@@ -72,6 +76,10 @@
 
   <p class="page-hint" id="pageHint">Крути колесом мыши · нажми на карточку</p>
 
+  <script src="/vendor/gsap/gsap.min.js"></script>
+  <script src="js/gob-sound.js"></script>
+  <script src="js/gob-motion.js"></script>
+  <script type="module" src="js/scene-atmosphere.mjs"></script>
   <script src="js/index.js"></script>
 </body>
 </html>
