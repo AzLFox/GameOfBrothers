@@ -552,6 +552,9 @@ function defaultCombat(stats) {
     hp: str * 4,
     ap: end,
     mp: spi,
+    // ручной счётчик бабла (проценты/попытки пробить) и его вкл/выкл состояние
+    bubbleCounter: 0,
+    bubbleActive: true,
   };
 }
 
@@ -563,6 +566,8 @@ function migrateCombat(data, stats) {
     hp: Number.isFinite(c.hp) ? c.hp : base.hp,
     ap: Number.isFinite(c.ap) ? c.ap : base.ap,
     mp: Number.isFinite(c.mp) ? c.mp : base.mp,
+    bubbleCounter: Number.isFinite(c.bubbleCounter) ? c.bubbleCounter : base.bubbleCounter,
+    bubbleActive: typeof c.bubbleActive === 'boolean' ? c.bubbleActive : base.bubbleActive,
   };
 }
 
@@ -751,6 +756,10 @@ function renderExtraCombatRows(mods) {
     if (def.combat !== 'row') return;
     const val = mods[key] || 0;
     if (!val) return;
+    if (key === 'bubble') {
+      host.appendChild(buildBubbleRow(def, val));
+      return;
+    }
     const row = document.createElement('div');
     row.className = 'combat-row combat-row--equip';
     row.innerHTML = `
@@ -759,6 +768,59 @@ function renderExtraCombatRows(mods) {
     `;
     host.appendChild(row);
   });
+}
+
+// Бабл-строка: показывает количество единиц (каждая = 10% шанс, что бабл
+// останется — бросок делается в игре), редактируемый счётчик процентов/попыток
+// и переключатель состояния (активен — один цвет, выключен — другой).
+function buildBubbleRow(def, units) {
+  const active = sheet.combat.bubbleActive !== false;
+  const row = document.createElement('div');
+  row.className = 'combat-row combat-row--equip combat-row--bubble';
+  row.id = 'combat-row-bubble';
+  row.classList.toggle('is-bubble-active', active);
+  row.innerHTML = `
+    <span class="combat-label">${def.label}</span>
+    <div class="combat-value-combo bubble-combo">
+      <span class="bubble-units" title="Единицы бабла: каждая даёт 10% шанс, что бабл останется (бросок в игре)">
+        <span class="combat-derived">${units}</span>
+        <span class="bubble-unit-hint">${units * 10}%</span>
+      </span>
+      <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3"
+             class="combat-input bubble-counter" id="combat-bubble-counter"
+             aria-label="Счётчик бабла"
+             title="Текущие проценты / попытки пробить бабл">
+      <button type="button" class="bubble-toggle" id="combat-bubble-toggle"
+              aria-pressed="${active}" title="Переключить состояние бабла">
+        ${active ? 'Активен' : 'Выключен'}
+      </button>
+    </div>
+  `;
+
+  const counter = row.querySelector('#combat-bubble-counter');
+  counter.value = sheet.combat.bubbleCounter || 0;
+  counter.addEventListener('input', () => {
+    const clean = counter.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 3);
+    if (clean !== counter.value) {
+      const atEnd = counter.selectionStart === counter.value.length;
+      counter.value = clean;
+      if (atEnd) counter.setSelectionRange(clean.length, clean.length);
+    }
+    sheet.combat.bubbleCounter = parseInt(clean, 10) || 0;
+    scheduleSave();
+  });
+
+  const toggle = row.querySelector('#combat-bubble-toggle');
+  toggle.addEventListener('click', () => {
+    const next = sheet.combat.bubbleActive === false;
+    sheet.combat.bubbleActive = next;
+    row.classList.toggle('is-bubble-active', next);
+    toggle.setAttribute('aria-pressed', String(next));
+    toggle.textContent = next ? 'Активен' : 'Выключен';
+    scheduleSave();
+  });
+
+  return row;
 }
 
 function updateCombatValues() {
@@ -1901,6 +1963,8 @@ function exportToSharedFormat() {
       apBonus: s.combat?.apBonus ?? 0,
       mp:      s.combat?.mp      ?? 0,
       mpBonus: s.combat?.mpBonus ?? 0,
+      bubbleCounter: s.combat?.bubbleCounter ?? 0,
+      bubbleActive:  s.combat?.bubbleActive  ?? true,
     },
     equipment,
     backpack,
@@ -1972,6 +2036,10 @@ function importFromSharedFormat(jsonString) {
   combat.apBonus = toInt(raw.combat?.apBonus, 0);
   combat.mp      = toInt(raw.combat?.mp,      combat.mp);
   combat.mpBonus = toInt(raw.combat?.mpBonus, 0);
+  combat.bubbleCounter = toInt(raw.combat?.bubbleCounter, combat.bubbleCounter);
+  combat.bubbleActive  = typeof raw.combat?.bubbleActive === 'boolean'
+    ? raw.combat.bubbleActive
+    : combat.bubbleActive;
 
   // ── Снаряжение ──────────────────────────────────────────────────────
   const allSlots = [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS];
