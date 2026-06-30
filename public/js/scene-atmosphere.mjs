@@ -1,5 +1,5 @@
 /**
- * Pixi.js atmosphere for the main page — particles + root glow around world tree.
+ * Pixi.js atmosphere for the main page — particles, god-rays, root glow.
  */
 import { Application, Container, Graphics, Sprite, Texture } from '/vendor/pixi/pixi.min.mjs';
 
@@ -9,11 +9,15 @@ const isMobile = () => window.innerWidth < 640;
 let targetIntensity = 0;
 let currentIntensity = 0;
 let time = 0;
+let parallaxX = 0;
+let parallaxY = 0;
 
 let app = null;
 let host = null;
+let fxLayer = null;
 let glowTeal = null;
 let glowWarm = null;
+let godRays = null;
 let particleGfx = null;
 let particles = [];
 
@@ -61,9 +65,10 @@ function toLocal(screenX, screenY) {
 
 function particleBudget(intensity) {
   if (reduced) return 0;
-  const base = isMobile() ? 58 : 90;
-  const selected = isMobile() ? 95 : 140;
-  return Math.round(lerp(base, selected, intensity));
+  const cap = isMobile() ? 60 : 120;
+  const base = isMobile() ? 38 : 72;
+  const selected = cap;
+  return Math.min(cap, Math.round(lerp(base, selected, intensity)));
 }
 
 function spawnParticle(anchor, intensity) {
@@ -136,22 +141,53 @@ function updateParticles(dt, intensity) {
   drawParticles(intensity);
 }
 
+function buildGodRays() {
+  const rays = new Container();
+  const rayCount = 6;
+
+  for (let i = 0; i < rayCount; i++) {
+    const g = new Graphics();
+    const spread = (i / (rayCount - 1) - 0.5) * 1.1;
+    g.moveTo(0, 0);
+    g.lineTo(-28 + spread * 18, -160);
+    g.lineTo(28 + spread * 18, -160);
+    g.closePath();
+    g.fill({ color: 0xffe8b0, alpha: 0.14 });
+    g.rotation = spread * 0.35;
+    g.blendMode = 'add';
+    rays.addChild(g);
+  }
+
+  rays.pivot.set(0, 0);
+  return rays;
+}
+
 function updateGlow(intensity) {
   if (!glowTeal || !glowWarm) return;
 
   const anchorScreen = getTreeAnchor();
-  const anchor = toLocal(anchorScreen.x, anchorScreen.y);
+  const anchor = toLocal(
+    anchorScreen.x + parallaxX * 0.35,
+    anchorScreen.y + parallaxY * 0.25,
+  );
   const pulse = reduced ? 0.6 : 0.55 + Math.sin(time * 1.15) * 0.14;
 
   glowTeal.position.set(anchor.x, anchor.y);
   glowWarm.position.set(anchor.x, anchor.y - 8);
 
-  const scale = lerp(1.6, 2.15, intensity) + pulse * 0.12;
+  const scale = lerp(1.6, 2.35, intensity) + pulse * 0.14;
   glowTeal.scale.set(scale);
-  glowWarm.scale.set(scale * lerp(0.85, 1.05, intensity));
+  glowWarm.scale.set(scale * lerp(0.85, 1.12, intensity));
 
-  glowTeal.alpha = lerp(0.32, 0.42, intensity) * pulse;
-  glowWarm.alpha = lerp(0, 0.28, intensity) * pulse;
+  glowTeal.alpha = lerp(0.32, 0.5, intensity) * pulse;
+  glowWarm.alpha = lerp(0, 0.38, intensity) * pulse;
+
+  if (godRays) {
+    godRays.position.set(anchor.x, anchor.y + 6);
+    godRays.alpha = lerp(0.1, 0.38, intensity) * (0.72 + Math.sin(time * 0.95) * 0.28);
+    godRays.rotation = Math.sin(time * 0.18) * 0.05;
+    godRays.scale.set(lerp(0.9, 1.18, intensity));
+  }
 }
 
 function tick(ticker) {
@@ -164,6 +200,10 @@ function tick(ticker) {
 
   if (!reduced && particles.length) {
     updateParticles(dt, currentIntensity);
+  }
+
+  if (fxLayer) {
+    fxLayer.position.set(parallaxX * 0.2, parallaxY * 0.15);
   }
 }
 
@@ -184,8 +224,8 @@ async function boot() {
   host.appendChild(app.canvas);
   app.canvas.style.display = 'block';
 
-  const layer = new Container();
-  app.stage.addChild(layer);
+  fxLayer = new Container();
+  app.stage.addChild(fxLayer);
 
   const tealTex = makeGlowTexture(
     'rgba(94, 240, 200, 0.55)',
@@ -205,8 +245,13 @@ async function boot() {
   glowTeal.blendMode = 'add';
   glowWarm.blendMode = 'add';
 
+  godRays = reduced ? null : buildGodRays();
+
   particleGfx = new Graphics();
-  layer.addChild(glowTeal, glowWarm, particleGfx);
+  const children = [glowTeal, glowWarm];
+  if (godRays) children.push(godRays);
+  children.push(particleGfx);
+  fxLayer.addChild(...children);
 
   syncParticleCount(0);
   updateGlow(0);
@@ -220,6 +265,11 @@ const api = {
   ready: false,
   setCardActive(active) {
     targetIntensity = active ? 1 : 0;
+    document.body.classList.toggle('scene-card-active', active);
+  },
+  setParallax(x, y) {
+    parallaxX = x;
+    parallaxY = y;
   },
   destroy() {
     app?.destroy(true, { children: true });

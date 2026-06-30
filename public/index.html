@@ -62,13 +62,33 @@
     <span class="btn-create-text">Новый персонаж</span>
   </a>
 
+  <button type="button" class="ambient-toggle" id="ambientToggle" aria-label="Выключить звук" aria-pressed="false">
+    <span class="ambient-toggle__icon ambient-toggle__icon--on" aria-hidden="true">♪</span>
+    <span class="ambient-toggle__icon ambient-toggle__icon--off" aria-hidden="true">♪</span>
+  </button>
+
   <div class="card-spotlight" id="cardSpotlight" aria-hidden="true"></div>
   <div class="overlay" id="overlay"></div>
 
   <div class="scene" id="scene">
     <div class="scene-atmosphere" id="scene-atmosphere" aria-hidden="true"></div>
     <div class="orbit-hub">
+      <div class="orbit-arc" aria-hidden="true">
+        <svg viewBox="0 0 800 120" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="orbitGoldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="rgba(212, 179, 106, 0)" />
+              <stop offset="18%" stop-color="rgba(212, 179, 106, 0.45)" />
+              <stop offset="50%" stop-color="rgba(255, 230, 170, 0.72)" />
+              <stop offset="82%" stop-color="rgba(212, 179, 106, 0.45)" />
+              <stop offset="100%" stop-color="rgba(212, 179, 106, 0)" />
+            </linearGradient>
+          </defs>
+          <ellipse cx="400" cy="108" rx="392" ry="74" fill="none" stroke="url(#orbitGoldGrad)" stroke-width="1.4" />
+        </svg>
+      </div>
       <div class="world-tree" id="worldTree">
+        <div class="tree-god-rays" aria-hidden="true"></div>
         <img src="characters/world-tree.png" alt="" draggable="false">
       </div>
       <div id="carousel" class="carousel"></div>
@@ -107,6 +127,7 @@
   <script src="js/gob-sound.js"></script>
   <script src="js/gob-motion.js"></script>
   <script type="module" src="js/scene-atmosphere.mjs"></script>
+  <script src="js/gob-scene-live.js"></script>
   <script src="js/index.js"></script>
 </body>
 </html>

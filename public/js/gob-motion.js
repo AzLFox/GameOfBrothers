@@ -68,6 +68,7 @@ const GobMotion = (() => {
 
   function navigateTo(url, { animate } = {}) {
     killAll();
+    window.GobSceneLive?.destroy?.();
     window.SceneAtmosphere?.destroy?.();
 
     const go = () => { window.location.href = url; };
@@ -233,10 +234,11 @@ const GobMotion = (() => {
    * Main page intro — orchestrates layered reveal.
    * Call once on DOMContentLoaded; pass onCardsReady when carousel cards exist.
    */
-  function playMainIntro({ onCardsReady } = {}) {
+  function playMainIntro({ onCardsReady, onComplete } = {}) {
     if (!hasGsap || reduced) {
       document.body.classList.add('motion-intro-done');
       onCardsReady?.();
+      onComplete?.();
       return null;
     }
 
@@ -248,7 +250,10 @@ const GobMotion = (() => {
 
     const tl = timeline({
       defaults: { ease: EASE.cinematic },
-      onComplete: () => document.body.classList.add('motion-intro-done'),
+      onComplete: () => {
+        document.body.classList.add('motion-intro-done');
+        onComplete?.();
+      },
     });
 
     const mountains = document.querySelectorAll('.mountains');
@@ -257,19 +262,21 @@ const GobMotion = (() => {
     const runes = document.querySelectorAll('.rune--veil');
     const header = document.querySelector('.page-header');
     const btnCreate = document.getElementById('btnCreate');
+    const ambientToggle = document.getElementById('ambientToggle');
     const scene = document.getElementById('scene');
     const tree = document.getElementById('worldTree');
     const hint = document.getElementById('pageHint');
 
-    gsap.set([mountains, mists, veils, runes, header, btnCreate, scene, tree, hint], { clearProps: 'animation' });
+    gsap.set([mountains, mists, veils, runes, header, btnCreate, ambientToggle, scene, tree, hint], { clearProps: 'animation' });
 
     gsap.set(mountains, { opacity: 0, y: 48 });
     gsap.set(mists, { opacity: 0 });
     gsap.set(veils, { opacity: 1, x: 0 });
     gsap.set(runes, { opacity: 0, scale: 0.6, filter: 'blur(8px)' });
-    gsap.set([header, btnCreate, scene, tree, hint], { opacity: 0 });
+    gsap.set([header, btnCreate, ambientToggle, scene, tree, hint], { opacity: 0 });
     gsap.set(header, { y: -20 });
     gsap.set(btnCreate, { y: -12, scale: 0.96 });
+    gsap.set(ambientToggle, { y: -10, scale: 0.94 });
     gsap.set(hint, { y: 16 });
 
     tl.to(mountains, { opacity: 1, y: 0, duration: 1.6 * m, stagger: 0.18 * m }, at(0.15))
@@ -292,6 +299,7 @@ const GobMotion = (() => {
       .to(tree, { opacity: 1, duration: 1.2 * m, ease: EASE.enter }, at(0.65))
       .to(header, { opacity: 1, y: 0, duration: 0.85 * m }, at(1.1))
       .to(btnCreate, { opacity: 1, y: 0, scale: 1, duration: 0.75 * m, ease: EASE.elastic }, at(1.25))
+      .to(ambientToggle, { opacity: 1, y: 0, scale: 1, duration: 0.7 * m, ease: EASE.elastic }, at(1.3))
       .to(hint, { opacity: 1, y: 0, duration: 0.65 * m }, at(1.5));
 
     tl.call(() => onCardsReady?.(), null, at(1.35));

@@ -366,6 +366,7 @@ function openCard(card) {
       onComplete: () => {
         clearWillChange();
         card.classList.add('flip-done');
+        GobSceneLive?.positionSpotlight?.(card);
         cardSpotlight.classList.add('active');
         GobMotion.to(cardSpotlight, { opacity: 1, duration: 0.55, ease: GobMotion.EASE.soft });
         cardBusy = false;
@@ -480,6 +481,9 @@ function bootstrapMainPage() {
     onCardsReady: () => {
       introDone = true;
       revealCards();
+    },
+    onComplete: () => {
+      GobSceneLive?.init?.();
     },
   });
 }

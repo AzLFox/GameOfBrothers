@@ -4,12 +4,24 @@
 const GobSound = (() => {
   let ctx = null;
   let unlocked = false;
+  let ambientStarted = false;
+  let muted = false;
+  let ambientMaster = null;
+  let chimeTimer = null;
+  let boostLevel = 0;
 
   const VOL = {
     hover: 0.045,
     open: 0.12,
     close: 0.09,
     pageFlip: 0.07,
+  };
+
+  const AMBIENT = {
+    base: 0.32,
+    boost: 0.22,
+    wind: 0.038,
+    chime: 0.018,
   };
 
   const THROTTLE = {
@@ -30,6 +42,96 @@ const GobSound = (() => {
     return ctx;
   }
 
+  function ambientVolume() {
+    if (muted) return 0;
+    return AMBIENT.base + boostLevel * AMBIENT.boost;
+  }
+
+  function applyAmbientVolume() {
+    if (!ambientMaster || !ctx) return;
+    ambientMaster.gain.setTargetAtTime(ambientVolume(), ctx.currentTime, 0.35);
+  }
+
+  function createWindLoop() {
+    const c = getCtx();
+    if (!c || !ambientMaster) return;
+
+    const seconds = 4;
+    const buffer = c.createBuffer(1, c.sampleRate * seconds, c.sampleRate);
+    const data = buffer.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < data.length; i++) {
+      const white = Math.random() * 2 - 1;
+      last = last * 0.985 + white * 0.015;
+      data[i] = last;
+    }
+
+    const src = c.createBufferSource();
+    src.buffer = buffer;
+    src.loop = true;
+
+    const filter = c.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = 280;
+    filter.Q.value = 0.45;
+
+    const gain = c.createGain();
+    gain.gain.value = AMBIENT.wind;
+
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(ambientMaster);
+    src.start();
+  }
+
+  function scheduleChime() {
+    if (!unlocked || muted) return;
+
+    const freqs = [392, 523, 659, 784, 988];
+    const f = freqs[Math.floor(Math.random() * freqs.length)];
+    const vol = AMBIENT.chime * (1 + boostLevel * 0.6);
+    tone(f, { duration: 1.4, volume: vol, type: 'sine' });
+    tone(f * 1.5, { duration: 0.9, volume: vol * 0.35, type: 'triangle', when: 0.08 });
+
+    chimeTimer = window.setTimeout(scheduleChime, 5000 + Math.random() * 7000);
+  }
+
+  function startAmbient() {
+    if (ambientStarted) return;
+    const c = getCtx();
+    if (!c) return;
+
+    ambientStarted = true;
+    ambientMaster = c.createGain();
+    ambientMaster.gain.value = ambientVolume();
+    ambientMaster.connect(c.destination);
+
+    createWindLoop();
+    chimeTimer = window.setTimeout(scheduleChime, 2400);
+  }
+
+  function setAmbientBoost(level) {
+    boostLevel = Math.max(0, Math.min(1, level));
+    applyAmbientVolume();
+  }
+
+  function toggleMute() {
+    muted = !muted;
+    if (muted && chimeTimer) {
+      clearTimeout(chimeTimer);
+      chimeTimer = null;
+    }
+    applyAmbientVolume();
+    if (!muted && unlocked && ambientStarted) {
+      chimeTimer = window.setTimeout(scheduleChime, 1800);
+    }
+    return muted;
+  }
+
+  function isMuted() {
+    return muted;
+  }
+
   function unlock() {
     const c = getCtx();
     if (!c || unlocked) return;
@@ -42,6 +144,7 @@ const GobSound = (() => {
     g.connect(c.destination);
     o.start();
     o.stop(c.currentTime + 0.01);
+    startAmbient();
   }
 
   function canPlay(key) {
@@ -96,6 +199,7 @@ const GobSound = (() => {
 
   function playOpen() {
     if (!unlocked || !canPlay('open')) return;
+    setAmbientBoost(1);
     tone(392, { duration: 0.1, volume: VOL.open * 0.5, type: 'sine' });
     tone(784, { duration: 0.14, volume: VOL.open, type: 'triangle', when: 0.04 });
     tone(988, { duration: 0.18, volume: VOL.open * 0.7, type: 'sine', when: 0.08 });
@@ -103,6 +207,7 @@ const GobSound = (() => {
 
   function playClose() {
     if (!unlocked || !canPlay('close')) return;
+    setAmbientBoost(0);
     tone(740, { duration: 0.1, volume: VOL.close, type: 'triangle' });
     tone(523, { duration: 0.14, volume: VOL.close * 0.75, type: 'sine', when: 0.05 });
   }
@@ -115,6 +220,9 @@ const GobSound = (() => {
 
   function playPageTransition(kind) {
     if (!unlocked) return;
+    setAmbientBoost(kind === 'out' ? 0.85 : 0.55);
+    window.setTimeout(() => setAmbientBoost(0), kind === 'out' ? 900 : 1400);
+
     if (kind === 'out') {
       tone(196, { duration: 0.22, volume: 0.06, type: 'sine' });
       tone(294, { duration: 0.18, volume: 0.04, type: 'triangle', when: 0.08 });
@@ -140,6 +248,10 @@ const GobSound = (() => {
 
   return {
     unlock,
+    startAmbient,
+    setAmbientBoost,
+    toggleMute,
+    isMuted,
     playHover,
     playOpen,
     playClose,

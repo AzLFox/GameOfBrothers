@@ -28,6 +28,8 @@ body {
   inset: 0;
   z-index: 0;
   overflow: hidden;
+  --para-x: 0px;
+  --para-y: 0px;
   background:
     radial-gradient(ellipse 80% 60% at 50% 100%, #0d1a28 0%, transparent 70%),
     radial-gradient(ellipse 120% 80% at 50% 0%, #142238 0%, #050810 55%, #000 100%);
@@ -239,6 +241,63 @@ body {
   transition: border-color 0.25s, box-shadow 0.25s, transform 0.25s;
 }
 
+/* ================= AMBIENT TOGGLE ================= */
+.ambient-toggle {
+  position: fixed;
+  top: 1.45rem;
+  left: 1.5rem;
+  z-index: 8;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border: 1px solid rgba(176, 141, 87, 0.38);
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(24, 18, 12, 0.88), rgba(8, 12, 18, 0.9));
+  color: var(--gold-light);
+  cursor: pointer;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  animation: btnEnter 0.9s ease 2.1s forwards;
+  transition: border-color 0.25s, box-shadow 0.25s, transform 0.2s;
+}
+
+.ambient-toggle:hover {
+  border-color: rgba(212, 179, 106, 0.55);
+  box-shadow: 0 0 18px rgba(94, 240, 200, 0.15);
+}
+
+.ambient-toggle__icon {
+  display: block;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.ambient-toggle__icon--off {
+  display: none;
+  opacity: 0.45;
+  position: relative;
+}
+
+.ambient-toggle__icon--off::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 120%;
+  height: 2px;
+  background: currentColor;
+  transform: translate(-50%, -50%) rotate(-38deg);
+  border-radius: 1px;
+}
+
+.ambient-toggle.is-muted .ambient-toggle__icon--on {
+  display: none;
+}
+
+.ambient-toggle.is-muted .ambient-toggle__icon--off {
+  display: block;
+}
+
 .btn-create-shine {
   position: absolute;
   top: 0;
@@ -309,6 +368,31 @@ body {
   z-index: 1;
 }
 
+.orbit-arc {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 784px;
+  height: 118px;
+  margin: -18px 0 0 -392px;
+  transform: translateZ(-24px) rotateX(72deg);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+  opacity: 0.58;
+  filter: drop-shadow(0 0 12px rgba(212, 179, 106, 0.22));
+}
+
+.orbit-arc svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+body.scene-card-active .orbit-arc {
+  opacity: 0.88;
+  filter: drop-shadow(0 0 22px rgba(255, 220, 150, 0.38));
+}
+
 /* ================= SCENE ATMOSPHERE (Pixi) ================= */
 .scene-atmosphere {
   position: absolute;
@@ -349,6 +433,40 @@ body {
   animation: treeEnter 1.6s cubic-bezier(0.22, 1, 0.36, 1) 0.7s forwards;
 }
 
+.tree-god-rays {
+  position: absolute;
+  left: 50%;
+  bottom: calc(-1 * var(--orbit-height) + 2vh);
+  width: min(42vw, 320px);
+  height: min(28vh, 220px);
+  margin-left: calc(min(42vw, 320px) / -2);
+  pointer-events: none;
+  background:
+    conic-gradient(
+      from 200deg at 50% 100%,
+      transparent 0deg,
+      rgba(255, 230, 170, 0.16) 18deg,
+      transparent 36deg,
+      rgba(94, 240, 200, 0.12) 52deg,
+      transparent 70deg,
+      rgba(255, 220, 150, 0.14) 88deg,
+      transparent 108deg,
+      rgba(120, 255, 210, 0.1) 128deg,
+      transparent 160deg
+    );
+  filter: blur(10px);
+  opacity: 0.45;
+  mix-blend-mode: screen;
+  animation: godRaysPulse 4.8s ease-in-out infinite alternate;
+  transform-origin: 50% 100%;
+}
+
+body.scene-card-active .tree-god-rays {
+  opacity: 0.82;
+  animation-duration: 3.2s;
+  transform: scaleY(1.08);
+}
+
 .world-tree img {
   position: absolute;
   left: 50%;
@@ -359,10 +477,13 @@ body {
   transform: translateX(-50%) translateZ(0);
   object-fit: contain;
   object-position: center bottom;
+  transform-origin: 50% 100%;
   filter:
     drop-shadow(0 0 30px rgba(80, 255, 180, 0.3))
     drop-shadow(0 0 70px rgba(60, 180, 120, 0.12));
-  animation: treeGlow 5s ease-in-out 2.2s infinite alternate;
+  animation:
+    treeGlow 5s ease-in-out 2.2s infinite alternate,
+    treeBreathe 5.5s ease-in-out 2.4s infinite alternate;
 }
 
 /* ================= CARD ================= */
@@ -627,12 +748,17 @@ body.card-open .page-hint {
   z-index: 9;
   pointer-events: none;
   opacity: 0;
+  --spot-x: 50%;
+  --spot-y: 48%;
+  --spot-rx: 220px;
+  --spot-ry: 280px;
   background:
     radial-gradient(
-      ellipse 34% 46% at 50% 48%,
-      rgba(255, 230, 170, 0.22) 0%,
-      rgba(94, 240, 200, 0.1) 32%,
-      transparent 68%
+      ellipse var(--spot-rx) var(--spot-ry) at var(--spot-x) var(--spot-y),
+      rgba(255, 230, 170, 0.28) 0%,
+      rgba(94, 240, 200, 0.12) 38%,
+      rgba(0, 0, 0, 0.08) 62%,
+      transparent 78%
     );
   transition: opacity 0.9s ease;
 }
@@ -713,6 +839,7 @@ body.motion-js .veil-side,
 body.motion-js .rune--veil,
 body.motion-js .page-header,
 body.motion-js .btn-create,
+body.motion-js .ambient-toggle,
 body.motion-js .scene,
 body.motion-js .world-tree,
 body.motion-js .page-hint {
@@ -896,6 +1023,28 @@ body.motion-js .page-hint {
   to { filter: drop-shadow(0 0 40px rgba(100, 255, 200, 0.42)) drop-shadow(0 0 90px rgba(60, 200, 140, 0.18)); }
 }
 
+@keyframes treeBreathe {
+  from { transform: translateX(-50%) translateZ(0) scale(1); }
+  to { transform: translateX(-50%) translateZ(0) scale(1.02); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .world-tree img {
+    animation: treeGlow 5s ease-in-out 2.2s infinite alternate;
+  }
+}
+
+@keyframes godRaysPulse {
+  from {
+    opacity: 0.38;
+    transform: scaleY(0.94);
+  }
+  to {
+    opacity: 0.62;
+    transform: scaleY(1.06);
+  }
+}
+
 @keyframes spotlightPulse {
   from { opacity: 0.85; }
   to { opacity: 1; }
@@ -973,5 +1122,15 @@ body.motion-js .page-hint {
   .carousel-loading-hint {
     bottom: 5.5rem;
     font-size: 0.72rem;
+  }
+
+  .orbit-arc {
+    width: min(94vw, 640px);
+    margin-left: calc(min(94vw, 640px) / -2);
+  }
+
+  .tree-god-rays {
+    width: min(56vw, 260px);
+    margin-left: calc(min(56vw, 260px) / -2);
   }
 }
