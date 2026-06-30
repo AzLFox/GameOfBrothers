@@ -1,0 +1,168 @@
+/**
+ * GoB art direction — frames, parchment, spell grade, contrast (phase 6).
+ * Load after gob-tokens.css and page-specific CSS.
+ */
+
+:root {
+  --gob-parchment-base: #ebe0c4;
+  --gob-parchment-warm: #e6d4ac;
+  --gob-text-body: #2a1a08;
+  --gob-text-muted: #3d2e1c;
+  --gob-text-on-dark: #f5e6c8;
+  --gob-frame-slice-panel: 20;
+  --gob-frame-slice-card: 16;
+  --gob-frame-width-panel: 10px;
+  --gob-frame-width-card: 8px;
+  --gob-parchment-noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+}
+
+/* WCAG-aligned text on parchment (character sheet) */
+.char-page {
+  --ink: var(--gob-text-body);
+  --ink-muted: var(--gob-text-muted);
+  color: var(--gob-text-body);
+}
+
+.gob-parchment-bg {
+  background-color: var(--gob-parchment-base);
+  background-image:
+    radial-gradient(ellipse 90% 70% at 12% 8%, rgba(255, 252, 245, 0.7), transparent 52%),
+    radial-gradient(ellipse 75% 55% at 92% 96%, rgba(130, 90, 45, 0.13), transparent 48%),
+    linear-gradient(155deg, rgba(255, 255, 255, 0.12) 0%, transparent 42%),
+    var(--gob-parchment-noise);
+  background-blend-mode: normal, normal, soft-light, multiply;
+}
+
+/* 9-slice ornate frames */
+.gob-frame-panel {
+  border: var(--gob-frame-width-panel) solid transparent;
+  border-image: url("/img/ui/frame-panel.svg") var(--gob-frame-slice-panel) fill / var(--gob-frame-width-panel) / 0 round;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.gob-frame-card {
+  border: var(--gob-frame-width-card) solid transparent;
+  border-image: url("/img/ui/frame-card.svg") var(--gob-frame-slice-card) fill / var(--gob-frame-width-card) / 0 round;
+  border-radius: 2px;
+  background: transparent;
+}
+
+/* Character panels */
+.char-layout .panel,
+.slot-editor.panel {
+  border: var(--gob-frame-width-panel) solid transparent;
+  border-image: url("/img/ui/frame-panel.svg") var(--gob-frame-slice-panel) fill / var(--gob-frame-width-panel) / 0 round;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.42);
+}
+
+.char-layout .panel::before,
+.slot-editor.panel::before {
+  inset: calc(var(--gob-frame-width-panel) + 2px);
+  border: 1px solid rgba(122, 90, 40, 0.28);
+  border-radius: 1px;
+}
+
+.char-layout .panel::after,
+.slot-editor.panel::after {
+  content: "";
+  position: absolute;
+  inset: var(--gob-frame-width-panel);
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 1px;
+  background-color: var(--gob-parchment-base);
+  background-image:
+    radial-gradient(ellipse 90% 70% at 12% 8%, rgba(255, 252, 245, 0.55), transparent 52%),
+    radial-gradient(ellipse 75% 55% at 92% 96%, rgba(130, 90, 45, 0.1), transparent 48%),
+    var(--gob-parchment-noise);
+  background-blend-mode: normal, normal, multiply;
+  opacity: 0.92;
+}
+
+.char-layout .panel > *,
+.slot-editor.panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.panel-title {
+  color: #5c3f18;
+}
+
+.field-label,
+.stat-label {
+  color: var(--gob-text-muted);
+}
+
+/* Card back content — parchment for table readability */
+.card-content {
+  color: var(--gob-text-body);
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 1px rgba(122, 90, 40, 0.35),
+    inset 0 0 18px rgba(212, 179, 106, 0.1);
+}
+
+.card.selected .card-content {
+  background-color: var(--gob-parchment-warm);
+  background-image:
+    radial-gradient(ellipse 90% 70% at 12% 8%, rgba(255, 252, 245, 0.55), transparent 52%),
+    radial-gradient(ellipse 75% 55% at 92% 96%, rgba(130, 90, 45, 0.1), transparent 48%),
+    var(--gob-parchment-noise);
+  background-blend-mode: normal, normal, multiply;
+}
+
+.card-content h3 {
+  color: #4a3010;
+  font-family: "Cinzel", serif;
+}
+
+.card-content p {
+  color: var(--gob-text-muted);
+  opacity: 1;
+}
+
+.card.selected.flip-done .card-content {
+  box-shadow:
+    inset 0 0 0 2px rgba(212, 179, 106, 0.45),
+    inset 0 0 0 3px rgba(107, 78, 42, 0.35),
+    inset 0 0 24px rgba(212, 179, 106, 0.12);
+}
+
+/* Create page shell */
+body.create-page .create-shell {
+  border: var(--gob-frame-width-panel) solid transparent;
+  border-image: url("/img/ui/frame-panel.svg") var(--gob-frame-slice-panel) fill / var(--gob-frame-width-panel) / 0 round;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  position: relative;
+  overflow: hidden;
+}
+
+body.create-page .create-shell::before {
+  content: "";
+  position: absolute;
+  inset: var(--gob-frame-width-panel);
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 1px;
+  background-color: rgba(18, 14, 10, 0.88);
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(94, 240, 200, 0.06), transparent 55%),
+    var(--gob-parchment-noise);
+  background-blend-mode: normal, multiply;
+  opacity: 1;
+}
+
+body.create-page .create-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+body.create-page .create-lead {
+  color: #c8b89a;
+}
