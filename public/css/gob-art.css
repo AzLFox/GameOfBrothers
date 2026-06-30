@@ -1,28 +1,102 @@
 /**
- * GoB art direction — frames, parchment, spell grade, contrast (phase 6).
+ * GoB art direction — phase 7: unified cinematic look across all pages.
  * Load after gob-tokens.css and page-specific CSS.
  */
 
 :root {
-  --gob-parchment-base: #ebe0c4;
-  --gob-parchment-warm: #e6d4ac;
-  --gob-text-body: #2a1a08;
-  --gob-text-muted: #3d2e1c;
-  --gob-text-on-dark: #f5e6c8;
   --gob-frame-slice-panel: 20;
   --gob-frame-slice-card: 16;
   --gob-frame-width-panel: 10px;
   --gob-frame-width-card: 8px;
   --gob-parchment-noise: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  --gob-grain-tile: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  --gob-ornament-corner: url("/img/ui/ornament-corners.svg");
 }
 
-/* WCAG-aligned text on parchment (character sheet) */
-.char-page {
-  --ink: var(--gob-text-body);
-  --ink-muted: var(--gob-text-muted);
-  color: var(--gob-text-body);
+/* ================= TYPOGRAPHY ================= */
+.gob-display,
+.page-title,
+.page-eyebrow,
+.char-header-title,
+.panel-title,
+.create-shell h1,
+.spellbook-label,
+.spellbook-tabs button,
+.spell-editor-header h3 {
+  font-family: var(--gob-font-display);
+  letter-spacing: var(--gob-tracking-display);
+  line-height: var(--gob-lh-display);
 }
 
+.gob-body,
+.page-hint,
+.card-content p,
+.create-lead,
+.create-form label,
+.field-label,
+.field-input,
+.stat-label,
+.combat-tooltip-line,
+.spell-editor .field-input {
+  font-family: var(--gob-font-body);
+  letter-spacing: var(--gob-tracking-body);
+  line-height: var(--gob-lh-body);
+}
+
+.gob-counter,
+.spell-page-indicator,
+.spellbook-page-num,
+.stat-value,
+.combat-value {
+  font-family: var(--gob-font-counter);
+  letter-spacing: var(--gob-tracking-counter);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ================= CINEMATIC PASS ================= */
+.gob-cinematic {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none;
+}
+
+.gob-cinematic__vignette {
+  position: absolute;
+  inset: 0;
+  opacity: var(--gob-cinematic-vignette);
+  background:
+    radial-gradient(ellipse 88% 78% at 50% 48%, transparent 38%, var(--gob-grade-vignette) 100%),
+    radial-gradient(ellipse 120% 40% at 50% 100%, var(--gob-grade-shadow-soft) 0%, transparent 55%);
+}
+
+.gob-cinematic__grain {
+  position: absolute;
+  inset: -50%;
+  opacity: var(--gob-cinematic-grain);
+  background-image: var(--gob-grain-tile);
+  background-size: 180px 180px;
+  mix-blend-mode: overlay;
+  animation: gobGrainShift 9s steps(6) infinite;
+}
+
+@keyframes gobGrainShift {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-2%, -1%); }
+  40% { transform: translate(1%, 2%); }
+  60% { transform: translate(-1%, 1%); }
+  80% { transform: translate(2%, -2%); }
+  100% { transform: translate(0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gob-cinematic__grain {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* ================= PARCHMENT & FRAMES ================= */
 .gob-parchment-bg {
   background-color: var(--gob-parchment-base);
   background-image:
@@ -33,7 +107,6 @@
   background-blend-mode: normal, normal, soft-light, multiply;
 }
 
-/* 9-slice ornate frames */
 .gob-frame-panel {
   border: var(--gob-frame-width-panel) solid transparent;
   border-image: url("/img/ui/frame-panel.svg") var(--gob-frame-slice-panel) fill / var(--gob-frame-width-panel) / 0 round;
@@ -48,25 +121,64 @@
   background: transparent;
 }
 
-/* Character panels */
+/* WCAG-aligned text on parchment (character sheet) */
+.char-page {
+  --ink: var(--gob-text-body);
+  --ink-muted: var(--gob-text-muted);
+  color: var(--gob-text-body);
+}
+
+/* ================= CHARACTER PANELS ================= */
 .char-layout .panel,
-.slot-editor.panel {
+.char-layout .portrait-panel {
+  position: relative;
   border: var(--gob-frame-width-panel) solid transparent;
   border-image: url("/img/ui/frame-panel.svg") var(--gob-frame-slice-panel) fill / var(--gob-frame-width-panel) / 0 round;
   border-radius: 2px;
   background: transparent;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.42);
+  box-shadow: var(--gob-shadow-panel);
+}
+
+/* Framed overlays — keep their own positioning (fixed / absolute center) */
+.slot-editor.panel,
+.spell-editor.panel {
+  border: var(--gob-frame-width-panel) solid transparent;
+  border-image: url("/img/ui/frame-panel.svg") var(--gob-frame-slice-panel) fill / var(--gob-frame-width-panel) / 0 round;
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: var(--gob-shadow-panel);
+}
+
+.slot-editor.panel {
+  position: fixed;
+}
+
+.spell-editor.panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
 }
 
 .char-layout .panel::before,
-.slot-editor.panel::before {
+.char-layout .portrait-panel::before,
+.slot-editor.panel::before,
+.spell-editor.panel::before {
+  content: "";
+  position: absolute;
   inset: calc(var(--gob-frame-width-panel) + 2px);
   border: 1px solid rgba(122, 90, 40, 0.28);
   border-radius: 1px;
+  pointer-events: none;
+  z-index: 2;
+  background-image: var(--gob-ornament-corner);
+  background-position: center;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 }
 
 .char-layout .panel::after,
-.slot-editor.panel::after {
+.slot-editor.panel::after,
+.spell-editor.panel::after {
   content: "";
   position: absolute;
   inset: var(--gob-frame-width-panel);
@@ -82,8 +194,28 @@
   opacity: 0.92;
 }
 
+/* Portrait — wood interior, same gold frame */
+.char-layout .portrait-panel::after {
+  content: "";
+  position: absolute;
+  inset: var(--gob-frame-width-panel);
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 1px;
+  background-color: #2d1f14;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 0%, var(--gob-grade-gold-glow), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 90% 100%, rgba(0, 0, 0, 0.35), transparent 50%),
+    linear-gradient(165deg, #3d2a1a 0%, #2d1f14 45%, #1e140c 100%),
+    var(--gob-parchment-noise);
+  background-blend-mode: normal, normal, normal, multiply;
+  opacity: 1;
+}
+
 .char-layout .panel > *,
-.slot-editor.panel > * {
+.char-layout .portrait-panel > *,
+.slot-editor.panel > *,
+.spell-editor.panel > * {
   position: relative;
   z-index: 1;
 }
@@ -97,13 +229,30 @@
   color: var(--gob-text-muted);
 }
 
-/* Card back content — parchment for table readability */
+/* ================= CHARACTER CARDS (index) ================= */
+.card-face {
+  border: 2px solid var(--gob-gold-dark);
+  box-shadow:
+    0 0 25px var(--gob-grade-shadow-soft),
+    var(--gob-glow-gold-ring),
+    inset 0 0 16px rgba(212, 179, 106, 0.1);
+}
+
+.card:not(.selected).is-hover .card-front {
+  border-color: var(--gob-gold-light);
+  box-shadow:
+    var(--gob-glow-teal),
+    var(--gob-shadow-gold),
+    0 0 25px var(--gob-grade-shadow-soft),
+    inset 0 0 20px rgba(212, 179, 106, 0.14);
+}
+
 .card-content {
   color: var(--gob-text-body);
   background: transparent;
   box-shadow:
-    inset 0 0 0 1px rgba(122, 90, 40, 0.35),
-    inset 0 0 18px rgba(212, 179, 106, 0.1);
+    var(--gob-glow-gold-ring),
+    var(--gob-glow-gold-inner);
 }
 
 .card.selected .card-content {
@@ -117,7 +266,8 @@
 
 .card-content h3 {
   color: #4a3010;
-  font-family: "Cinzel", serif;
+  font-family: var(--gob-font-display);
+  letter-spacing: var(--gob-tracking-label);
 }
 
 .card-content p {
@@ -126,19 +276,25 @@
 }
 
 .card.selected.flip-done .card-content {
+  border: 1px solid rgba(212, 179, 106, 0.4);
   box-shadow:
     inset 0 0 0 2px rgba(212, 179, 106, 0.45),
     inset 0 0 0 3px rgba(107, 78, 42, 0.35),
-    inset 0 0 24px rgba(212, 179, 106, 0.12);
+    var(--gob-glow-gold-inner);
 }
 
-/* Create page shell */
+.card.selected.flip-done::before {
+  border-color: rgba(94, 240, 200, 0.35);
+  box-shadow: var(--gob-glow-teal);
+}
+
+/* ================= CREATE PAGE ================= */
 body.create-page .create-shell {
   border: var(--gob-frame-width-panel) solid transparent;
   border-image: url("/img/ui/frame-panel.svg") var(--gob-frame-slice-panel) fill / var(--gob-frame-width-panel) / 0 round;
   border-radius: 2px;
   background: transparent;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 24px 80px var(--gob-grade-shadow);
   position: relative;
   overflow: hidden;
 }
@@ -150,12 +306,17 @@ body.create-page .create-shell::before {
   z-index: 0;
   pointer-events: none;
   border-radius: 1px;
+  border: 1px solid rgba(122, 90, 40, 0.22);
   background-color: rgba(18, 14, 10, 0.88);
   background-image:
-    radial-gradient(ellipse 80% 60% at 20% 0%, rgba(94, 240, 200, 0.06), transparent 55%),
-    var(--gob-parchment-noise);
-  background-blend-mode: normal, multiply;
-  opacity: 1;
+    radial-gradient(ellipse 80% 60% at 20% 0%, var(--gob-grade-teal-mist), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, var(--gob-grade-gold-glow), transparent 50%),
+    var(--gob-parchment-noise),
+    var(--gob-ornament-corner);
+  background-position: center, center, center, center;
+  background-size: auto, auto, auto, 100% 100%;
+  background-repeat: no-repeat;
+  background-blend-mode: normal, normal, multiply, normal;
 }
 
 body.create-page .create-shell > * {
@@ -165,4 +326,300 @@ body.create-page .create-shell > * {
 
 body.create-page .create-lead {
   color: #c8b89a;
+}
+
+body.create-page .create-shell h1 {
+  color: var(--gob-gold-light);
+  text-shadow: 0 0 24px var(--gob-grade-gold-glow);
+}
+
+/* ================= SPELLBOOK ================= */
+.spellbook-frame {
+  background:
+    repeating-linear-gradient(
+      92deg,
+      rgba(0, 0, 0, 0.03) 0px,
+      rgba(0, 0, 0, 0.03) 1px,
+      transparent 1px,
+      transparent 4px
+    ),
+    linear-gradient(
+      155deg,
+      var(--gob-teal-shadow) 0%,
+      #0e2a26 28%,
+      #143830 52%,
+      #0a201c 100%
+    );
+  box-shadow:
+    0 0 0 2px #0a1814,
+    0 0 0 4px rgba(122, 90, 40, 0.45),
+    var(--gob-shadow-teal),
+    0 40px 100px var(--gob-grade-shadow);
+}
+
+.spellbook-gold-shell {
+  background:
+    linear-gradient(180deg, rgba(255, 230, 160, 0.35) 0%, transparent 8%),
+    linear-gradient(0deg, rgba(0, 0, 0, 0.25) 0%, transparent 12%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.04) 0px,
+      rgba(255, 255, 255, 0.04) 1px,
+      transparent 1px,
+      transparent 6px
+    ),
+    linear-gradient(
+      145deg,
+      var(--gob-gold-light) 0%,
+      #b89850 12%,
+      var(--gob-gold) 28%,
+      var(--gob-gold-dark) 45%,
+      #c9a24d 62%,
+      var(--gob-gold-dark) 78%,
+      var(--gob-gold) 92%,
+      #a08030 100%
+    );
+  box-shadow:
+    inset 0 2px 0 rgba(255, 240, 200, 0.5),
+    inset 0 -4px 12px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 230, 180, 0.2),
+    var(--gob-glow-gold-inner);
+}
+
+.spellbook-ornament {
+  background-image: url("/img/ui/ornament-corner.svg");
+  opacity: 0.88;
+}
+
+.spellbook-spine,
+.spellbook-spine-overlay {
+  background:
+    linear-gradient(90deg,
+      #1a120a 0%,
+      #2d1f14 15%,
+      var(--gob-gold-dark) 35%,
+      #5c4020 50%,
+      var(--gob-gold-dark) 65%,
+      #2d1f14 85%,
+      #1a120a 100%);
+  box-shadow:
+    inset 5px 0 14px rgba(0, 0, 0, 0.75),
+    inset -5px 0 14px rgba(0, 0, 0, 0.75),
+    0 0 8px rgba(212, 179, 106, 0.12);
+}
+
+.spellbook-spine::before,
+.spellbook-spine-overlay::after {
+  content: "";
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(240, 217, 138, 0.4) 20%,
+    rgba(94, 240, 200, 0.2) 50%,
+    rgba(240, 217, 138, 0.4) 80%,
+    transparent
+  );
+}
+
+.spellbook-spine-overlay::after {
+  top: 8%;
+  bottom: 8%;
+}
+
+.spellbook-pf-page,
+.spellbook-page {
+  background-color: var(--gob-parchment-base);
+}
+
+.spellbook-page-inner::before {
+  opacity: 0.85;
+}
+
+/* ================= TOOLTIPS & MODALS ================= */
+.combat-tooltip,
+.spell-tooltip {
+  border: var(--gob-frame-width-card) solid transparent;
+  border-image: url("/img/ui/frame-panel.svg") 16 fill / var(--gob-frame-width-card) / 0 round;
+  border-radius: 2px;
+  background-color: var(--gob-parchment-warm);
+  color: var(--gob-text-body);
+  box-shadow: var(--gob-shadow-panel);
+}
+
+.combat-tooltip::after {
+  background: var(--gob-parchment-warm);
+  border-right-color: var(--gob-gold-dark);
+  border-bottom-color: var(--gob-gold-dark);
+}
+
+.combat-tooltip-title {
+  font-family: var(--gob-font-display);
+  letter-spacing: var(--gob-tracking-label);
+  color: #5c3f18;
+}
+
+/* ================= INDEX HEADER GRADE ================= */
+.page-title {
+  text-shadow:
+    0 0 30px var(--gob-grade-gold-glow),
+    0 2px 12px var(--gob-grade-shadow-soft);
+}
+
+.page-eyebrow {
+  color: rgba(154, 212, 192, 0.75);
+}
+
+.page-hint {
+  color: rgba(200, 184, 154, 0.5);
+}
+
+.char-header {
+  border-bottom-color: var(--gob-gold-dark);
+  box-shadow: 0 1px 0 rgba(94, 240, 200, 0.08);
+}
+
+.char-back {
+  color: var(--gob-gold-light);
+}
+
+.char-header-title {
+  color: var(--gob-gold-light);
+  text-shadow: 0 2px 12px var(--gob-grade-shadow-soft);
+}
+
+/* ================= PAGE VEIL TRANSITION ================= */
+html.page-enter-pending body {
+  overflow: hidden;
+}
+
+html.page-enter-pending body > :not(.gob-page-wipe):not(.gob-cinematic) {
+  animation: none !important;
+  transition: none !important;
+}
+
+html.page-enter-pending .mountains,
+html.page-enter-pending .mist,
+html.page-enter-pending .veil-side,
+html.page-enter-pending .rune--veil,
+html.page-enter-pending .page-header,
+html.page-enter-pending .btn-create,
+html.page-enter-pending .scene,
+html.page-enter-pending .world-tree,
+html.page-enter-pending .page-hint,
+html.page-enter-pending .create-shell,
+html.page-enter-pending .char-page {
+  visibility: hidden;
+}
+
+.gob-page-wipe {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: none;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.gob-page-wipe.is-active {
+  pointer-events: auto;
+}
+
+.gob-page-wipe__void,
+.gob-page-wipe__mist,
+.gob-page-wipe__crack,
+.gob-page-wipe__runes,
+.gob-page-wipe__sigil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gob-page-wipe__void {
+  background:
+    radial-gradient(ellipse 45% 40% at 50% 48%, rgba(30, 18, 10, 0.5) 0%, transparent 58%),
+    radial-gradient(ellipse 130% 110% at 50% 50%, #0a0604 0%, #030508 65%, #000 100%);
+  clip-path: circle(0% at 50% 50%);
+}
+
+.gob-page-wipe__mist {
+  background:
+    radial-gradient(ellipse 100% 80% at 50% 100%, rgba(94, 240, 200, 0.07) 0%, transparent 58%),
+    radial-gradient(ellipse 70% 45% at 50% 0%, rgba(212, 179, 106, 0.08) 0%, transparent 52%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+  background-size: auto, auto, 200px 200px;
+  mix-blend-mode: soft-light;
+  opacity: 0;
+}
+
+.gob-page-wipe__crack {
+  inset: -10%;
+  background:
+    conic-gradient(
+      from 0deg at 50% 50%,
+      transparent 0deg,
+      rgba(240, 217, 138, 0.55) 12deg,
+      transparent 24deg,
+      transparent 52deg,
+      rgba(212, 179, 106, 0.45) 64deg,
+      transparent 78deg,
+      transparent 118deg,
+      rgba(94, 240, 200, 0.2) 128deg,
+      transparent 142deg,
+      transparent 188deg,
+      rgba(240, 217, 138, 0.4) 198deg,
+      transparent 214deg,
+      transparent 268deg,
+      rgba(212, 179, 106, 0.35) 278deg,
+      transparent 292deg
+    );
+  mask-image: radial-gradient(ellipse 42% 38% at 50% 50%, #000 0%, transparent 72%);
+  opacity: 0;
+  filter: blur(0.5px);
+}
+
+.gob-page-wipe__runes {
+  inset: 0;
+}
+
+.gob-page-wipe__rune {
+  position: absolute;
+  left: var(--rx, 50%);
+  top: var(--ry, 50%);
+  transform: translate(-50%, -50%);
+  font-family: var(--gob-font-display, "Cinzel", serif);
+  font-size: clamp(1.1rem, 2.8vw, 1.65rem);
+  color: rgba(240, 217, 138, 0.85);
+  text-shadow:
+    0 0 18px rgba(212, 179, 106, 0.55),
+    0 0 36px rgba(94, 240, 200, 0.15);
+  opacity: 0;
+  will-change: transform, opacity, filter;
+}
+
+.gob-page-wipe__sigil {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--gob-font-display, "Cinzel", serif);
+  font-size: clamp(2.8rem, 9vw, 4.5rem);
+  color: var(--gob-gold-light, #f0d98a);
+  text-shadow:
+    0 0 30px rgba(212, 179, 106, 0.7),
+    0 0 60px rgba(94, 240, 200, 0.2),
+    0 0 100px rgba(212, 179, 106, 0.15);
+  opacity: 0;
+  will-change: transform, opacity, filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gob-page-wipe__rune,
+  .gob-page-wipe__sigil {
+    display: none;
+  }
 }

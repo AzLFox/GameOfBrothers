@@ -113,6 +113,19 @@ const GobSound = (() => {
     tone(330, { duration: 0.06, volume: VOL.pageFlip * 0.5, type: 'sine' });
   }
 
+  function playPageTransition(kind) {
+    if (!unlocked) return;
+    if (kind === 'out') {
+      tone(196, { duration: 0.22, volume: 0.06, type: 'sine' });
+      tone(294, { duration: 0.18, volume: 0.04, type: 'triangle', when: 0.08 });
+      noiseBurst({ duration: 0.14, volume: 0.025 });
+    } else {
+      tone(392, { duration: 0.12, volume: 0.05, type: 'sine' });
+      tone(587, { duration: 0.2, volume: 0.07, type: 'triangle', when: 0.1 });
+      tone(880, { duration: 0.16, volume: 0.035, type: 'sine', when: 0.18 });
+    }
+  }
+
   function bindUnlock() {
     const once = () => {
       unlock();
@@ -131,5 +144,6 @@ const GobSound = (() => {
     playOpen,
     playClose,
     playPageFlip,
+    playPageTransition,
   };
 })();

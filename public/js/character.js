@@ -1143,7 +1143,13 @@ function init(char) {
 
   if (typeof CharMotion !== 'undefined') {
     CharMotion.bindBackLink();
-    CharMotion.pageEnter();
+    const runEnter = () => CharMotion.pageEnter();
+    if (typeof GobMotion !== 'undefined' && GobMotion.initPageTransitionEnter) {
+      GobMotion.initPageTransitionEnter({ onComplete: runEnter });
+    } else {
+      document.documentElement.classList.remove('page-enter-pending');
+      runEnter();
+    }
   } else {
     document.body.classList.add('char-motion-ready');
   }

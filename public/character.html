@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="css/gob-tokens.css">
   <link rel="stylesheet" href="css/character.css">
   <link rel="stylesheet" href="css/gob-art.css">
+  <script src="js/gob-transition-guard.js"></script>
 </head>
 <body>
   <div class="char-page">
@@ -125,7 +126,7 @@
           </div>
         </div>
 
-        <aside class="spell-editor" id="spell-editor" hidden>
+        <aside class="spell-editor panel" id="spell-editor" hidden>
           <header class="spell-editor-header">
             <h3 id="spell-editor-title">Новое заклинание</h3>
             <button type="button" class="spell-editor-close" id="spell-editor-close" aria-label="Закрыть редактор">×</button>
@@ -164,5 +165,27 @@
   <script type="module" src="js/spellbook-bootstrap.mjs"></script>
   <script src="js/character-motion.js" defer></script>
   <script src="js/character.js" defer></script>
+
+  <div id="gob-page-wipe" class="gob-page-wipe" aria-hidden="true" hidden>
+    <div class="gob-page-wipe__void"></div>
+    <div class="gob-page-wipe__mist"></div>
+    <div class="gob-page-wipe__crack" aria-hidden="true"></div>
+    <div class="gob-page-wipe__runes" aria-hidden="true">
+      <span class="gob-page-wipe__rune" style="--rx:10%;--ry:14%">ᚠ</span>
+      <span class="gob-page-wipe__rune" style="--rx:88%;--ry:12%">ᚢ</span>
+      <span class="gob-page-wipe__rune" style="--rx:6%;--ry:48%">ᚦ</span>
+      <span class="gob-page-wipe__rune" style="--rx:92%;--ry:52%">ᚨ</span>
+      <span class="gob-page-wipe__rune" style="--rx:14%;--ry:84%">ᚱ</span>
+      <span class="gob-page-wipe__rune" style="--rx:86%;--ry:82%">ᚲ</span>
+      <span class="gob-page-wipe__rune" style="--rx:50%;--ry:6%">ᛟ</span>
+      <span class="gob-page-wipe__rune" style="--rx:48%;--ry:90%">ᛞ</span>
+    </div>
+    <div class="gob-page-wipe__sigil" aria-hidden="true">ᛟ</div>
+  </div>
+
+  <div class="gob-cinematic" aria-hidden="true">
+    <div class="gob-cinematic__vignette"></div>
+    <div class="gob-cinematic__grain"></div>
+  </div>
 </body>
 </html>

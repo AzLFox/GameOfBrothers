@@ -17,6 +17,11 @@ body:not(.motion-js) .create-shell {
   animation: fadeUp 0.9s ease both;
 }
 
+html.page-enter-pending .create-shell {
+  animation: none !important;
+  visibility: hidden;
+}
+
 .create-back {
   color: #9ad4c0;
   text-decoration: none;

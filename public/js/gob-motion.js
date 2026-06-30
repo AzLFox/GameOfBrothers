@@ -77,12 +77,14 @@ const GobMotion = (() => {
       return null;
     }
 
+    const finish = () => pageWipeOut({ onComplete: go });
+
     if (typeof animate === 'function') {
-      animate(go);
+      animate(finish);
       return null;
     }
 
-    return pageOut({ onComplete: go });
+    return finish();
   }
 
   function timeline(vars = {}) {
@@ -310,6 +312,197 @@ const GobMotion = (() => {
     });
   }
 
+  const TRANSITION_KEY = 'gob-page-transition';
+
+  function releasePageEnterPending() {
+    document.documentElement.classList.remove('page-enter-pending');
+  }
+
+  function ensureWipeEl() {
+    const WIPE_HTML = `
+      <div class="gob-page-wipe__void"></div>
+      <div class="gob-page-wipe__mist"></div>
+      <div class="gob-page-wipe__crack" aria-hidden="true"></div>
+      <div class="gob-page-wipe__runes" aria-hidden="true">
+        <span class="gob-page-wipe__rune" style="--rx:10%;--ry:14%">ᚠ</span>
+        <span class="gob-page-wipe__rune" style="--rx:88%;--ry:12%">ᚢ</span>
+        <span class="gob-page-wipe__rune" style="--rx:6%;--ry:48%">ᚦ</span>
+        <span class="gob-page-wipe__rune" style="--rx:92%;--ry:52%">ᚨ</span>
+        <span class="gob-page-wipe__rune" style="--rx:14%;--ry:84%">ᚱ</span>
+        <span class="gob-page-wipe__rune" style="--rx:86%;--ry:82%">ᚲ</span>
+        <span class="gob-page-wipe__rune" style="--rx:50%;--ry:6%">ᛟ</span>
+        <span class="gob-page-wipe__rune" style="--rx:48%;--ry:90%">ᛞ</span>
+      </div>
+      <div class="gob-page-wipe__sigil" aria-hidden="true">ᛟ</div>
+    `;
+
+    let el = document.getElementById('gob-page-wipe');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'gob-page-wipe';
+      el.className = 'gob-page-wipe';
+      el.setAttribute('aria-hidden', 'true');
+      el.innerHTML = WIPE_HTML;
+      document.body.appendChild(el);
+    } else if (!el.querySelector('.gob-page-wipe__sigil')) {
+      el.innerHTML = WIPE_HTML;
+    }
+    return el;
+  }
+
+  function getWipeLayers(wipe) {
+    return {
+      voidLayer: wipe.querySelector('.gob-page-wipe__void'),
+      mist: wipe.querySelector('.gob-page-wipe__mist'),
+      crack: wipe.querySelector('.gob-page-wipe__crack'),
+      runes: wipe.querySelectorAll('.gob-page-wipe__rune'),
+      sigil: wipe.querySelector('.gob-page-wipe__sigil'),
+    };
+  }
+
+  function resetWipeOut(layers) {
+    const { voidLayer, mist, crack, runes, sigil } = layers;
+    gsap.set(voidLayer, { clipPath: 'circle(0% at 50% 50%)', opacity: 1 });
+    gsap.set(mist, { opacity: 0, y: '6%' });
+    gsap.set(crack, { opacity: 0, scale: 0.9, rotation: 0 });
+    gsap.set(sigil, { opacity: 0, scale: 0.45, rotation: -50, filter: 'blur(6px)' });
+    gsap.set(runes, { opacity: 0, scale: 1.35, filter: 'blur(5px)' });
+  }
+
+  function resetWipeIn(layers) {
+    const { voidLayer, mist, crack, runes, sigil } = layers;
+    gsap.set(voidLayer, { clipPath: 'circle(150% at 50% 50%)', opacity: 1 });
+    gsap.set(mist, { opacity: 0.28, y: 0 });
+    gsap.set([crack, sigil, ...runes], { opacity: 0, scale: 1 });
+  }
+
+  function playTransitionSound(kind) {
+    if (typeof GobSound === 'undefined' || !GobSound.playPageTransition) return;
+    GobSound.playPageTransition(kind);
+  }
+
+  function showWipe() {
+    const wipe = ensureWipeEl();
+    wipe.classList.add('is-active');
+    wipe.hidden = false;
+    gsap.set(wipe, { display: 'block' });
+    return wipe;
+  }
+
+  function hideWipe(wipe) {
+    wipe.classList.remove('is-active');
+    wipe.hidden = true;
+    gsap.set(wipe, { display: 'none' });
+  }
+
+  /** Dark-fantasy portal — runes seal, iris closes / opens. */
+  function pageWipeOut({ onComplete } = {}) {
+    if (!hasGsap || reduced) {
+      onComplete?.();
+      return null;
+    }
+
+    sessionStorage.setItem(TRANSITION_KEY, '1');
+    const wipe = showWipe();
+    const layers = getWipeLayers(wipe);
+    const { voidLayer, mist, crack, runes, sigil } = layers;
+    resetWipeOut(layers);
+    playTransitionSound('out');
+
+    return timeline({ onComplete })
+      .to(runes, {
+        opacity: 0.75,
+        scale: 1,
+        filter: 'blur(0px)',
+        duration: 0.32,
+        stagger: 0.035,
+        ease: EASE.enter,
+      }, 0)
+      .to(sigil, {
+        opacity: 1,
+        scale: 1,
+        rotation: 0,
+        filter: 'blur(0px)',
+        duration: 0.38,
+        ease: EASE.elastic,
+      }, 0.06)
+      .to(crack, {
+        opacity: 0.85,
+        scale: 1.08,
+        rotation: 8,
+        duration: 0.28,
+        ease: EASE.snap,
+      }, 0.14)
+      .to(voidLayer, {
+        clipPath: 'circle(150% at 50% 50%)',
+        duration: 0.72,
+        ease: 'power3.in',
+      }, 0.18)
+      .to(mist, { opacity: 0.6, y: 0, duration: 0.45, ease: EASE.soft }, 0.28)
+      .to(runes, {
+        opacity: 0,
+        scale: 0.15,
+        duration: 0.4,
+        stagger: 0.025,
+        ease: 'power2.in',
+      }, 0.32)
+      .to(sigil, {
+        opacity: 0,
+        scale: 0.05,
+        rotation: 120,
+        filter: 'blur(8px)',
+        duration: 0.35,
+        ease: 'power2.in',
+      }, 0.38)
+      .to(crack, { opacity: 0, scale: 1.2, duration: 0.3, ease: EASE.exit }, 0.42);
+  }
+
+  /** Enter: dissolve the seal left by pageWipeOut (no second portal). */
+  function pageWipeIn({ onComplete } = {}) {
+    if (!hasGsap || reduced) {
+      releasePageEnterPending();
+      onComplete?.();
+      return null;
+    }
+
+    const wipe = showWipe();
+    const layers = getWipeLayers(wipe);
+    const { voidLayer, mist, crack, runes, sigil } = layers;
+    resetWipeIn(layers);
+
+    return timeline({
+      onComplete: () => {
+        hideWipe(wipe);
+        gsap.set([voidLayer, mist, crack, sigil, ...runes], {
+          clearProps: 'opacity,transform,filter,clipPath,rotation,scale',
+        });
+        releasePageEnterPending();
+        onComplete?.();
+      },
+    })
+      .to(mist, { opacity: 0, duration: 0.38, ease: EASE.cinematic }, 0.04)
+      .to(voidLayer, { opacity: 0, duration: 0.48, ease: EASE.cinematic }, 0);
+  }
+
+  function initPageTransitionEnter({ onComplete } = {}) {
+    const hadTransition = !!sessionStorage.getItem(TRANSITION_KEY);
+    if (hadTransition) sessionStorage.removeItem(TRANSITION_KEY);
+
+    if (!hadTransition) {
+      releasePageEnterPending();
+      onComplete?.();
+      return null;
+    }
+
+    if (reduced) {
+      releasePageEnterPending();
+      onComplete?.();
+      return null;
+    }
+
+    return pageWipeIn({ onComplete });
+  }
+
   return {
     EASE,
     DUR,
@@ -334,6 +527,9 @@ const GobMotion = (() => {
     playMainIntro,
     pageEnter,
     pageOut,
+    pageWipeOut,
+    pageWipeIn,
+    initPageTransitionEnter,
     navigateTo,
   };
 })();

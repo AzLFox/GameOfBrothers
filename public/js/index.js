@@ -43,13 +43,18 @@ function applyCarouselRotation() {
 }
 
 function updateCardSides() {
+  const frontArc = step * 0.52;
+
   cards.forEach((card, i) => {
     if (card.classList.contains('flipped') || card.classList.contains('selected')) return;
 
     let angle = rotation + i * step;
     angle = ((angle % 360) + 360) % 360;
-    const isRear = angle > 90 && angle < 270;
-    card.classList.toggle('rear', isRear);
+
+    let distFromFront = angle;
+    if (distFromFront > 180) distFromFront = 360 - distFromFront;
+
+    card.classList.toggle('rear', distFromFront > frontArc);
   });
 }
 
@@ -152,54 +157,27 @@ function navigateToCharacter(href, card) {
   cardBusy = true;
 
   GobMotion.navigateTo(href, {
-    animate(go) {
-      if (GobMotion.reduced() || typeof gsap === 'undefined') {
-        go();
-        return;
-      }
-
-      const index = Number(card.dataset.index);
-      const others = cards.filter((c) => c !== card);
-      const dim = document.createElement('div');
-      dim.className = 'page-transition-dim';
-      document.body.appendChild(dim);
-
-      GobMotion.killOf([card, scene, overlay, dim, document.body, ...others]);
-
-      const motion = { z: SELECTED_RADIUS, s: 1 };
-      const tl = GobMotion.timeline({ onComplete: go });
-
-      tl.to(overlay, {
-        opacity: 1,
-        duration: 0.4,
-        ease: GobMotion.EASE.cinematic,
-        onStart: () => overlay.classList.add('active'),
-      }, 0)
-        .to(dim, { opacity: 1, duration: 0.55, ease: GobMotion.EASE.cinematic }, 0.08)
-        .to(motion, {
-          z: SELECTED_RADIUS + 110,
-          s: 1.08,
-          duration: 0.8,
-          ease: GobMotion.EASE.snap,
-          onUpdate: () => {
-            applyCardTransform(card, index, motion.z, 0, motion.s);
-          },
-        }, 0.12)
-        .to(others, { opacity: 0, duration: 0.45, ease: GobMotion.EASE.exit }, 0.18)
-        .to(scene, { opacity: 0, scale: 0.97, duration: 0.55, ease: GobMotion.EASE.exit }, 0.22)
-        .to(document.body, { opacity: 0, duration: 0.4, ease: GobMotion.EASE.exit }, 0.42);
+    animate(finish) {
+      finish();
     },
   });
+}
+
+function showLoadingHint(visible) {
+  const hint = document.getElementById('carousel-loading-hint');
+  if (hint) hint.hidden = !visible;
 }
 
 function hideCarouselSkeleton() {
   carousel.querySelectorAll('.card--skeleton').forEach((el) => el.remove());
   carousel.classList.remove('is-loading');
+  showLoadingHint(false);
 }
 
 function showCarouselSkeleton(count = SKELETON_COUNT) {
   hideCarouselSkeleton();
   carousel.classList.add('is-loading');
+  showLoadingHint(true);
   const angleStep = 360 / count;
 
   for (let i = 0; i < count; i++) {
@@ -208,7 +186,12 @@ function showCarouselSkeleton(count = SKELETON_COUNT) {
     sk.setAttribute('aria-hidden', 'true');
     sk.style.setProperty('--card-angle', `${i * angleStep}deg`);
     sk.style.setProperty('--card-z', `${RING_RADIUS}px`);
-    sk.innerHTML = '<div class="card-skeleton-shimmer"></div>';
+    sk.innerHTML = `
+      <div class="card-skeleton-mist">
+        <div class="card-skeleton-silhouette" aria-hidden="true"></div>
+        <div class="card-skeleton-fog"></div>
+      </div>
+    `;
     carousel.appendChild(sk);
   }
 }
@@ -262,7 +245,6 @@ function buildCards(data) {
   document.body.classList.add('loaded');
 
   if (introDone) revealCards();
-  else if (!document.body.classList.contains('motion-js')) revealCards();
 }
 
 carousel.addEventListener('pointerdown', (e) => {
@@ -485,13 +467,22 @@ function initCreateButton() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+function bootstrapMainPage() {
   initCreateButton();
+
+  document.body.classList.remove('motion-intro-done', 'motion-js');
+  introDone = false;
 
   GobMotion.playMainIntro({
     onCardsReady: () => {
       introDone = true;
       revealCards();
     },
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  GobMotion.initPageTransitionEnter?.({
+    onComplete: bootstrapMainPage,
   });
 });
