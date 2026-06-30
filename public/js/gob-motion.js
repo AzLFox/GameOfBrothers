@@ -70,6 +70,7 @@ const GobMotion = (() => {
     killAll();
     window.GobSceneLive?.destroy?.();
     window.SceneAtmosphere?.destroy?.();
+    window.SpellbookFlip?.destroySpellbookFlip?.();
 
     const go = () => { window.location.href = url; };
 
@@ -245,7 +246,7 @@ const GobMotion = (() => {
     document.body.classList.add('motion-js');
 
     const mobile = isMobile();
-    const m = mobile ? 0.62 : 1;
+    const m = mobile ? 0.48 : 1;
     const at = (t) => t * m;
 
     const tl = timeline({
@@ -416,8 +417,14 @@ const GobMotion = (() => {
     const { voidLayer, mist, crack, runes, sigil } = layers;
     resetWipeOut(layers);
     playTransitionSound('out');
+    const clearWillChange = willChangeTemp([...runes, sigil], 'transform, opacity, filter', 1400);
 
-    return timeline({ onComplete })
+    return timeline({
+      onComplete: () => {
+        clearWillChange();
+        onComplete?.();
+      },
+    })
       .to(runes, {
         opacity: 0.75,
         scale: 1,
@@ -477,9 +484,11 @@ const GobMotion = (() => {
     const layers = getWipeLayers(wipe);
     const { voidLayer, mist, crack, runes, sigil } = layers;
     resetWipeIn(layers);
+    const clearWillChange = willChangeTemp([...runes, sigil], 'transform, opacity, filter', 900);
 
     return timeline({
       onComplete: () => {
+        clearWillChange();
         hideWipe(wipe);
         gsap.set([voidLayer, mist, crack, sigil, ...runes], {
           clearProps: 'opacity,transform,filter,clipPath,rotation,scale',

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Gates of Beyond">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a120a"/>
+      <stop offset="100%" stop-color="#0a0604"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f0d98a"/>
+      <stop offset="100%" stop-color="#c9a24d"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#g)"/>
+  <circle cx="16" cy="16" r="11" fill="none" stroke="url(#gold)" stroke-width="1.2" opacity="0.85"/>
+  <text x="16" y="21" text-anchor="middle" font-family="Cinzel, Palatino, serif" font-size="14" font-weight="600" fill="url(#gold)">ß</text>
+</svg>

@@ -213,7 +213,7 @@
 
 ---
 
-## Фаза 11 — Cinematic UI pass (финальная полировка)
+## Фаза 11 — Cinematic UI pass (финальная полировка) (✅ готово)
 
 **Промпт:**
 > Финальный polish pass по всему GoB:
@@ -227,9 +227,9 @@
 > Только polish — без новых фич листа.
 
 **Критерии готовности:**
-- [ ] Нет визуальных «дыр» между страницами
-- [ ] Mobile и reduced-motion проверены
-- [ ] Lighthouse accessibility ≥90 на character page
+- [x] Нет визуальных «дыр» между страницами
+- [x] Mobile и reduced-motion проверены
+- [x] Lighthouse accessibility ≥90 на character page
 
 ---
 

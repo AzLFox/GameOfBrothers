@@ -6,17 +6,18 @@ import { PageFlip } from '/vendor/page-flip/page-flip.module.js';
 let pageFlip = null;
 
 function flipSettings() {
+  const portrait = window.matchMedia('(max-width: 640px)').matches;
   return {
-    width: 420,
-    height: 500,
+    width: portrait ? 320 : 420,
+    height: portrait ? 500 : 500,
     size: 'stretch',
-    minWidth: 260,
-    maxWidth: 480,
-    minHeight: 360,
-    maxHeight: 560,
+    minWidth: portrait ? 260 : 260,
+    maxWidth: portrait ? 380 : 480,
+    minHeight: portrait ? 400 : 360,
+    maxHeight: portrait ? 580 : 560,
     drawShadow: true,
     flippingTime: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 920,
-    usePortrait: false,
+    usePortrait: portrait,
     autoSize: true,
     maxShadowOpacity: 0.62,
     showCover: false,
@@ -50,7 +51,13 @@ export function createSpellbookFlip({ onFlip, onFlipping } = {}) {
   const root = ensureFlipRoot();
   if (!root) return null;
 
-  pageFlip = new PageFlip(root, flipSettings());
+  const mount = document.getElementById('spellbook-mount');
+  const settings = flipSettings();
+  if (mount) {
+    mount.classList.toggle('spellbook-mount--portrait', settings.usePortrait);
+  }
+
+  pageFlip = new PageFlip(root, settings);
 
   pageFlip.on('flip', (e) => {
     onFlip?.(e.data);
@@ -102,6 +109,7 @@ export function destroySpellbookFlip() {
     pageFlip.destroy();
     pageFlip = null;
   }
+  document.getElementById('spellbook-mount')?.classList.remove('spellbook-mount--portrait');
   ensureFlipRoot();
 }
 

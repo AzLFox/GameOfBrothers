@@ -19,6 +19,13 @@ const CharMotion = (() => {
     const factors = [0.12, -0.08, 0.1, -0.06, 0.08, -0.1];
     let currentY = 0;
     let targetY = 0;
+    let scrollIdleTimer = null;
+
+    const setParallaxActive = (active) => {
+      panels.forEach((panel) => {
+        panel.classList.toggle('is-scroll-parallax', active);
+      });
+    };
 
     const tick = () => {
       currentY += (targetY - currentY) * 0.12;
@@ -31,6 +38,9 @@ const CharMotion = (() => {
 
     window.addEventListener('scroll', () => {
       targetY = Math.min(window.scrollY, 480);
+      setParallaxActive(true);
+      clearTimeout(scrollIdleTimer);
+      scrollIdleTimer = setTimeout(() => setParallaxActive(false), 180);
     }, { passive: true });
 
     requestAnimationFrame(tick);

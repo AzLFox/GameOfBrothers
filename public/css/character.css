@@ -9,7 +9,7 @@
   --parchment: #e8d4b0;
   --parchment-dark: #c4a87a;
   --ink: #1a1008;
-  --ink-muted: #4a3520;
+  --ink-muted: #3d2818;
   --slot-bg: #120c08;
   --slot-border: #6b4e2a;
   --teal: #3ec4a8;
@@ -126,6 +126,13 @@ body {
 .backpack-panel,
 .lore-panel {
   transform: translateY(var(--scroll-shift, 0));
+}
+
+.stats-panel.is-scroll-parallax,
+.combat-panel.is-scroll-parallax,
+.equipment-panel.is-scroll-parallax,
+.backpack-panel.is-scroll-parallax,
+.lore-panel.is-scroll-parallax {
   will-change: transform;
 }
 

@@ -1,0 +1,181 @@
+/**
+ * GoB phase 11 — cinematic UI polish (focus, scrollbar, a11y, cursor glow).
+ * Load after gob-tokens.css on all pages.
+ */
+
+/* ================= FOCUS — gold ring ================= */
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--gob-gold-light, #e8c97a);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(212, 179, 106, 0.32);
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline-color: var(--gob-gold, #d4b36a);
+  box-shadow:
+    0 0 0 3px rgba(212, 179, 106, 0.35),
+    0 0 14px rgba(212, 179, 106, 0.18);
+}
+
+.field-input:focus-visible,
+.stat-input:focus-visible,
+.combat-input:focus-visible,
+.combat-bonus-input:focus-visible,
+.create-form input:focus-visible,
+.create-form textarea:focus-visible {
+  outline: 2px solid var(--gob-gold, #c9a24d);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(201, 162, 77, 0.3);
+}
+
+/* ================= SCROLLBAR — desktop parchment ================= */
+@media (min-width: 641px) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(196, 168, 122, 0.62) rgba(22, 14, 8, 0.28);
+  }
+
+  *::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: rgba(22, 14, 8, 0.22);
+    border-radius: 4px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, rgba(212, 179, 106, 0.45), rgba(168, 132, 72, 0.72));
+    border-radius: 4px;
+    border: 1px solid rgba(122, 90, 40, 0.28);
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(232, 201, 122, 0.55), rgba(196, 168, 122, 0.82));
+  }
+}
+
+/* ================= CURSOR GLOW — main page desktop ================= */
+@media (hover: hover) and (pointer: fine) {
+  .main-page .gob-cursor-glow {
+    position: fixed;
+    left: 0;
+    top: 0;
+    z-index: 9500;
+    width: 44px;
+    height: 44px;
+    margin: -22px 0 0 -22px;
+    pointer-events: none;
+    border-radius: 50%;
+    opacity: 0;
+    transform: translate3d(-100px, -100px, 0);
+    background:
+      radial-gradient(circle, rgba(240, 217, 138, 0.42) 0%, rgba(94, 240, 200, 0.14) 42%, transparent 68%);
+    transition: opacity 0.22s ease, width 0.22s ease, height 0.22s ease, margin 0.22s ease;
+    mix-blend-mode: screen;
+  }
+
+  .main-page .gob-cursor-glow.is-active {
+    opacity: 1;
+    width: 58px;
+    height: 58px;
+    margin: -29px 0 0 -29px;
+  }
+
+  .main-page .gob-cursor-glow.is-pressed {
+    width: 38px;
+    height: 38px;
+    margin: -19px 0 0 -19px;
+    opacity: 0.85;
+  }
+}
+
+/* ================= WCAG AA contrast tweaks ================= */
+.page-hint,
+.carousel-loading-hint {
+  color: rgba(200, 184, 154, 0.78);
+}
+
+.char-page {
+  --ink-muted: #3d2818;
+}
+
+.combat-bonus-input::placeholder,
+.spellbook-page-num,
+.spell-page-indicator {
+  color: rgba(61, 40, 24, 0.72);
+}
+
+.portrait-panel .field-input::placeholder {
+  color: rgba(232, 212, 176, 0.62);
+}
+
+.save-hint.visible {
+  color: #4fd4b4;
+  text-shadow: 0 0 8px rgba(62, 196, 168, 0.25);
+}
+
+.char-back {
+  color: #f0d98a;
+}
+
+.char-back:hover {
+  color: #fff8e8;
+}
+
+/* ================= MOBILE spellbook portrait ================= */
+@media (max-width: 640px) {
+  .spellbook-modal {
+    padding: 8px;
+    align-items: flex-end;
+  }
+
+  .spellbook-open {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+  }
+
+  .spellbook-frame {
+    padding: 10px 24px 12px 18px;
+    border-radius: 12px 12px 4px 4px;
+  }
+
+  .spellbook-mount--portrait {
+    min-height: min(72vh, 540px);
+  }
+
+  .spellbook-mount--portrait .spellbook-flip-root {
+    min-height: inherit;
+  }
+
+  .spellbook-mount--portrait .spell-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px 6px;
+  }
+
+  .spellbook-mount--portrait .spell-slot {
+    max-width: none;
+  }
+
+  .spellbook-tabs {
+    right: 2px;
+  }
+
+  .spellbook-footer {
+    gap: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-page .gob-cursor-glow {
+    display: none !important;
+  }
+}
