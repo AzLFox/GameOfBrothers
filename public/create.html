@@ -28,19 +28,40 @@
   </div>
 
   <main class="create-shell">
-    <a href="/" class="create-back">← К миру</a>
+    <header class="create-header">
+      <a href="/" class="create-back">← К миру</a>
+    </header>
     <h1>Создание персонажа</h1>
-    <p class="create-lead">Здесь появится мастер создания героя. Пока что — заготовка.</p>
-    <form class="create-form" onsubmit="return false;">
-      <label>
+    <p class="create-lead">Все поля необязательны — оставьте пустыми и заполните на листе персонажа.</p>
+    <form class="create-form" id="create-form" novalidate>
+      <label for="create-name">
         Имя
-        <input type="text" placeholder="Введите имя героя" autocomplete="off">
+        <input type="text" id="create-name" placeholder="Введите имя героя" autocomplete="off">
       </label>
-      <label>
+      <label for="create-desc">
         Краткое описание
-        <textarea rows="4" placeholder="Кто ваш персонаж?"></textarea>
+        <textarea id="create-desc" rows="4" placeholder="Кто ваш персонаж?"></textarea>
       </label>
-      <button type="submit" class="btn-create btn-create--static" disabled>Сохранить (скоро)</button>
+      <div class="create-portrait-block">
+        <span class="create-portrait-label">Портрет</span>
+        <div class="create-portrait-preview" id="create-portrait-preview">
+          <img id="create-portrait-img" src="/img/char-placeholder.png" alt="">
+          <span class="create-portrait-placeholder" id="create-portrait-placeholder" hidden>Загрузите свой портрет или оставьте заглушку</span>
+        </div>
+        <p class="create-portrait-hint">Загрузите портрет <strong>600×800 px</strong> (3∶4), до <strong>2 МБ</strong>. JPEG, PNG или WebP. Если не загрузите — будет стандартная заглушка; картинку можно сменить позже на листе персонажа.</p>
+        <div class="create-portrait-actions">
+          <label class="create-portrait-upload">
+            <input type="file" id="create-portrait" accept="image/jpeg,image/png,image/webp" hidden>
+            <span class="btn-create btn-create--form">Выбрать фото</span>
+          </label>
+          <button type="button" class="create-portrait-remove" id="create-portrait-remove" hidden>Убрать фото</button>
+        </div>
+        <p class="create-portrait-error" id="create-portrait-error" hidden role="alert"></p>
+      </div>
+      <p class="create-form-note">Все поля необязательны — можно заполнить на листе персонажа.</p>
+      <div class="create-form-actions">
+        <button type="submit" class="btn-create btn-create--form" id="create-submit">Создать героя</button>
+      </div>
     </form>
   </main>
 
@@ -69,6 +90,7 @@
   <script src="/vendor/gsap/gsap.min.js"></script>
   <script src="js/gob-sound.js"></script>
   <script src="js/gob-motion.js"></script>
+  <script src="js/gob-characters.js"></script>
   <script src="js/create.js"></script>
 </body>
 </html>

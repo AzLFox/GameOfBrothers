@@ -295,6 +295,7 @@ function iconSrc(spec, iconId) {
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
 
 let sheet = null;
+let catalogChar = null;
 let selectedSlot = null;
 let saveTimer = null;
 let activeSpec = 'all';
@@ -867,10 +868,24 @@ function loadSheet(char) {
   }
 }
 
+function syncUserCardCatalog() {
+  if (!catalogChar?.isUser || typeof updateUserCharacterMeta !== 'function') return;
+  updateUserCharacterMeta(catalogChar.id, {
+    name: sheet.name ?? '',
+    description: sheet.description ?? '',
+  });
+  catalogChar = {
+    ...catalogChar,
+    name: String(sheet.name ?? '').trim(),
+    description: String(sheet.description ?? '').trim(),
+  };
+}
+
 function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     localStorage.setItem(storageKey(), JSON.stringify(sheet));
+    syncUserCardCatalog();
     const hint = document.getElementById('save-hint');
     hint.textContent = 'Сохранено';
     hint.classList.add('visible');
@@ -1699,6 +1714,107 @@ function renderSheet() {
   renderSpellGrids();
 }
 
+function portraitErrorMessage(err) {
+  if (err?.message === 'FILE_TOO_LARGE') {
+    return 'Файл больше 2 МБ — выберите изображение меньше.';
+  }
+  if (err?.message === 'NOT_IMAGE') {
+    return 'Нужен файл изображения (JPEG, PNG или WebP).';
+  }
+  if (err?.name === 'QuotaExceededError') {
+    return 'Слишком большое фото — не хватает места в хранилище.';
+  }
+  return 'Не удалось обработать изображение.';
+}
+
+function initUserCharacterTools(char) {
+  const portraitTools = document.getElementById('portrait-tools');
+
+  if (!char.isUser) {
+    portraitTools?.setAttribute('hidden', '');
+    return;
+  }
+
+  portraitTools?.removeAttribute('hidden');
+  bindPortraitTools(char);
+  bindDeleteCharacter(char);
+}
+
+function bindPortraitTools(char) {
+  const input = document.getElementById('char-portrait-input');
+  const changeBtn = document.getElementById('char-portrait-change');
+  const removeBtn = document.getElementById('char-portrait-remove');
+  const errorEl = document.getElementById('char-portrait-error');
+  const img = document.getElementById('char-img');
+
+  removeBtn.hidden = !char.portrait;
+
+  changeBtn?.addEventListener('click', () => input?.click());
+
+  input?.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    errorEl.hidden = true;
+    try {
+      const dataUrl = await processPortraitFile(file);
+      updateUserCharacterPortrait(char.id, dataUrl);
+      catalogChar = { ...catalogChar, portrait: dataUrl };
+      img.src = dataUrl;
+      removeBtn.hidden = false;
+      const hint = document.getElementById('save-hint');
+      if (hint) {
+        hint.textContent = 'Портрет сохранён';
+        hint.classList.add('visible');
+        setTimeout(() => hint.classList.remove('visible'), 1500);
+      }
+    } catch (err) {
+      errorEl.textContent = portraitErrorMessage(err);
+      errorEl.hidden = false;
+    }
+  });
+
+  removeBtn?.addEventListener('click', () => {
+    updateUserCharacterPortrait(char.id, '');
+    catalogChar = { ...catalogChar, portrait: '' };
+    img.src = PLACEHOLDER_PORTRAIT;
+    removeBtn.hidden = true;
+    errorEl.hidden = true;
+  });
+}
+
+function bindDeleteCharacter(char) {
+  const modal = document.getElementById('brumgilde-modal');
+  const btnOpen = document.getElementById('btn-delete-char');
+  const btnConfirm = document.getElementById('brumgilde-confirm');
+  const btnCancel = document.getElementById('brumgilde-cancel');
+
+  if (!modal || !btnOpen) return;
+
+  btnOpen.removeAttribute('hidden');
+
+  btnOpen.addEventListener('click', () => {
+    if (typeof modal.showModal === 'function') modal.showModal();
+  });
+
+  btnCancel?.addEventListener('click', () => modal.close());
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.close();
+  });
+
+  btnConfirm?.addEventListener('click', () => {
+    deleteUserCharacter(char.id);
+    modal.close();
+    if (typeof GobMotion !== 'undefined') {
+      GobMotion.navigateTo('/');
+    } else {
+      window.location.href = '/';
+    }
+  });
+}
+
 function initTransfer() {
   const modal        = document.getElementById('transfer-modal');
   const btnOpen      = document.getElementById('btn-transfer');
@@ -1810,14 +1926,29 @@ function initTransfer() {
 }
 
 function init(char) {
+  catalogChar = char;
   sheet = loadSheet(char);
 
-  document.getElementById('char-img').src = `/characters/${char.id}.jpg`;
-  document.getElementById('char-img').alt = char.name;
-  document.title = `GoB — ${sheet.name || char.name}`;
+  if (char.isUser && typeof updateUserCharacterMeta === 'function') {
+    const sheetName = String(sheet.name ?? '').trim();
+    const sheetDesc = String(sheet.description ?? '').trim();
+    const catalogName = String(char.name ?? '').trim();
+    const catalogDesc = String(char.description ?? '').trim();
+    if (sheetName !== catalogName || sheetDesc !== catalogDesc) {
+      updateUserCharacterMeta(char.id, { name: sheet.name ?? '', description: sheet.description ?? '' });
+      catalogChar = { ...char, name: sheetName, description: sheetDesc };
+    }
+  }
+
+  document.getElementById('char-img').src = typeof getPortraitUrl === 'function'
+    ? getPortraitUrl(char)
+    : `/characters/${char.id}.jpg`;
+  document.getElementById('char-img').alt = sheet.name || char.name || 'Без имени';
+  document.title = `GoB — ${sheet.name || char.name || 'Без имени'}`;
 
   bindField(document.getElementById('char-name'), 'name', () => {
-    document.title = `GoB — ${sheet.name}`;
+    document.title = `GoB — ${sheet.name || 'Без имени'}`;
+    document.getElementById('char-img').alt = sheet.name || 'Без имени';
   });
   bindField(document.getElementById('char-desc'), 'description');
   bindField(document.getElementById('char-lore'), 'lore');
@@ -1828,6 +1959,7 @@ function init(char) {
   renderBackpack();
   bindSlotEditor();
   bindSpellbook();
+  initUserCharacterTools(char);
 
   if (typeof CharMotion !== 'undefined') {
     CharMotion.bindBackLink();
@@ -1846,10 +1978,8 @@ function init(char) {
 if (!id) {
   document.body.innerHTML = '<p style="color:#e8c97a;text-align:center;padding:40px;font-family:Cinzel,serif">Персонаж не выбран. <a href="/" style="color:#c9a24d">Вернуться к миру</a></p>';
 } else {
-  fetch('/api/characters')
-    .then(r => r.json())
-    .then(data => {
-      const char = data.find(x => x.id === id);
+  findCharacterById(id)
+    .then((char) => {
       if (!char) {
         document.body.innerHTML = '<p style="color:#e8c97a;text-align:center;padding:40px;font-family:Cinzel,serif">Персонаж не найден. <a href="/" style="color:#c9a24d">Вернуться к миру</a></p>';
         return;

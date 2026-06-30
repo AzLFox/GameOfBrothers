@@ -309,7 +309,7 @@ body.create-page .create-shell {
   background: transparent;
   box-shadow: 0 24px 80px var(--gob-grade-shadow);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 body.create-page .create-shell::before {

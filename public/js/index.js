@@ -244,19 +244,26 @@ function buildCards(data) {
     card.className = 'card';
     card.dataset.index = i;
 
-    card.innerHTML = `
-      <div class="card-inner">
-        <div class="card-face card-front" style="background-image:url(/characters/${char.id}.jpg)"></div>
+    const label = document.createElement('span');
+    label.className = 'card-orbit-label';
+    label.setAttribute('aria-hidden', 'true');
+    label.textContent = getCarouselLabel(char);
+    card.appendChild(label);
+
+    const inner = document.createElement('div');
+    inner.className = 'card-inner';
+    inner.innerHTML = `
+        <div class="card-face card-front" style="background-image:url(${getPortraitUrl(char)})"></div>
         <div class="card-face card-back">
           <img src="/characters/card_back.jpg" alt="" draggable="false">
         </div>
         <div class="card-face card-content gob-parchment-bg">
-          <h3>${char.name}</h3>
-          <p>${char.description}</p>
+          <h3>${getDisplayName(char)}</h3>
+          <p>${getDisplayDescription(char)}</p>
           <a href="/character?id=${char.id}" class="open-btn">Открыть</a>
         </div>
-      </div>
     `;
+    card.appendChild(inner);
 
     setCardRingTransform(card, i);
     bindCardHover(card);
@@ -434,8 +441,7 @@ window.addEventListener('resize', refreshRingRadius);
 
 showCarouselSkeleton();
 
-fetch('/api/characters')
-  .then((r) => r.json())
+loadAllCharacters()
   .then((data) => {
     buildCards(data);
     requestAnimationFrame(spinLoop);

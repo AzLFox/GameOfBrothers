@@ -564,6 +564,36 @@ body.motion-js.loaded .card.is-visible {
   opacity: 1;
 }
 
+.card-orbit-label {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  max-width: 148px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Cinzel", serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: #f0d98a;
+  text-shadow:
+    0 1px 6px rgba(0, 0, 0, 0.9),
+    0 0 12px rgba(94, 240, 200, 0.15);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s var(--gob-ease-out);
+}
+
+.card:not(.is-locked):not(.selected):not(.flipped) .card-orbit-label {
+  opacity: 1;
+}
+
+body.card-open .card-orbit-label {
+  opacity: 0;
+}
+
 .card--skeleton {
   pointer-events: none;
   opacity: 1 !important;
@@ -1211,6 +1241,12 @@ body.scene-swiping .card {
     width: 108px;
     height: 156px;
     margin: -78px 0 0 -54px;
+  }
+
+  .card-orbit-label {
+    max-width: 100px;
+    font-size: 0.62rem;
+    top: calc(100% + 8px);
   }
 
   .card-content {
