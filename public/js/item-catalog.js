@@ -30,7 +30,6 @@
     // вливаются в БАЗОВЫЕ строки боёвки
     hpBonus:        { label: 'Доп. HP',          type: 'flat', combat: 'maxHp' },
     hit:            { label: 'Попадание',        type: 'flat', combat: 'hit'   },
-    critDie:        { label: 'Куб крита',        type: 'flat', combat: 'crit'  },
     // ОТДЕЛЬНАЯ строка появляется только при надевании снаряжения
     armor:          { label: 'Защита',           type: 'flat', combat: 'row'   },
     evasion:        { label: 'Уворот',           type: 'flat', combat: 'row'   },
@@ -42,6 +41,7 @@
     manaCostDown:   { label: 'Затраты маны',     type: 'flat', combat: 'row'   },
     // оружейные — показываются на предмете/в редакторе, без боевой строки
     damageDice:     { label: 'Урон',                  type: 'dice', combat: null },
+    critDie:        { label: 'Куб крита',             type: 'dice', combat: null },
     heal:           { label: 'Лечение',               type: 'dice', combat: null },
     armorDamage:    { label: 'Урон по броне',         type: 'dice', combat: null },
     noArmorDamage:  { label: 'Урон по цели без брони', type: 'dice', combat: null },
@@ -67,7 +67,7 @@
       tiers: { 1: { damageDice: '1D4', evasion: 1 }, 2: { damageDice: '2D4', evasion: 1 }, 3: { damageDice: '3D4', evasion: 1 }, 4: { damageDice: '4D6', evasion: 2 } } },
     { id: 'sw_dex_2h', label: 'Ловкость (2р)', family: 'swDex', hands: 2,
       mods: ['damageDice', 'critDie'],
-      tiers: { 1: { damageDice: '1D4', critDie: 1 }, 2: { damageDice: '2D4', critDie: 2 }, 3: { damageDice: '3D4', critDie: 3 }, 4: { damageDice: '4D6', critDie: 4 } } },
+      tiers: { 1: { damageDice: '1D4', critDie: '1D4' }, 2: { damageDice: '2D4', critDie: '2D4' }, 3: { damageDice: '3D4', critDie: '3D4' }, 4: { damageDice: '4D6', critDie: '4D6' } } },
     { id: 'crossbow_1h', label: 'Арбалет (1р)', family: 'swStr', hands: 1,
       mods: ['damageDice'],
       tiers: { 1: { damageDice: '1D6' }, 2: { damageDice: '2D6' }, 3: { damageDice: '3D6' }, 4: { damageDice: '4D8' } } },
@@ -76,10 +76,10 @@
       tiers: { 1: { damageDice: '1D6', armorDamage: '1D4' }, 2: { damageDice: '2D6', armorDamage: '2D4' }, 3: { damageDice: '3D6', armorDamage: '3D4' }, 4: { damageDice: '4D8', armorDamage: '4D4' } } },
     { id: 'bow_1h', label: 'Лук (1р)', family: 'swDex', hands: 1,
       mods: ['damageDice', 'critDie'],
-      tiers: { 1: { damageDice: '1D4', critDie: 1 }, 2: { damageDice: '2D4', critDie: 2 }, 3: { damageDice: '3D4', critDie: 3 }, 4: { damageDice: '4D6', critDie: 4 } } },
+      tiers: { 1: { damageDice: '1D4', critDie: '1D4' }, 2: { damageDice: '2D4', critDie: '2D4' }, 3: { damageDice: '3D4', critDie: '3D4' }, 4: { damageDice: '4D6', critDie: '4D6' } } },
     { id: 'bow_2h', label: 'Лук (2р)', family: 'swDex', hands: 2,
       mods: ['damageDice', 'critDie', 'noArmorDamage'],
-      tiers: { 1: { damageDice: '1D4', critDie: 1, noArmorDamage: '1D4' }, 2: { damageDice: '2D4', critDie: 1, noArmorDamage: '1D4' }, 3: { damageDice: '3D4', critDie: 1, noArmorDamage: '1D4' }, 4: { damageDice: '4D6', critDie: 2, noArmorDamage: '1D4' } } },
+      tiers: { 1: { damageDice: '1D4', critDie: '1D4', noArmorDamage: '1D4' }, 2: { damageDice: '2D4', critDie: '1D4', noArmorDamage: '1D4' }, 3: { damageDice: '3D4', critDie: '1D4', noArmorDamage: '1D4' }, 4: { damageDice: '4D6', critDie: '2D4', noArmorDamage: '1D4' } } },
     { id: 'staff', label: 'Посох', family: 'swCaster', hands: 2,
       mods: ['manaCostDown'],
       tiers: { 1: { manaCostDown: 1 }, 2: { manaCostDown: 2 }, 3: { manaCostDown: 3 }, 4: { manaCostDown: 5 } } },

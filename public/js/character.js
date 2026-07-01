@@ -632,7 +632,7 @@ function effectiveHit() {
 }
 
 function effectiveCrit() {
-  return critValue(sheet.stats.luck) + (sumEquipmentMods().critDie || 0) + luckClassCrit();
+  return critValue(sheet.stats.luck) + luckClassCrit();
 }
 
 function maxAp() {
@@ -881,7 +881,7 @@ function updateCombatValues() {
   document.getElementById('combat-mp-max').textContent = mpMax;
   document.getElementById('combat-hit').textContent = sheet.stats.dex + (mods.hit || 0);
   document.getElementById('combat-skills').textContent = sheet.stats.int + intClassSkills();
-  document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck) + (mods.critDie || 0) + luckClassCrit();
+  document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck) + luckClassCrit();
 
   updateOverheal('hp', sheet.combat.hp, hpMax);
   updateOverheal('mp', sheet.combat.mp, mpMax);
