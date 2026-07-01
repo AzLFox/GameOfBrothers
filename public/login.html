@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0604">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Gates of Beyond · Вход</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/gob-tokens.css">
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/auth.css">
+  <link rel="stylesheet" href="css/gob-art.css">
+  <link rel="stylesheet" href="css/gob-polish.css">
+  <script src="js/gob-transition-guard.js"></script>
+  <script src="js/gob-mobile.js"></script>
+</head>
+<body class="auth-page auth-page--login">
+  <div class="realm-depth" aria-hidden="true">
+    <div class="mountains mountains-back"></div>
+    <div class="mountains mountains-mid"></div>
+    <div class="mountains mountains-front"></div>
+    <div class="rune-field rune-field--global" aria-hidden="true">
+      <span class="rune rune--dim" style="--x:42%;--y:12%;--d:0s">ᛟ</span>
+      <span class="rune rune--dim" style="--x:55%;--y:8%;--d:1s">ᛞ</span>
+    </div>
+    <div class="mist mist-left"></div>
+    <div class="mist mist-right"></div>
+  </div>
+
+  <div class="veil-runes veil-runes-left" aria-hidden="true">
+    <span class="rune rune--veil" style="--x:18%;--y:14%;--d:0s">ᚠ</span>
+    <span class="rune rune--veil" style="--x:32%;--y:28%;--d:0.4s">ᚢ</span>
+    <span class="rune rune--veil" style="--x:12%;--y:44%;--d:0.8s">ᚦ</span>
+    <span class="rune rune--veil" style="--x:38%;--y:58%;--d:1.2s">ᚨ</span>
+  </div>
+  <div class="veil-runes veil-runes-right" aria-hidden="true">
+    <span class="rune rune--veil" style="--x:72%;--y:16%;--d:0.2s">ᚹ</span>
+    <span class="rune rune--veil" style="--x:88%;--y:30%;--d:0.6s">ᚺ</span>
+    <span class="rune rune--veil" style="--x:78%;--y:46%;--d:1s">ᚾ</span>
+    <span class="rune rune--veil" style="--x:92%;--y:60%;--d:1.4s">ᛁ</span>
+  </div>
+
+  <div class="veil-side veil-left" aria-hidden="true">
+    <div class="veil-crack"></div>
+    <div class="veil-shards"></div>
+  </div>
+  <div class="veil-side veil-right" aria-hidden="true">
+    <div class="veil-crack"></div>
+    <div class="veil-shards"></div>
+  </div>
+
+  <main class="auth-shell">
+    <header class="auth-header">
+      <a href="/" class="auth-back">← К миру</a>
+    </header>
+
+    <div class="auth-brand">
+      <div class="auth-sigil-wrap" aria-hidden="true">
+        <span class="auth-sigil-ring"></span>
+        <span class="auth-sigil">ᛟ</span>
+      </div>
+      <p class="auth-eyebrow">Gates of Beyond</p>
+      <h1 class="auth-title">Вход</h1>
+      <p class="auth-lead">Переступи порог — создавай героев и храни их за завесой.</p>
+    </div>
+
+    <div class="auth-panel">
+      <form class="auth-form" id="login-form" novalidate>
+        <label for="login-username">
+          <span class="auth-label-text">Имя пользователя</span>
+          <input type="text" id="login-username" autocomplete="username" required minlength="3" maxlength="32" pattern="[a-zA-Z0-9_]+" placeholder="Твоё имя в мире">
+        </label>
+        <label for="login-password">
+          <span class="auth-label-text">Пароль</span>
+          <input type="password" id="login-password" autocomplete="current-password" required minlength="6" placeholder="••••••••">
+        </label>
+        <p class="auth-error" id="login-error" hidden role="alert"></p>
+        <div class="auth-form-actions">
+          <button type="submit" class="auth-submit" id="login-submit">
+            <span class="auth-submit-icon" aria-hidden="true">✦</span>
+            <span>Войти</span>
+          </button>
+        </div>
+      </form>
+
+      <div class="auth-divider" aria-hidden="true">
+        <span class="auth-divider-rune">ᚱ</span>
+      </div>
+
+      <p class="auth-switch">Нет аккаунта? <a href="/register" id="register-link">Регистрация</a></p>
+    </div>
+  </main>
+
+  <div id="gob-page-wipe" class="gob-page-wipe" aria-hidden="true" hidden>
+    <div class="gob-page-wipe__void"></div>
+    <div class="gob-page-wipe__mist"></div>
+    <div class="gob-page-wipe__crack" aria-hidden="true"></div>
+    <div class="gob-page-wipe__runes" aria-hidden="true">
+      <span class="gob-page-wipe__rune" style="--rx:10%;--ry:14%">ᚠ</span>
+      <span class="gob-page-wipe__rune" style="--rx:88%;--ry:12%">ᚢ</span>
+      <span class="gob-page-wipe__rune" style="--rx:6%;--ry:48%">ᚦ</span>
+      <span class="gob-page-wipe__rune" style="--rx:92%;--ry:52%">ᚨ</span>
+      <span class="gob-page-wipe__rune" style="--rx:14%;--ry:84%">ᚱ</span>
+      <span class="gob-page-wipe__rune" style="--rx:86%;--ry:82%">ᚲ</span>
+      <span class="gob-page-wipe__rune" style="--rx:50%;--ry:6%">ᛟ</span>
+      <span class="gob-page-wipe__rune" style="--rx:48%;--ry:90%">ᛞ</span>
+    </div>
+    <div class="gob-page-wipe__sigil" aria-hidden="true">ᛟ</div>
+  </div>
+
+  <div class="gob-cinematic" aria-hidden="true">
+    <div class="gob-cinematic__vignette"></div>
+    <div class="gob-cinematic__grain"></div>
+  </div>
+
+  <script src="/vendor/gsap/gsap.min.js"></script>
+  <script src="js/gob-sound.js"></script>
+  <script src="js/gob-motion.js"></script>
+  <script src="js/gob-auth.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>

@@ -24,6 +24,7 @@ let carouselWillChangeClear = null;
 let dragWillChangeClear = null;
 
 const SKELETON_COUNT = 6;
+const GUEST_PLACEHOLDER_COUNT = 6;
 
 /* ====== TOUCH / DRAG ====== */
 let dragging = false;
@@ -81,6 +82,12 @@ function cardSignedAngleDeg(index) {
 function updateCardSides() {
   cards.forEach((card, i) => {
     if (card.classList.contains('flipped') || card.classList.contains('selected')) return;
+
+    if (card.classList.contains('card--placeholder')) {
+      card.classList.add('is-locked');
+      card.style.setProperty('--card-flip', '180deg');
+      return;
+    }
 
     const inFaceArc = Math.abs(cardSignedAngleDeg(i)) <= FACE_ARC_DEG;
 
@@ -233,6 +240,39 @@ function showCarouselSkeleton(count = SKELETON_COUNT) {
   }
 }
 
+function buildGuestPlaceholderCards(count = GUEST_PLACEHOLDER_COUNT) {
+  hideCarouselSkeleton();
+  step = 360 / count;
+  carousel.innerHTML = '';
+  cards = [];
+
+  for (let i = 0; i < count; i++) {
+    const card = document.createElement('div');
+    card.className = 'card card--placeholder';
+    card.dataset.index = i;
+    card.setAttribute('aria-hidden', 'true');
+
+    const inner = document.createElement('div');
+    inner.className = 'card-inner';
+    inner.innerHTML = `
+        <div class="card-face card-front"></div>
+        <div class="card-face card-back">
+          <img src="/characters/card_back.jpg" alt="" draggable="false">
+        </div>
+    `;
+    card.appendChild(inner);
+
+    setCardRingTransform(card, i);
+    carousel.appendChild(card);
+    cards.push(card);
+  }
+
+  applyCarouselRotation();
+  document.body.classList.add('loaded');
+
+  if (introDone) revealCards();
+}
+
 function buildCards(data) {
   hideCarouselSkeleton();
   step = 360 / data.length;
@@ -244,19 +284,26 @@ function buildCards(data) {
     card.className = 'card';
     card.dataset.index = i;
 
-    card.innerHTML = `
-      <div class="card-inner">
-        <div class="card-face card-front" style="background-image:url(/characters/${char.id}.jpg)"></div>
+    const label = document.createElement('span');
+    label.className = 'card-orbit-label';
+    label.setAttribute('aria-hidden', 'true');
+    label.textContent = getCarouselLabel(char);
+    card.appendChild(label);
+
+    const inner = document.createElement('div');
+    inner.className = 'card-inner';
+    inner.innerHTML = `
+        <div class="card-face card-front" style="background-image:url(${getPortraitUrl(char)})"></div>
         <div class="card-face card-back">
           <img src="/characters/card_back.jpg" alt="" draggable="false">
         </div>
         <div class="card-face card-content gob-parchment-bg">
-          <h3>${char.name}</h3>
-          <p>${char.description}</p>
+          <h3>${getDisplayName(char)}</h3>
+          <p>${getDisplayDescription(char)}</p>
           <a href="/character?id=${char.id}" class="open-btn">Открыть</a>
         </div>
-      </div>
     `;
+    card.appendChild(inner);
 
     setCardRingTransform(card, i);
     bindCardHover(card);
@@ -434,17 +481,32 @@ window.addEventListener('resize', refreshRingRadius);
 
 showCarouselSkeleton();
 
-fetch('/api/characters')
-  .then((r) => r.json())
-  .then((data) => {
-    buildCards(data);
-    requestAnimationFrame(spinLoop);
-  })
-  .catch(() => {
-    hideCarouselSkeleton();
-    document.body.classList.add('loaded');
-    requestAnimationFrame(spinLoop);
-  });
+function refreshCarousel() {
+  showCarouselSkeleton();
+  const loader = typeof loadCarouselCharacters === 'function'
+    ? loadCarouselCharacters()
+    : loadAllCharacters().then((list) => ({ type: 'characters', list }));
+  return loader
+    .then((result) => {
+      if (result?.type === 'guest-placeholders') {
+        buildGuestPlaceholderCards(GUEST_PLACEHOLDER_COUNT);
+      } else {
+        buildCards(result.list);
+      }
+    })
+    .catch(() => {
+      hideCarouselSkeleton();
+      document.body.classList.add('loaded');
+    });
+}
+
+refreshCarousel().then(() => {
+  requestAnimationFrame(spinLoop);
+});
+
+window.addEventListener('gob-auth-logout', () => {
+  refreshCarousel();
+});
 
 function spinLoop() {
   if (autoSpin && !activeCard && !rotationTween && !dragging && !cardBusy) {
@@ -617,15 +679,23 @@ function initCreateButton() {
     GobMotion.to(btn, { scale: 1, duration: 0.32, ease: GobMotion.EASE.soft });
   });
 
-  btn.addEventListener('click', (e) => {
+  btn.addEventListener('click', async (e) => {
     e.preventDefault();
     const href = btn.getAttribute('href');
+    if (typeof GobAuth !== 'undefined') {
+      const user = await GobAuth.fetchMe();
+      if (!user) {
+        GobAuth.redirectIfGuest('/create');
+        return;
+      }
+    }
     GobMotion.navigateTo(href);
   });
 }
 
 function bootstrapMainPage() {
   initCreateButton();
+  GobAuth?.initAuthHeader?.();
   GobCursorGlow?.init?.();
 
   document.body.classList.remove('motion-intro-done', 'motion-js');
