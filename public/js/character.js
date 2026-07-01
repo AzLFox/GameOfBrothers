@@ -2407,8 +2407,14 @@ function deleteSpell() {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// TRANSFER MODULE — экспорт / импорт с GameOfBraza
+// TRANSFER MODULE — экспорт / импорт листа персонажа в JSON
 // ────────────────────────────────────────────────────────────────────────────
+// Формат — точный слепок текущей структуры `sheet`. При импорте данные
+// прогоняются через те же migrate*-функции, что и загрузка из localStorage,
+// поэтому формат не привязан к старой схеме и переживает будущие изменения
+// модели персонажа (новые поля просто получат дефолт при отсутствии).
+
+const TRANSFER_SCHEMA_VERSION = 2;
 
 function toInt(v, fallback = 0) {
   const n = Number(v);
@@ -2420,83 +2426,34 @@ function strVal(v) {
 }
 
 /**
- * Сериализует текущий `sheet` в нейтральный JSON-формат обмена.
+ * Сериализует текущий `sheet` в JSON-формат обмена.
  * Вызывается перед скачиванием файла или копированием в буфер.
  */
 function exportToSharedFormat() {
   const s = sheet;
-
   const allSlots = [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS];
-  const equipment = Object.fromEntries(
-    allSlots.map(({ key }) => [
-      key,
-      { name: s.equipment[key]?.name ?? '', desc: s.equipment[key]?.desc ?? '' },
-    ])
-  );
-
-  const backpack = (s.backpack ?? [])
-    .slice(0, 6)
-    .map(item => ({ name: item?.name ?? '', desc: item?.desc ?? '' }));
-  // Добить до 6 слотов на случай неполного массива
-  while (backpack.length < 6) backpack.push({ name: '', desc: '' });
 
   return {
-    schemaVersion: 1,
+    schemaVersion: TRANSFER_SCHEMA_VERSION,
     source: 'GameOfBrothers',
     name: s.name ?? '',
     description: s.description ?? '',
     lore: s.lore ?? '',
-    stats: {
-      str:  s.stats?.str  ?? 12,
-      dex:  s.stats?.dex  ?? 12,
-      int:  s.stats?.int  ?? 12,
-      spi:  s.stats?.spi  ?? 12,
-      end:  s.stats?.end  ?? 12,
-      luck: s.stats?.luck ?? 12,
-    },
-    combat: {
-      hp:      s.combat?.hp      ?? 0,
-      hpBonus: s.combat?.hpBonus ?? 0,
-      ap:      s.combat?.ap      ?? 0,
-      apBonus: s.combat?.apBonus ?? 0,
-      mp:      s.combat?.mp      ?? 0,
-      mpBonus: s.combat?.mpBonus ?? 0,
-      bubbleCounter: s.combat?.bubbleCounter ?? 0,
-      bubbleActive:  s.combat?.bubbleActive  ?? true,
-    },
-    equipment,
-    backpack,
+    stats: { ...s.stats },
+    combat: { ...s.combat },
     // редактируемые классовые поля всех характеристик
     statClass: Object.fromEntries(
-      STAT_CLASS_KEYS.map((key) => {
-        const arr = s.statClass?.[key] ?? [];
-        return [key, Array.from({ length: STAT_CLASS_MAX_TIER },
-          (_, i) => toInt(arr[i], STAT_CLASS_DEFAULT[key]))];
-      })
+      STAT_CLASS_KEYS.map((key) => [key, [...(s.statClass?.[key] ?? [])]])
     ),
     // классовая книга скиллов Интеллекта
     classSkills: {
-      int: (s.classSkills?.int ?? []).map(sp => ({
-        id:        sp.id        ?? uid(),
-        name:      sp.name      ?? '',
-        desc:      sp.desc      ?? '',
-        spec:      sp.spec      ?? 'buff',
-        level:     sp.level     ?? 1,
-        mana:      sp.mana      ?? 0,
-        icon:      sp.icon      ?? 'default',
-        iconImage: sp.iconImage ?? '',
-      })),
+      int: (s.classSkills?.int ?? []).map(sp => ({ ...sp })),
     },
-    spells: (s.spells ?? []).map(sp => ({
-      id:        sp.id        ?? uid(),
-      name:      sp.name      ?? '',
-      desc:      sp.desc      ?? '',
-      spec:      sp.spec      ?? 'buff',
-      level:     sp.level     ?? 1,
-      mana:      sp.mana      ?? 0,
-      icon:      sp.icon      ?? 'default',
-      iconImage: sp.iconImage ?? '',
-    })),
+    equipment: Object.fromEntries(
+      allSlots.map(({ key }) => [key, cloneItem(s.equipment[key] ?? emptyItem())])
+    ),
+    backpack: (s.backpack ?? []).map(item => cloneItem(item ?? emptyItem())),
+    spells: (s.spells ?? []).map(sp => ({ ...sp })),
   };
 }
 
@@ -2517,6 +2474,10 @@ function downloadExportJson() {
  * Принимает JSON-строку в формате обмена и возвращает объект,
  * совместимый со структурой `sheet`.
  *
+ * Использует те же migrate*-функции, что и загрузка сохранённого листа,
+ * поэтому импорт устойчив к отсутствующим/лишним полям и не требует
+ * ручной синхронизации со схемой при изменении модели персонажа.
+ *
  * @param {string} jsonString
  * @returns {{ ok: true, sheet: object } | { ok: false, error: string }}
  */
@@ -2528,107 +2489,43 @@ function importFromSharedFormat(jsonString) {
     return { ok: false, error: 'Невалидный JSON. Проверьте формат файла.' };
   }
 
-  if (!raw || typeof raw !== 'object') {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return { ok: false, error: 'Ожидался JSON-объект.' };
   }
 
-  const schemaVersion = raw.schemaVersion;
-  if (schemaVersion !== 1) {
-    return { ok: false, error: `Неизвестная версия схемы: ${schemaVersion}. Ожидается 1.` };
+  if (!Number.isInteger(raw.schemaVersion)) {
+    return { ok: false, error: 'Файл не похож на экспорт персонажа GameOfBrothers.' };
   }
 
-  // ── Характеристики ──────────────────────────────────────────────────
+  const base = defaultSheet({});
+
   const stats = {
-    str:  toInt(raw.stats?.str,  12),
-    dex:  toInt(raw.stats?.dex,  12),
-    int:  toInt(raw.stats?.int,  12),
-    spi:  toInt(raw.stats?.spi,  12),
-    end:  toInt(raw.stats?.end,  12),
-    luck: toInt(raw.stats?.luck, 12),
+    str:  toInt(raw.stats?.str,  base.stats.str),
+    dex:  toInt(raw.stats?.dex,  base.stats.dex),
+    int:  toInt(raw.stats?.int,  base.stats.int),
+    spi:  toInt(raw.stats?.spi,  base.stats.spi),
+    end:  toInt(raw.stats?.end,  base.stats.end),
+    luck: toInt(raw.stats?.luck, base.stats.luck),
   };
 
-  // ── Боевые показатели ───────────────────────────────────────────────
-  const combat = defaultCombat(stats);
-  combat.hp      = toInt(raw.combat?.hp,      combat.hp);
-  combat.hpBonus = toInt(raw.combat?.hpBonus, 0);
-  combat.ap      = toInt(raw.combat?.ap,      combat.ap);
-  combat.apBonus = toInt(raw.combat?.apBonus, 0);
-  combat.mp      = toInt(raw.combat?.mp,      combat.mp);
-  combat.mpBonus = toInt(raw.combat?.mpBonus, 0);
-  combat.bubbleCounter = toInt(raw.combat?.bubbleCounter, combat.bubbleCounter);
-  combat.bubbleActive  = typeof raw.combat?.bubbleActive === 'boolean'
-    ? raw.combat.bubbleActive
-    : combat.bubbleActive;
-
-  // ── Снаряжение ──────────────────────────────────────────────────────
-  const allSlots = [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS];
-  const equipment = Object.fromEntries(
-    allSlots.map(({ key }) => {
-      const item = raw.equipment?.[key];
-      return [key, { name: strVal(item?.name), desc: strVal(item?.desc) }];
-    })
-  );
-
-  // ── Рюкзак ─────────────────────────────────────────────────────────
   const rawBackpack = Array.isArray(raw.backpack) ? raw.backpack : [];
-  const backpack = Array.from({ length: BACKPACK_COUNT }, (_, i) => {
-    const item = rawBackpack[i];
-    return { name: strVal(item?.name), desc: strVal(item?.desc) };
-  });
-
-  // ── Спеллы ─────────────────────────────────────────────────────────
-  const rawSpells = Array.isArray(raw.spells) ? raw.spells : [];
-  const spells = rawSpells.map(s => normalizeSpell({
-    id:        strVal(s?.id) || uid(),
-    name:      strVal(s?.name),
-    desc:      strVal(s?.desc),
-    spec:      ['damage', 'buff', 'heal', 'debuff'].includes(s?.spec) ? s.spec : 'buff',
-    level:     Math.min(5, Math.max(1, toInt(s?.level, 1))),
-    mana:      Math.max(0, toInt(s?.mana, 0)),
-    icon:      strVal(s?.icon) || 'default',
-    iconImage: strVal(s?.iconImage),
-  }));
-
-  // ── Классовые поля всех характеристик ───────────────────────────────
-  const statClass = {};
-  STAT_CLASS_KEYS.forEach((key) => {
-    const arr = Array.isArray(raw.statClass?.[key]) ? raw.statClass[key] : [];
-    statClass[key] = Array.from({ length: STAT_CLASS_MAX_TIER },
-      (_, i) => toInt(arr[i], STAT_CLASS_DEFAULT[key]));
-  });
-
-  // ── Классовая книга Интеллекта ──────────────────────────────────────
-  const rawClassInt = Array.isArray(raw.classSkills?.int) ? raw.classSkills.int : [];
-  const classSkills = {
-    int: rawClassInt.slice(0, STAT_CLASS_MAX_TIER).map(s => normalizeSpell({
-      id:        strVal(s?.id) || uid(),
-      name:      strVal(s?.name),
-      desc:      strVal(s?.desc),
-      spec:      ['damage', 'buff', 'heal', 'debuff'].includes(s?.spec) ? s.spec : 'buff',
-      level:     Math.min(5, Math.max(1, toInt(s?.level, 1))),
-      mana:      Math.max(0, toInt(s?.mana, 0)),
-      icon:      strVal(s?.icon) || 'default',
-      iconImage: strVal(s?.iconImage),
-    })),
-  };
-
-  // ── Описание / квента ───────────────────────────────────────────────
-  const description = strVal(raw.description);
-  const lore        = strVal(raw.lore);
+  const backpack = Array.from({ length: BACKPACK_COUNT }, (_, i) => (
+    rawBackpack[i] ? normalizeItem(cloneItem(rawBackpack[i])) : emptyItem()
+  ));
 
   return {
     ok: true,
     sheet: {
       name: strVal(raw.name) || 'Импортированный персонаж',
-      description,
-      lore,
+      description: strVal(raw.description),
+      lore: strVal(raw.lore),
       stats,
-      combat,
-      statClass,
-      classSkills,
-      equipment,
+      combat: migrateCombat(raw, stats),
+      statClass: migrateStatClass(raw, base),
+      classSkills: migrateClassSkills(raw, base),
+      equipment: migrateEquipment(raw, base),
       backpack,
-      spells,
+      spells: migrateSpells(raw, base),
     },
   };
 }
@@ -2899,6 +2796,7 @@ async function init(char) {
   bindSlotEditor();
   bindSpellbook();
   initUserCharacterTools(char);
+  initTransfer();
 
   if (typeof CharMotion !== 'undefined') {
     CharMotion.bindBackLink();

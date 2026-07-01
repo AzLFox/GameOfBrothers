@@ -87,6 +87,224 @@ body {
   opacity: 1;
 }
 
+.btn-transfer {
+  font-family: "Cinzel", serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--gold-light);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(176, 141, 87, 0.45);
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.btn-transfer:hover {
+  border-color: rgba(90, 220, 180, 0.5);
+  color: #fff8e8;
+}
+
+/* ================= TRANSFER MODAL ================= */
+.transfer-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transfer-modal.hidden {
+  display: none;
+}
+
+.transfer-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.transfer-modal__panel {
+  position: relative;
+  width: min(560px, calc(100vw - 40px));
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.transfer-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(122, 90, 40, 0.35);
+  flex-shrink: 0;
+}
+
+.transfer-modal__header .panel-title {
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.transfer-modal__close {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--gold-dark);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ink-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.transfer-modal__close:hover {
+  background: rgba(160, 24, 24, 0.12);
+  color: #8b1010;
+}
+
+.transfer-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.transfer-tab {
+  font-family: "Cinzel", serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  color: var(--ink-muted);
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(122, 90, 40, 0.35);
+  border-radius: 4px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.transfer-tab:hover {
+  border-color: var(--gold-dark);
+}
+
+.transfer-tab.active {
+  background: var(--gold-dark);
+  color: var(--parchment);
+  border-color: var(--gold-dark);
+}
+
+.transfer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.transfer-panel.hidden {
+  display: none;
+}
+
+.transfer-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  line-height: 1.4;
+}
+
+.transfer-textarea {
+  width: 100%;
+  min-height: 260px;
+  resize: vertical;
+  font-family: "Courier New", monospace;
+  font-size: 0.78rem;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(122, 90, 40, 0.4);
+  border-radius: 4px;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.transfer-file-info {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+.transfer-error {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #8b1010;
+}
+
+.transfer-error.hidden,
+.transfer-success.hidden {
+  display: none;
+}
+
+.transfer-success {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #2f7a4a;
+}
+
+.transfer-success a {
+  color: var(--gold-dark);
+}
+
+.transfer-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.transfer-modal__footer {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(122, 90, 40, 0.3);
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.btn-transfer-action {
+  font-family: "Cinzel", serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background: rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--gold-dark);
+  border-radius: 6px;
+  min-height: 38px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-transfer-action:hover {
+  background: var(--gold-dark);
+  color: var(--parchment);
+}
+
+.btn-transfer-action--primary {
+  background: var(--gold-dark);
+  color: var(--parchment);
+}
+
+.btn-transfer-action--primary:hover {
+  background: var(--gold);
+  color: var(--ink);
+}
+
 /* ================= LAYOUT ================= */
 .char-sheet-wrap {
   display: flex;
