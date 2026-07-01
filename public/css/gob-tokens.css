@@ -18,14 +18,23 @@
   --gob-veil: #030508;
 
   /* Color — редкость классов характеристик (6/9/12/20 → тир 1..4) */
-  --gob-uncommon: #4caf50;      /* зелёный */
-  --gob-uncommon-glow: rgba(76, 175, 80, 0.45);
-  --gob-rare: #3d7be0;          /* синий */
-  --gob-rare-glow: rgba(61, 123, 224, 0.45);
-  --gob-mythical: #9b59d0;      /* фиолетовый */
-  --gob-mythical-glow: rgba(155, 89, 208, 0.5);
-  --gob-legendary: #e0a92e;     /* жёлто-золотой */
-  --gob-legendary-glow: rgba(224, 169, 46, 0.55);
+  --gob-stat-tier-1: #8ab8a8;
+  --gob-stat-tier-1-glow: rgba(94, 240, 200, 0.22);
+  --gob-stat-tier-2: #d4b36a;
+  --gob-stat-tier-2-glow: rgba(212, 179, 106, 0.38);
+  --gob-stat-tier-3: #f0d98a;
+  --gob-stat-tier-3-glow: rgba(240, 217, 138, 0.42);
+  --gob-stat-tier-4: #fff0c8;
+  --gob-stat-tier-4-glow: rgba(94, 240, 200, 0.35);
+  /* legacy aliases */
+  --gob-uncommon: var(--gob-stat-tier-1);
+  --gob-uncommon-glow: var(--gob-stat-tier-1-glow);
+  --gob-rare: var(--gob-stat-tier-2);
+  --gob-rare-glow: var(--gob-stat-tier-2-glow);
+  --gob-mythical: var(--gob-stat-tier-3);
+  --gob-mythical-glow: var(--gob-stat-tier-3-glow);
+  --gob-legendary: var(--gob-stat-tier-4);
+  --gob-legendary-glow: var(--gob-stat-tier-4-glow);
 
   /* Color grade — teal shadows, gold highlights */
   --gob-grade-shadow: rgba(8, 22, 28, 0.72);

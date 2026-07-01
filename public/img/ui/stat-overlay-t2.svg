@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 132" fill="none">
+  <defs>
+    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff0c8"/>
+      <stop offset="45%" stop-color="#d4b36a"/>
+      <stop offset="100%" stop-color="#6b4e2a"/>
+    </linearGradient>
+    <linearGradient id="g2h" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7a5a28"/>
+      <stop offset="50%" stop-color="#f0d98a"/>
+      <stop offset="100%" stop-color="#7a5a28"/>
+    </linearGradient>
+    <radialGradient id="gem2" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#5ef0c8"/>
+      <stop offset="100%" stop-color="#0c2824"/>
+    </radialGradient>
+  </defs>
+  <rect x="1" y="1" width="118" height="130" rx="1" stroke="url(#g2)" stroke-width="2" opacity="0.7"/>
+  <rect x="5" y="5" width="110" height="122" rx="1" stroke="#7a5a28" stroke-width="0.8" opacity="0.35"/>
+  <!-- corner blocks -->
+  <path fill="url(#g2)" d="M2 2h24v5H7v19H2V2zm92 0h24v24h-5V7H98V2zM2 108v22h24v-5H7v-17H2zm92 5h5v17h17v5H98V113z"/>
+  <path stroke="#5ef0c8" stroke-width="1.2" fill="none" opacity="0.55" d="M6 6c8-2 14 4 16 12M114 6c-8-2-14 4-16 12M6 126c8 2 14-4 16-12M114 126c-8 2-14-4 16-12"/>
+  <!-- gems -->
+  <circle cx="9" cy="9" r="5" fill="#0c1814" stroke="#d4b36a" stroke-width="1.2"/>
+  <circle cx="9" cy="9" r="2.2" fill="url(#gem2)"/>
+  <circle cx="111" cy="9" r="5" fill="#0c1814" stroke="#d4b36a" stroke-width="1.2"/>
+  <circle cx="111" cy="9" r="2.2" fill="url(#gem2)"/>
+  <circle cx="9" cy="123" r="5" fill="#0c1814" stroke="#d4b36a" stroke-width="1.2"/>
+  <circle cx="9" cy="123" r="2.2" fill="url(#gem2)"/>
+  <circle cx="111" cy="123" r="5" fill="#0c1814" stroke="#d4b36a" stroke-width="1.2"/>
+  <circle cx="111" cy="123" r="2.2" fill="url(#gem2)"/>
+  <!-- side bars -->
+  <rect x="0.5" y="50" width="4.5" height="32" rx="1" fill="url(#g2)"/>
+  <rect x="115" y="50" width="4.5" height="32" rx="1" fill="url(#g2)"/>
+  <rect x="42" y="0.5" width="36" height="3.5" rx="1" fill="url(#g2h)" opacity="0.85"/>
+  <rect x="42" y="128" width="36" height="3.5" rx="1" fill="url(#g2h)" opacity="0.85"/>
+  <!-- rivets -->
+  <circle cx="60" cy="2" r="1.5" fill="#f0d98a"/>
+  <circle cx="60" cy="130" r="1.5" fill="#f0d98a"/>
+</svg>

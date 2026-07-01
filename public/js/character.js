@@ -75,7 +75,9 @@ function getStatCell(statKey) {
 function setStatCombatRuneLit(statKey, lit) {
   const link = STAT_COMBAT_LINKS.find((l) => l.stat === statKey);
   if (!link) return;
-  getStatCell(statKey)?.classList.toggle('is-rune-lit', lit);
+  const cell = getStatCell(statKey);
+  cell?.classList.toggle('is-rune-lit', lit);
+  StatTierFrame?.refreshDimmed?.(cell);
   document.getElementById(link.combatId)?.classList.toggle('is-rune-lit', lit);
 }
 
@@ -636,7 +638,7 @@ function effectiveHit() {
 }
 
 function effectiveCrit() {
-  return critValue(sheet.stats.luck) + (sumEquipmentMods().critDie || 0) + luckClassCrit();
+  return critValue(sheet.stats.luck) + luckClassCrit();
 }
 
 function maxAp() {
@@ -920,7 +922,7 @@ function updateCombatValues(opts = {}) {
   document.getElementById('combat-mp-max').textContent = mpMax;
   document.getElementById('combat-hit').textContent = sheet.stats.dex + (mods.hit || 0);
   document.getElementById('combat-skills').textContent = sheet.stats.int + intClassSkills();
-  document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck) + (mods.critDie || 0) + luckClassCrit();
+  document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck) + luckClassCrit();
 
   updateOverheal('hp', sheet.combat.hp, hpMax);
   updateOverheal('mp', sheet.combat.mp, mpMax);
@@ -1289,6 +1291,8 @@ function renderStats() {
   const grid = document.getElementById('stats-grid');
   grid.innerHTML = '';
   STAT_KEYS.forEach(({ key, label }) => {
+    const slot = document.createElement('div');
+    slot.className = 'stat-slot';
     const cell = document.createElement('div');
     cell.className = 'stat-cell';
     cell.dataset.stat = key;

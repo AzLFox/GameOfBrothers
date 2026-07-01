@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 132" fill="none">
+  <defs>
+    <linearGradient id="g4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fffce8"/>
+      <stop offset="35%" stop-color="#f0d98a"/>
+      <stop offset="70%" stop-color="#c9a24d"/>
+      <stop offset="100%" stop-color="#5a4020"/>
+    </linearGradient>
+    <linearGradient id="fl4" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5ef0c8"/>
+      <stop offset="100%" stop-color="#f0d98a"/>
+    </linearGradient>
+    <radialGradient id="gem4" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#5ef0c8"/>
+      <stop offset="100%" stop-color="#0a1814"/>
+    </radialGradient>
+  </defs>
+  <!-- crown -->
+  <path fill="url(#g4)" d="M40 0h10l3-5 3 5h10l-7 9h-12L40 0zm15 2l2 4 2-4h-4z"/>
+  <!-- grand corners -->
+  <path fill="url(#g4)" d="M0 0h32v9H4v23H0V0zm88 0h32v32h-8V5H88V0zM0 100v32h32v-8H4v-24H0zm88 8h8v24h24v8H88V108z"/>
+  <path stroke="url(#fl4)" stroke-width="1.6" fill="none" d="M2 2c14-5 24 8 26 22M118 2c-14-5-24 8-26 22M2 130c14 5 24-8 26-22M118 130c-14 5-24-8 26-22"/>
+  <!-- large gems -->
+  <circle cx="13" cy="13" r="7" fill="#0a1814" stroke="#f0d98a" stroke-width="1.5"/>
+  <circle cx="13" cy="13" r="3.5" fill="url(#gem4)"/>
+  <circle cx="107" cy="13" r="7" fill="#0a1814" stroke="#f0d98a" stroke-width="1.5"/>
+  <circle cx="107" cy="13" r="3.5" fill="url(#gem4)"/>
+  <circle cx="13" cy="119" r="7" fill="#0a1814" stroke="#f0d98a" stroke-width="1.5"/>
+  <circle cx="13" cy="119" r="3.5" fill="#f0d98a"/>
+  <circle cx="107" cy="119" r="7" fill="#0a1814" stroke="#f0d98a" stroke-width="1.5"/>
+  <circle cx="107" cy="119" r="3.5" fill="#f0d98a"/>
+  <!-- wing flares -->
+  <path fill="url(#g4)" opacity="0.9" d="M0 42c12 3 14 12 10 20s-10 12-10 12V42zm120 46c-12 3-14 12-10 20s10 12 10 12V88z"/>
+  <!-- edge chain -->
+  <circle cx="32" cy="2" r="1.5" fill="#f0d98a"/>
+  <circle cx="40" cy="2" r="1.5" fill="#5ef0c8"/>
+  <circle cx="48" cy="2" r="1.5" fill="#f0d98a"/>
+  <circle cx="56" cy="2" r="2" fill="#5ef0c8"/>
+  <circle cx="64" cy="2" r="2" fill="#f0d98a"/>
+  <circle cx="72" cy="2" r="1.5" fill="#5ef0c8"/>
+  <circle cx="80" cy="2" r="1.5" fill="#f0d98a"/>
+  <circle cx="88" cy="2" r="1.5" fill="#5ef0c8"/>
+  <!-- bottom chain -->
+  <circle cx="48" cy="130" r="1.5" fill="#f0d98a"/>
+  <circle cx="56" cy="130" r="2" fill="#5ef0c8"/>
+  <circle cx="64" cy="130" r="2" fill="#f0d98a"/>
+  <circle cx="72" cy="130" r="1.5" fill="#5ef0c8"/>
+</svg>
