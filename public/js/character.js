@@ -194,32 +194,29 @@ function bindStatCombatRunes() {
     }
   }
 
+  // клик по боевой строке разворачивает её (setupCombatRowExpand), а ховер
+  // (десктоп) подсвечивает руны на связанной паре «характеристика ↔ строка»
+  // в обе стороны — как при наведении на ячейку, так и на боевую строку.
+  if (isTouchRuneMode()) return;
+
   STAT_COMBAT_LINKS.forEach(({ stat, combatId }) => {
     const statEl = getStatCell(stat);
     const combatEl = document.getElementById(combatId);
     if (!statEl || !combatEl) return;
 
-    if (isTouchRuneMode()) {
-      combatEl.addEventListener('click', (e) => handleTouchRuneTap(e, stat, combatId, true));
-      return;
-    }
-
     const light = () => setStatCombatRuneLit(stat, true);
     const dim = (e) => {
       const next = e?.relatedTarget;
       if (statEl.contains(next) || combatEl.contains(next)) return;
+      if (expandedStat === stat) return; // не гасим подсветку раскрытой строки
       setStatCombatRuneLit(stat, false);
-    };
-
-    const bindFocus = (el) => {
-      el.addEventListener('focusin', light);
-      el.addEventListener('focusout', dim);
     };
 
     [statEl, combatEl].forEach((el) => {
       el.addEventListener('mouseenter', light);
       el.addEventListener('mouseleave', dim);
-      bindFocus(el);
+      el.addEventListener('focusin', light);
+      el.addEventListener('focusout', dim);
     });
   });
 }
@@ -235,8 +232,8 @@ const STAT_KEYS = [
 
 // ===== Классы характеристик =====
 // При достижении порогов 6/9/12/20 характеристика получает «класс» (тир 1..4).
-// Тир задаёт и цвет обводки ячейки (uncommon/rare/mythical/legendary), и
-// количество видимых из 4 классовых элементов, и величину бонуса к боёвке.
+// Каждый достигнутый тир даёт редактируемое классовое поле, вклад которого
+// вливается в боёвку. Источники и величины видны/правятся в развёртке строки.
 const STAT_CLASS_THRESHOLDS = [6, 9, 12, 20];
 const STAT_CLASS_MAX_TIER = STAT_CLASS_THRESHOLDS.length; // 4
 
@@ -246,8 +243,17 @@ function statClassTier(value) {
   return tier; // 0..4
 }
 
-// характеристики, чьи 4 поля — редактируемые числа с кубика (сила/ловкость/выносливость)
-const STAT_CLASS_DICE = ['str', 'dex', 'end'];
+// все характеристики имеют по 4 редактируемых классовых поля (по тиру).
+// Дефолт поля: Сила/Ловкость/Выносливость — 0 (число с кубика),
+// Дух/Интеллект/Удача — 1 (сохраняет прежнее поведение «+1 за тир»).
+const STAT_CLASS_KEYS = ['str', 'dex', 'int', 'spi', 'end', 'luck'];
+const STAT_CLASS_DEFAULT = { str: 0, dex: 0, end: 0, spi: 1, int: 1, luck: 1 };
+const STAT_CLASS_LABEL = {
+  str: 'Класс силы', dex: 'Класс ловкости', int: 'Класс интеллекта',
+  spi: 'Класс духа', end: 'Класс выносливости', luck: 'Класс удачи',
+};
+// связь строки-агрегата боёвки с характеристикой, чей класс в неё вливается
+const CLASS_ROW_STAT = { evasion: 'dex', armor: 'end', bubble: 'spi' };
 
 // сумма видимых (по достигнутым тирам) значений классовых полей характеристики
 function statClassDiceSum(statKey) {
@@ -261,9 +267,9 @@ function statClassDiceSum(statKey) {
 function strClassHp()      { return statClassDiceSum('str'); }
 function dexClassEvasion() { return statClassDiceSum('dex'); }
 function endClassArmor()   { return statClassDiceSum('end'); }
-function spiClassBubble()  { return statClassTier(sheet.stats.spi  || 0); } // +1 бабл / тир
-function luckClassCrit()   { return statClassTier(sheet.stats.luck || 0); } // +1 крит / тир
-function intClassSkills()  { return statClassTier(sheet.stats.int  || 0); } // +1 скилл / тир
+function spiClassBubble()  { return statClassDiceSum('spi'); }  // баблы от класса Духа
+function luckClassCrit()   { return statClassDiceSum('luck'); } // крит от класса Удачи
+function intClassSkills()  { return statClassDiceSum('int'); }  // скиллы от класса Интеллекта
 
 const EQUIPMENT_SLOTS = [
   { key: 'helmet', label: 'Шлем', icon: '⛑' },
@@ -786,26 +792,58 @@ function formatModValue(key, val) {
   return `+${val}`;
 }
 
-// строки боевой панели, возникающие только при надевании снаряжения
+// Строки-агрегаты боевой панели. Уворот/Защита/Баблы появляются, как только
+// связанная характеристика достигла 6 (тир ≥ 1) — даже при суммарном 0.
+// Прочие (Скрытность, Сопрот. и т.п.) — только при наличии снаряжения-источника.
+function extraRowVisible(key) {
+  const stat = CLASS_ROW_STAT[key] || null;
+  const hasClass = stat && statClassTier(sheet.stats[stat] || 0) >= 1;
+  return Boolean(hasClass) || equipmentModSources(key).length > 0;
+}
+
 function renderExtraCombatRows(mods) {
   const host = document.getElementById('combat-extra-rows');
   if (!host) return;
   host.innerHTML = '';
   Object.entries(CATALOG.MODIFIERS).forEach(([key, def]) => {
     if (def.combat !== 'row') return;
+    if (!extraRowVisible(key)) return;
     const val = mods[key] || 0;
-    if (!val) return;
     if (key === 'bubble') {
-      host.appendChild(buildBubbleRow(def, val));
+      const bubbleRow = buildBubbleRow(def, val);
+      host.appendChild(bubbleRow);
+      setupCombatRowExpand(bubbleRow);
       return;
     }
     const row = document.createElement('div');
     row.className = 'combat-row combat-row--equip';
+    row.id = `combat-row-${key}`;
     row.innerHTML = `
       <span class="combat-label">${def.label}</span>
       <span class="combat-derived">${formatModValue(key, val)}</span>
     `;
     host.appendChild(row);
+    setupCombatRowExpand(row);
+  });
+  refreshExpandedRow();
+}
+
+// обновляет только числа-итоги строк-агрегатов, не пересобирая их (сохраняет фокус)
+function updateExtraRowTotals(mods) {
+  Object.entries(CATALOG.MODIFIERS).forEach(([key, def]) => {
+    if (def.combat !== 'row') return;
+    const row = document.getElementById(`combat-row-${key}`);
+    if (!row) return;
+    const val = mods[key] || 0;
+    if (key === 'bubble') {
+      const unitsEl = row.querySelector('.bubble-units .combat-derived');
+      const hintEl = row.querySelector('.bubble-unit-hint');
+      if (unitsEl) unitsEl.textContent = val;
+      if (hintEl) hintEl.textContent = `${val * 10}%`;
+      return;
+    }
+    const derived = row.querySelector(':scope > .combat-derived');
+    if (derived) derived.textContent = formatModValue(key, val);
   });
 }
 
@@ -862,8 +900,11 @@ function buildBubbleRow(def, units) {
   return row;
 }
 
-function updateCombatValues() {
+// rebuildExtra=false — правка значения в развёртке: обновляем итоги строк на месте,
+// не пересобирая DOM (иначе фокус в поле ввода теряется).
+function updateCombatValues(opts = {}) {
   if (!sheet?.combat) return;
+  const { rebuildExtra = true } = opts;
 
   const mods = sumEquipmentMods();
   // классовые вклады вливаются в те же строки, что и снаряжение — строки
@@ -887,7 +928,8 @@ function updateCombatValues() {
   updateOverheal('mp', sheet.combat.mp, mpMax);
   updateOverheal('ap', sheet.combat.ap, apMax);
 
-  renderExtraCombatRows(mods);
+  if (rebuildExtra) renderExtraCombatRows(mods);
+  else updateExtraRowTotals(mods);
 
   const skillsRow = document.getElementById('combat-row-skills');
   skillsRow.classList.toggle('combat-row--warning', spellsRemaining() < 0);
@@ -977,6 +1019,11 @@ function renderCombat() {
     const row = document.getElementById(combatId);
     if (row) row.insertAdjacentHTML('beforeend', createLinkRunesMarkup(stat, 'combat'));
   });
+  // базовые строки тоже разворачиваются в свою разбивку по источникам
+  STAT_COMBAT_LINKS.forEach(({ combatId }) => {
+    const row = document.getElementById(combatId);
+    if (row) setupCombatRowExpand(row);
+  });
   syncCombatInputs();
   updateCombatValues();
 }
@@ -1033,8 +1080,12 @@ function defaultSheet(char) {
     lore: char.lore || '',
     spells: [],
     stats: { str: 12, dex: 12, int: 12, spi: 12, end: 12, luck: 12 },
-    // числа с кубика для классовых полей (сила/ловкость/выносливость), по 4 тира
-    statClass: { str: [0, 0, 0, 0], dex: [0, 0, 0, 0], end: [0, 0, 0, 0] },
+    // редактируемые классовые поля всех характеристик (по 4 тира на стат)
+    statClass: Object.fromEntries(
+      STAT_CLASS_KEYS.map(k => [
+        k, Array.from({ length: STAT_CLASS_MAX_TIER }, () => STAT_CLASS_DEFAULT[k]),
+      ])
+    ),
     // отдельная «книга» скиллов класса Интеллекта (до 4 заклинаний)
     classSkills: { int: [] },
     combat: defaultCombat({ str: 12, dex: 12, int: 12, spi: 12, end: 12, luck: 12 }),
@@ -1045,13 +1096,17 @@ function defaultSheet(char) {
   };
 }
 
-// нормализует классовые поля к массивам длины 4 из целых чисел
+// нормализует классовые поля к массивам длины 4 из целых чисел;
+// отсутствующие значения берут дефолт стата (spi/int/luck → 1, остальные → 0)
 function migrateStatClass(data, base) {
   const src = (data.statClass && typeof data.statClass === 'object') ? data.statClass : {};
   const out = {};
-  STAT_CLASS_DICE.forEach((key) => {
+  STAT_CLASS_KEYS.forEach((key) => {
     const arr = Array.isArray(src[key]) ? src[key] : [];
-    out[key] = Array.from({ length: STAT_CLASS_MAX_TIER }, (_, i) => parseInt(arr[i], 10) || 0);
+    out[key] = Array.from({ length: STAT_CLASS_MAX_TIER }, (_, i) => {
+      const n = parseInt(arr[i], 10);
+      return Number.isFinite(n) ? n : STAT_CLASS_DEFAULT[key];
+    });
   });
   return out;
 }
@@ -1245,137 +1300,251 @@ function renderStats() {
       <span class="stat-label">${label}</span>
       <input type="number" class="stat-input" data-stat="${key}" min="0" max="999" value="${sheet.stats[key]}">
       ${createLinkRunesMarkup(key, 'stat')}
-      <div class="stat-class-slots stat-class-slots--${key}"></div>
     `;
     const input = cell.querySelector('.stat-input');
     input.addEventListener('input', () => {
       sheet.stats[key] = parseInt(input.value, 10) || 0;
       scheduleSave();
-      renderStatClassSlots(cell, key);
       updateCombatValues();
       updateSlotWarnings();
       if (selectedSlot?.group === 'equipment' && slotSupportsClasses(selectedSlot.key)) {
         renderReqHint(selectedSlot.key);
       }
     });
-    slot.appendChild(cell);
-    renderStatClassSlots(cell, key);
-    grid.appendChild(slot);
+    grid.appendChild(cell);
   });
 }
 
-// Обводка ячейки по достигнутому тиру + 4 классовых элемента (по одному на тир).
-// Слот i виден только когда tier > i.
-function updateStatTierFrame(cell, tier) {
-  if (typeof StatTierFrame !== 'undefined') {
-    StatTierFrame.attach(cell, tier);
-    return;
-  }
-}
+// ===== Разворачиваемые боевые строки: разбивка по источникам =====
+// Источник = { label, value, editable, onEdit(v), slotKey? }. По клику строка
+// раскрывается в список источников: классовые поля (по тирам) + вклад предметов.
 
-function renderStatClassSlots(cell, statKey) {
+let expandedRowId = null;
+let expandedStat = null;
+
+// редактируемые классовые поля характеристики (по достигнутым тирам)
+function statClassFieldSources(statKey) {
   const tier = statClassTier(sheet.stats[statKey] || 0);
-
-  for (let t = 1; t <= STAT_CLASS_MAX_TIER; t++) cell.classList.remove(`stat-cell--tier-${t}`);
-  if (tier > 0) cell.classList.add(`stat-cell--tier-${tier}`);
-  updateStatTierFrame(cell, tier);
-
-  const overlay = cell.querySelector('.stat-class-slots');
-  if (!overlay) return;
-  overlay.innerHTML = '';
-
-  for (let i = 0; i < STAT_CLASS_MAX_TIER; i++) {
-    const slot = document.createElement('div');
-    slot.className = `stat-class-slot stat-class-slot--pos-${i + 1}`;
-    const active = tier > i;
-    slot.classList.toggle('is-active', active);
-    if (active) fillStatClassSlot(slot, statKey, i);
-    overlay.appendChild(slot);
+  if (!Array.isArray(sheet.statClass?.[statKey])) {
+    sheet.statClass = {
+      ...(sheet.statClass || {}),
+      [statKey]: Array.from({ length: STAT_CLASS_MAX_TIER }, () => STAT_CLASS_DEFAULT[statKey]),
+    };
   }
-}
-
-// точечная перерисовка классовых слотов одной характеристики (после правок в книге)
-function refreshStatClassSlots(statKey) {
-  const cell = document.querySelector(`.stat-cell[data-stat="${statKey}"]`);
-  if (cell) renderStatClassSlots(cell, statKey);
-}
-
-function fillStatClassSlot(slot, statKey, i) {
-  const tierNo = i + 1;
-
-  // Сила / Ловкость / Выносливость — редактируемое число с кубика
-  if (STAT_CLASS_DICE.includes(statKey)) {
-    if (!Array.isArray(sheet.statClass?.[statKey])) {
-      sheet.statClass = { ...(sheet.statClass || {}), [statKey]: [0, 0, 0, 0] };
-    }
-    slot.classList.add('stat-class-slot--num');
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.inputMode = 'numeric';
-    input.className = 'stat-class-num';
-    input.maxLength = 3;
-    input.value = String(sheet.statClass[statKey][i] || 0);
-    input.setAttribute('aria-label', `${statLabel(statKey)}: бонус класса, тир ${tierNo}`);
-    input.title = `Значение с кубика (тир ${tierNo})`;
-    input.addEventListener('input', () => {
-      const clean = input.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 3);
-      if (clean !== input.value) {
-        const atEnd = input.selectionStart === input.value.length;
-        input.value = clean;
-        if (atEnd) input.setSelectionRange(clean.length, clean.length);
-      }
-      sheet.statClass[statKey][i] = parseInt(clean, 10) || 0;
-      scheduleSave();
-      updateCombatValues();
+  const arr = sheet.statClass[statKey];
+  const out = [];
+  for (let i = 0; i < tier; i++) {
+    out.push({
+      label: `${STAT_CLASS_LABEL[statKey]} ${i + 1}`,
+      value: parseInt(arr[i], 10) || 0,
+      editable: true,
+      onEdit(v) { arr[i] = v; scheduleSave(); updateCombatValues({ rebuildExtra: false }); },
     });
-    slot.appendChild(input);
-    return;
   }
+  return out;
+}
 
-  // Интеллект — ячейка-заклинание как в книге; клик открывает классовую книгу
-  if (statKey === 'int') {
-    slot.classList.add('stat-class-slot--spell');
-    const intList = Array.isArray(sheet.classSkills?.int) ? sheet.classSkills.int : [];
-    const spell = intList[i] || null;
-    const cellEl = createSpellSlot(spell);
+// вклад надетых предметов в конкретный модификатор (правка меняет поле предмета)
+function equipmentModSources(modKey) {
+  const out = [];
+  [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS].forEach(({ key: slotKey }) => {
+    const item = sheet.equipment?.[slotKey];
+    if (!item || item.mirror || !item.classId) return;
+    if (!(modKey in (item.mods || {}))) return;
+    const cls = findItemClass(slotKey, item.classId);
+    if (!cls || !cls.mods.includes(modKey)) return;
+    out.push({
+      label: `${item.name?.trim() || cls.label} · Т${item.tier}`,
+      value: parseInt(item.mods[modKey], 10) || 0,
+      editable: true,
+      slotKey,
+      onEdit(v) {
+        item.mods[modKey] = v;
+        reconcileHands(slotKey);
+        scheduleSave();
+        updateSlotUI('equipment', slotKey);
+        updateCombatValues({ rebuildExtra: false });
+      },
+    });
+  });
+  return out;
+}
+
+// источники (и связанная характеристика) для боевой строки по её id
+function combatRowSources(rowId) {
+  const st = sheet.stats;
+  switch (rowId) {
+    case 'combat-row-hp':
+      return { stat: 'str', sources: [
+        { label: 'Сила ×4', value: st.str * 4, editable: false },
+        ...statClassFieldSources('str'),
+        ...equipmentModSources('hpBonus'),
+      ] };
+    case 'combat-row-hit':
+      return { stat: 'dex', sources: [
+        { label: 'Ловкость', value: st.dex, editable: false },
+        ...equipmentModSources('hit'),
+      ] };
+    case 'combat-row-skills':
+      return { stat: 'int', classBook: true, sources: [
+        { label: 'Интеллект', value: st.int, editable: false },
+        ...statClassFieldSources('int'),
+      ] };
+    case 'combat-row-mp':
+      return { stat: 'spi', sources: [{ label: 'Дух', value: st.spi, editable: false }] };
+    case 'combat-row-ap':
+      return { stat: 'end', sources: [{ label: 'Выносливость', value: st.end, editable: false }] };
+    case 'combat-row-crit':
+      return { stat: 'luck', sources: [
+        { label: 'Удача ÷2', value: critValue(st.luck), editable: false },
+        ...statClassFieldSources('luck'),
+        ...equipmentModSources('critDie'),
+      ] };
+    default: {
+      // строки-агрегаты снаряжения/классов: id вида combat-row-<modKey>
+      const modKey = rowId.replace('combat-row-', '');
+      const stat = CLASS_ROW_STAT[modKey] || null;
+      return { stat, sources: [
+        ...(stat ? statClassFieldSources(stat) : []),
+        ...equipmentModSources(modKey),
+      ] };
+    }
+  }
+}
+
+function litStatCell(stat, on) {
+  if (stat) getStatCell(stat)?.classList.toggle('is-rune-lit', on);
+}
+
+function highlightSourceSlot(slotKey) {
+  document.querySelector(`.item-slot[data-group="equipment"][data-slot="${slotKey}"]`)
+    ?.classList.add('is-source-lit');
+}
+
+function clearSourceHighlights() {
+  document.querySelectorAll('.item-slot.is-source-lit')
+    .forEach(el => el.classList.remove('is-source-lit'));
+}
+
+// делает боевую строку кликабельной для развёртки
+function setupCombatRowExpand(row) {
+  row.classList.add('combat-row--expandable');
+  row.setAttribute('aria-expanded', 'false');
+  row.addEventListener('click', (e) => {
+    if (e.target.closest('input, textarea, select, button, .combat-breakdown, .spell-slot')) return;
+    toggleRowExpand(row);
+  });
+}
+
+function collapseCombatRow() {
+  if (!expandedRowId) return;
+  const prev = document.getElementById(expandedRowId);
+  if (prev) {
+    // is-rune-lit мог остаться от ховера (dim подавлен, пока строка раскрыта) —
+    // снимаем принудительно, иначе подсветка «застревает» при переключении строк
+    prev.classList.remove('is-expanded', 'is-rune-lit');
+    prev.setAttribute('aria-expanded', 'false');
+    prev.querySelector('.combat-breakdown')?.remove();
+  }
+  litStatCell(expandedStat, false);
+  clearSourceHighlights();
+  expandedRowId = null;
+  expandedStat = null;
+}
+
+function toggleRowExpand(row) {
+  if (expandedRowId === row.id) { collapseCombatRow(); return; }
+  collapseCombatRow();
+  expandedRowId = row.id;
+  buildBreakdown(row);
+}
+
+// пересобрать развёртку открытой строки (после структурных изменений)
+function refreshExpandedRow() {
+  if (!expandedRowId) return;
+  const row = document.getElementById(expandedRowId);
+  if (!row) { litStatCell(expandedStat, false); clearSourceHighlights(); expandedRowId = null; expandedStat = null; return; }
+  buildBreakdown(row);
+}
+
+function buildBreakdown(row) {
+  const { stat, sources, classBook } = combatRowSources(row.id);
+
+  clearSourceHighlights();
+  litStatCell(expandedStat, false);
+  expandedStat = stat;
+  litStatCell(stat, true);
+
+  row.classList.add('is-expanded');
+  row.setAttribute('aria-expanded', 'true');
+
+  let box = row.querySelector('.combat-breakdown');
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'combat-breakdown';
+    row.appendChild(box);
+  }
+  box.innerHTML = '';
+
+  sources.forEach((src) => {
+    const line = document.createElement('div');
+    line.className = 'combat-breakdown-row';
+    if (src.slotKey) { line.classList.add('combat-breakdown-row--equip'); highlightSourceSlot(src.slotKey); }
+
+    const labelEl = document.createElement('span');
+    labelEl.className = 'combat-breakdown-label';
+    labelEl.textContent = src.label;
+    line.appendChild(labelEl);
+
+    if (src.editable) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.inputMode = 'numeric';
+      input.className = 'combat-breakdown-input';
+      input.maxLength = 3;
+      input.value = String(src.value ?? 0);
+      input.setAttribute('aria-label', src.label);
+      input.addEventListener('click', (e) => e.stopPropagation());
+      input.addEventListener('input', () => {
+        const clean = input.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 3);
+        if (clean !== input.value) {
+          const atEnd = input.selectionStart === input.value.length;
+          input.value = clean;
+          if (atEnd) input.setSelectionRange(clean.length, clean.length);
+        }
+        src.onEdit(parseInt(clean, 10) || 0);
+      });
+      line.appendChild(input);
+    } else {
+      const valEl = document.createElement('span');
+      valEl.className = 'combat-breakdown-value';
+      valEl.textContent = String(src.value ?? 0);
+      line.appendChild(valEl);
+    }
+    box.appendChild(line);
+  });
+
+  if (classBook) appendIntClassBook(box);
+}
+
+// мини-сетка книги скиллов класса Интеллекта (внутри развёртки строки «Скиллы»)
+function appendIntClassBook(box) {
+  const cap = classIntCapacity();
+  if (cap <= 0) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'combat-breakdown-book';
+  const intList = Array.isArray(sheet.classSkills?.int) ? sheet.classSkills.int : [];
+  for (let i = 0; i < cap; i++) {
+    const cellEl = createSpellSlot(intList[i] || null);
     cellEl.classList.add('spell-slot--class');
     cellEl.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       openSpellbookModal('classInt');
     });
-    slot.appendChild(cellEl);
-    return;
+    wrap.appendChild(cellEl);
   }
-
-  // Дух — щит-маркер (+1 бабл за тир)
-  if (statKey === 'spi') {
-    slot.classList.add('stat-class-slot--shield');
-    const img = document.createElement('img');
-    img.className = 'stat-class-shield';
-    img.src = iconSrc('buff', 'shield');
-    img.alt = '';
-    img.setAttribute('aria-hidden', 'true');
-    img.draggable = false;
-    img.title = 'Дух: +1 бабл за тир класса';
-    slot.appendChild(img);
-    return;
-  }
-
-  // Удача — «+1» со случайным смещением в своей зоне (меняется при перезагрузке)
-  if (statKey === 'luck') {
-    slot.classList.add('stat-class-slot--luck');
-    const label = document.createElement('span');
-    label.className = 'stat-class-plus';
-    label.setAttribute('aria-hidden', 'true');
-    label.title = 'Удача: +1 крит за тир класса';
-    label.textContent = '+1';
-    label.style.setProperty('--lx', `${(Math.random() * 40 - 20).toFixed(1)}%`);
-    label.style.setProperty('--ly', `${(Math.random() * 40 - 20).toFixed(1)}%`);
-    label.style.setProperty('--lr', `${(Math.random() * 24 - 12).toFixed(1)}deg`);
-    slot.appendChild(label);
-    return;
-  }
+  box.appendChild(wrap);
 }
 
 function paintSlotButton(btn, slotDef, slotKey, group) {
@@ -2201,8 +2370,7 @@ function saveSpell() {
   scheduleSave();
   closeSpellEditor();
   renderSpellGrids();
-  if (spellCollection === 'classInt') refreshStatClassSlots('int');
-  updateCombatValues();
+  updateCombatValues(); // обновит развёртку строки «Скиллы», если она открыта
 }
 
 function deleteSpell() {
@@ -2214,8 +2382,7 @@ function deleteSpell() {
   scheduleSave();
   closeSpellEditor();
   renderSpellGrids();
-  if (spellCollection === 'classInt') refreshStatClassSlots('int');
-  updateCombatValues();
+  updateCombatValues(); // обновит развёртку строки «Скиллы», если она открыта
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -2278,12 +2445,14 @@ function exportToSharedFormat() {
     },
     equipment,
     backpack,
-    // числа с кубика для классов Силы/Ловкости/Выносливости
-    statClass: {
-      str: (s.statClass?.str ?? []).slice(0, STAT_CLASS_MAX_TIER).map(n => toInt(n, 0)),
-      dex: (s.statClass?.dex ?? []).slice(0, STAT_CLASS_MAX_TIER).map(n => toInt(n, 0)),
-      end: (s.statClass?.end ?? []).slice(0, STAT_CLASS_MAX_TIER).map(n => toInt(n, 0)),
-    },
+    // редактируемые классовые поля всех характеристик
+    statClass: Object.fromEntries(
+      STAT_CLASS_KEYS.map((key) => {
+        const arr = s.statClass?.[key] ?? [];
+        return [key, Array.from({ length: STAT_CLASS_MAX_TIER },
+          (_, i) => toInt(arr[i], STAT_CLASS_DEFAULT[key]))];
+      })
+    ),
     // классовая книга скиллов Интеллекта
     classSkills: {
       int: (s.classSkills?.int ?? []).map(sp => ({
@@ -2399,11 +2568,12 @@ function importFromSharedFormat(jsonString) {
     iconImage: strVal(s?.iconImage),
   }));
 
-  // ── Классовые поля (числа с кубика) ─────────────────────────────────
+  // ── Классовые поля всех характеристик ───────────────────────────────
   const statClass = {};
-  STAT_CLASS_DICE.forEach((key) => {
+  STAT_CLASS_KEYS.forEach((key) => {
     const arr = Array.isArray(raw.statClass?.[key]) ? raw.statClass[key] : [];
-    statClass[key] = Array.from({ length: STAT_CLASS_MAX_TIER }, (_, i) => toInt(arr[i], 0));
+    statClass[key] = Array.from({ length: STAT_CLASS_MAX_TIER },
+      (_, i) => toInt(arr[i], STAT_CLASS_DEFAULT[key]));
   });
 
   // ── Классовая книга Интеллекта ──────────────────────────────────────
