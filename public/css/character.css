@@ -821,81 +821,12 @@ body {
   background: #fff;
 }
 
-/* ===== Классы характеристик: обводка по редкости + 4 угловых элемента ===== */
-/* Обводка активна, пока ячейка не подсвечена руной (ховер имеет приоритет). */
-.stat-cell--tier-1:not(.is-rune-lit) {
-  border-color: var(--gob-uncommon);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px var(--gob-uncommon-glow),
-    0 0 12px var(--gob-uncommon-glow);
-}
-.stat-cell--tier-2:not(.is-rune-lit) {
-  border-color: var(--gob-rare);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px var(--gob-rare-glow),
-    0 0 12px var(--gob-rare-glow);
-}
-.stat-cell--tier-3:not(.is-rune-lit) {
-  border-color: var(--gob-mythical);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px var(--gob-mythical-glow),
-    0 0 13px var(--gob-mythical-glow);
-}
-.stat-cell--tier-4:not(.is-rune-lit) {
-  border-color: var(--gob-legendary);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px var(--gob-legendary-glow),
-    0 0 16px var(--gob-legendary-glow);
-}
+/* Ячейка характеристики использует обводку по умолчанию при любом значении —
+   классы/тиры больше не влияют на её цвет. Источники и правки классовых полей
+   теперь живут в развёртке боевых строк (см. .combat-breakdown ниже). */
 
-.stat-class-slots {
-  position: absolute;
-  inset: 2px;
-  pointer-events: none;
-  z-index: 3;
-}
-
-.stat-class-slot {
-  position: absolute;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 42px;
-  height: 42px;
-}
-.stat-class-slot.is-active { display: flex; }
-.stat-class-slot--pos-1 { top: 0; left: 0; }
-.stat-class-slot--pos-2 { top: 0; right: 0; }
-.stat-class-slot--pos-3 { bottom: 0; left: 0; }
-.stat-class-slot--pos-4 { bottom: 0; right: 0; }
-
-/* числовое поле (Сила / Ловкость / Выносливость) */
-.stat-class-num {
-  pointer-events: auto;
-  width: 32px;
-  min-width: 0;
-  text-align: center;
-  font-family: "Cinzel", serif;
-  font-size: 0.74rem;
-  font-weight: 700;
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid var(--parchment-dark);
-  border-radius: 3px;
-  padding: 3px 2px;
-}
-.stat-class-num:focus {
-  outline: none;
-  border-color: var(--gold);
-  background: #fff;
-}
-
-/* компактная ячейка-заклинание (Интеллект) */
-.stat-class-slot--spell .spell-slot--class {
+/* компактная ячейка-заклинание (книга класса Интеллекта в развёртке «Скиллы») */
+.combat-breakdown-book .spell-slot--class {
   pointer-events: auto;
   width: 42px;
   max-width: 42px;
@@ -906,26 +837,6 @@ body {
 .spell-slot--class .spell-icon-ornament { inset: -5px; }
 .spell-slot--class .spell-mana-badge,
 .spell-slot--class .spell-level-badge { display: none; }
-
-/* щит (Дух) */
-.stat-class-shield {
-  width: 30px;
-  height: 30px;
-  object-fit: contain;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
-}
-
-/* «+1» (Удача) — со случайным смещением/наклоном в своей зоне */
-.stat-class-plus {
-  font-family: "Cinzel", serif;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: var(--gob-legendary);
-  text-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 0 8px var(--gob-legendary-glow);
-  transform: translate(var(--lx, 0), var(--ly, 0)) rotate(var(--lr, 0deg));
-}
 
 /* ================= COMBAT STATS ================= */
 .combat-grid {
@@ -1074,7 +985,8 @@ body {
   font-size: 1.05rem;
 }
 
-.is-rune-lit .link-rune {
+.is-rune-lit .link-rune,
+.combat-row.is-expanded .link-rune {
   color: rgba(176, 248, 228, 0.96);
   opacity: 0.95;
   text-shadow:
@@ -1172,6 +1084,113 @@ body {
 
 .combat-row--warning .combat-derived {
   color: #8b1010;
+}
+
+/* ===== Развёртка боевой строки: разбивка по источникам ===== */
+.combat-row--expandable {
+  cursor: pointer;
+}
+
+/* каретка-индикатор у метки строки */
+.combat-row--expandable > .combat-label::after {
+  content: "▸";
+  margin-left: 6px;
+  font-size: 0.72em;
+  color: var(--gold-dark);
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+.combat-row--expandable.is-expanded > .combat-label::after {
+  transform: rotate(90deg);
+}
+
+/* раскрытая строка выделяется так же, как при наведении (сияющая обводка) */
+.combat-row.is-expanded {
+  border-color: rgba(94, 240, 200, 0.42);
+  box-shadow:
+    inset 0 0 0 1px rgba(94, 240, 200, 0.16),
+    0 0 14px rgba(94, 240, 200, 0.1);
+}
+
+.combat-breakdown {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(122, 90, 40, 0.4);
+}
+
+.combat-breakdown-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(122, 90, 40, 0.22);
+}
+
+/* источник-предмет — зеленоватый, в тон combat-row--equip */
+.combat-breakdown-row--equip {
+  background: rgba(62, 196, 168, 0.12);
+  border-color: rgba(62, 196, 168, 0.4);
+}
+
+.combat-breakdown-label {
+  font-family: "Crimson Pro", Georgia, serif;
+  font-size: 0.94rem;
+  color: var(--ink);
+}
+
+.combat-breakdown-value {
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink-muted);
+  min-width: 28px;
+  text-align: center;
+}
+
+.combat-breakdown-input {
+  width: 46px;
+  text-align: center;
+  font-family: "Cinzel", serif;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--parchment-dark);
+  border-radius: 3px;
+  padding: 3px 2px;
+}
+.combat-breakdown-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: #fff;
+}
+
+.combat-breakdown-book {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+/* слот снаряжения, подсвеченный как источник открытой строки */
+.item-slot.is-source-lit {
+  border-color: rgba(62, 196, 168, 0.9);
+  box-shadow:
+    0 0 0 2px rgba(62, 196, 168, 0.35),
+    0 0 12px rgba(62, 196, 168, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .combat-row--expandable > .combat-label::after {
+    transition: none;
+  }
 }
 
 .combat-tooltip {
