@@ -602,7 +602,9 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  min-height: 112px;
   padding: 10px 8px;
   background: linear-gradient(180deg, #f0e0c0 0%, #d8c090 100%);
   border: 2px solid var(--slot-border);
@@ -652,6 +654,112 @@ body {
   outline: none;
   border-color: var(--gold);
   background: #fff;
+}
+
+/* ===== Классы характеристик: обводка по редкости + 4 угловых элемента ===== */
+/* Обводка активна, пока ячейка не подсвечена руной (ховер имеет приоритет). */
+.stat-cell--tier-1:not(.is-rune-lit) {
+  border-color: var(--gob-uncommon);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 0 1px var(--gob-uncommon-glow),
+    0 0 12px var(--gob-uncommon-glow);
+}
+.stat-cell--tier-2:not(.is-rune-lit) {
+  border-color: var(--gob-rare);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 0 1px var(--gob-rare-glow),
+    0 0 12px var(--gob-rare-glow);
+}
+.stat-cell--tier-3:not(.is-rune-lit) {
+  border-color: var(--gob-mythical);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 0 1px var(--gob-mythical-glow),
+    0 0 13px var(--gob-mythical-glow);
+}
+.stat-cell--tier-4:not(.is-rune-lit) {
+  border-color: var(--gob-legendary);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 0 1px var(--gob-legendary-glow),
+    0 0 16px var(--gob-legendary-glow);
+}
+
+.stat-class-slots {
+  position: absolute;
+  inset: 2px;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.stat-class-slot {
+  position: absolute;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+}
+.stat-class-slot.is-active { display: flex; }
+.stat-class-slot--pos-1 { top: 0; left: 0; }
+.stat-class-slot--pos-2 { top: 0; right: 0; }
+.stat-class-slot--pos-3 { bottom: 0; left: 0; }
+.stat-class-slot--pos-4 { bottom: 0; right: 0; }
+
+/* числовое поле (Сила / Ловкость / Выносливость) */
+.stat-class-num {
+  pointer-events: auto;
+  width: 32px;
+  min-width: 0;
+  text-align: center;
+  font-family: "Cinzel", serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--parchment-dark);
+  border-radius: 3px;
+  padding: 3px 2px;
+}
+.stat-class-num:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: #fff;
+}
+
+/* компактная ячейка-заклинание (Интеллект) */
+.stat-class-slot--spell .spell-slot--class {
+  pointer-events: auto;
+  width: 42px;
+  max-width: 42px;
+  gap: 0;
+}
+.spell-slot--class .spell-slot-name { display: none; }
+.spell-slot--class .spell-icon-wrap { max-width: 42px; }
+.spell-slot--class .spell-icon-ornament { inset: -5px; }
+.spell-slot--class .spell-mana-badge,
+.spell-slot--class .spell-level-badge { display: none; }
+
+/* щит (Дух) */
+.stat-class-shield {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+/* «+1» (Удача) — со случайным смещением/наклоном в своей зоне */
+.stat-class-plus {
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--gob-legendary);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 0 8px var(--gob-legendary-glow);
+  transform: translate(var(--lx, 0), var(--ly, 0)) rotate(var(--lr, 0deg));
 }
 
 /* ================= COMBAT STATS ================= */

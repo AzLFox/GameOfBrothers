@@ -17,6 +17,16 @@
   --gob-text-on-dark: #f5e6c8;
   --gob-veil: #030508;
 
+  /* Color — редкость классов характеристик (6/9/12/20 → тир 1..4) */
+  --gob-uncommon: #4caf50;      /* зелёный */
+  --gob-uncommon-glow: rgba(76, 175, 80, 0.45);
+  --gob-rare: #3d7be0;          /* синий */
+  --gob-rare-glow: rgba(61, 123, 224, 0.45);
+  --gob-mythical: #9b59d0;      /* фиолетовый */
+  --gob-mythical-glow: rgba(155, 89, 208, 0.5);
+  --gob-legendary: #e0a92e;     /* жёлто-золотой */
+  --gob-legendary-glow: rgba(224, 169, 46, 0.55);
+
   /* Color grade — teal shadows, gold highlights */
   --gob-grade-shadow: rgba(8, 22, 28, 0.72);
   --gob-grade-shadow-soft: rgba(12, 32, 36, 0.45);
