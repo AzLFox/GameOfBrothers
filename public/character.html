@@ -31,6 +31,49 @@
       <span class="save-hint" id="save-hint" aria-live="polite"></span>
     </header>
 
+    <div class="transfer-modal hidden" id="transfer-modal">
+      <div class="transfer-modal__backdrop"></div>
+      <div class="transfer-modal__panel panel">
+        <header class="transfer-modal__header">
+          <h2 class="panel-title">Перенос персонажа</h2>
+          <button type="button" class="transfer-modal__close" id="btn-transfer-close" aria-label="Закрыть">×</button>
+        </header>
+
+        <div class="transfer-tabs" role="tablist">
+          <button type="button" class="transfer-tab active" data-tab="export">Экспорт</button>
+          <button type="button" class="transfer-tab" data-tab="import">Импорт</button>
+        </div>
+
+        <div class="transfer-panel" id="transfer-panel-export">
+          <p class="transfer-hint">Скопируйте JSON или скачайте файл, чтобы перенести персонажа.</p>
+          <textarea class="transfer-textarea" id="export-json" readonly spellcheck="false"></textarea>
+          <div class="transfer-actions">
+            <button type="button" class="btn-transfer-action" id="btn-export-copy">Скопировать</button>
+            <button type="button" class="btn-transfer-action" id="btn-export-download">Скачать файл</button>
+          </div>
+        </div>
+
+        <div class="transfer-panel hidden" id="transfer-panel-import">
+          <p class="transfer-hint">Вставьте JSON персонажа или загрузите файл. Текущий лист будет заменён.</p>
+          <textarea class="transfer-textarea" id="import-json" spellcheck="false" placeholder="{ &quot;schemaVersion&quot;: 2, ... }"></textarea>
+          <input type="file" id="import-file-input" accept="application/json,.json" hidden>
+          <p class="transfer-file-info" id="import-file-info"></p>
+          <p class="transfer-error hidden" id="import-error"></p>
+          <p class="transfer-success hidden" id="import-success">
+            Персонаж импортирован. <a href="#" id="import-success-link">Обновить страницу</a>.
+          </p>
+          <div class="transfer-actions">
+            <button type="button" class="btn-transfer-action" id="btn-import-file">Загрузить файл</button>
+            <button type="button" class="btn-transfer-action btn-transfer-action--primary" id="btn-import-apply">Применить</button>
+          </div>
+        </div>
+
+        <div class="transfer-modal__footer">
+          <button type="button" class="btn-transfer-action" id="btn-transfer-cancel">Закрыть</button>
+        </div>
+      </div>
+    </div>
+
     <aside class="slot-editor panel" id="slot-editor" hidden>
       <header class="slot-editor-header">
         <h2 class="panel-title" id="slot-editor-title">Предмет</h2>
