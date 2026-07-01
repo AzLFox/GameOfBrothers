@@ -224,6 +224,12 @@ body {
     object-position: center top;
   }
 
+  .portrait-change-btn,
+  .portrait-remove-btn,
+  .btn-delete-char {
+    width: 100%;
+  }
+
   .char-identity {
     grid-area: identity;
     width: 100%;
@@ -509,6 +515,165 @@ body {
   aspect-ratio: 3 / 4;
   object-fit: cover;
   border-radius: 1px;
+}
+
+.portrait-tools {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.portrait-change-btn,
+.portrait-remove-btn,
+.btn-delete-char {
+  font-family: "Cinzel", serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  width: 100%;
+}
+
+.portrait-tools-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.portrait-change-btn {
+  color: var(--gold-light);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(176, 141, 87, 0.45);
+}
+
+.portrait-change-btn:hover {
+  border-color: rgba(90, 220, 180, 0.5);
+  color: #fff8e8;
+}
+
+.portrait-remove-btn {
+  color: #c8b89a;
+  background: transparent;
+  border: 1px solid rgba(176, 141, 87, 0.28);
+}
+
+.portrait-remove-btn:hover {
+  color: var(--gold-light);
+  border-color: rgba(176, 141, 87, 0.45);
+}
+
+.portrait-tools-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: rgba(200, 184, 154, 0.65);
+  line-height: 1.35;
+}
+
+.portrait-tools-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #e8a090;
+  line-height: 1.35;
+}
+
+.btn-delete-char {
+  font-family: "Cinzel", serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  min-height: 44px;
+  padding: 8px 14px;
+  color: #e8a090;
+  background: rgba(80, 20, 12, 0.35);
+  border: 1px solid rgba(200, 100, 80, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.btn-delete-char:hover {
+  color: #ffd4c8;
+  border-color: rgba(232, 140, 110, 0.65);
+  background: rgba(100, 28, 18, 0.5);
+}
+
+.brumgilde-modal {
+  padding: 0;
+  border: none;
+  background: transparent;
+  max-width: min(420px, calc(100vw - 32px));
+}
+
+.brumgilde-modal::backdrop {
+  background: rgba(4, 2, 1, 0.88);
+  backdrop-filter: blur(6px);
+}
+
+.brumgilde-modal__panel {
+  padding: 28px 24px 22px;
+  border: 2px solid var(--gold-dark);
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(94, 240, 200, 0.08), transparent 55%),
+    linear-gradient(165deg, #1a120c 0%, #0e0a06 100%);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65);
+}
+
+.brumgilde-modal__text {
+  margin: 0 0 22px;
+  font-family: "Cinzel", serif;
+  font-size: clamp(0.95rem, 3.8vw, 1.1rem);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--gold-light);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+.brumgilde-modal__actions {
+  display: grid;
+  gap: 10px;
+}
+
+.brumgilde-btn {
+  font-family: "Cinzel", serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  min-height: 48px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.2s, background 0.2s;
+}
+
+.brumgilde-btn:active {
+  transform: scale(0.98);
+}
+
+.brumgilde-btn--confirm {
+  color: #ffd4c8;
+  background: rgba(120, 32, 20, 0.55);
+  border: 1px solid rgba(220, 100, 70, 0.55);
+}
+
+.brumgilde-btn--confirm:hover {
+  background: rgba(140, 40, 24, 0.72);
+  border-color: rgba(240, 120, 90, 0.7);
+}
+
+.brumgilde-btn--cancel {
+  color: var(--gold-light);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(176, 141, 87, 0.45);
+}
+
+.brumgilde-btn--cancel:hover {
+  border-color: rgba(90, 220, 180, 0.45);
+  color: #fff8e8;
 }
 
 .portrait-panel .field-label {

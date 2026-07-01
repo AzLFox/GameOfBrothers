@@ -7,3 +7,6 @@ Thumbs.db
 .playwright-mcp/
 .cursor/
 assets/
+server/data/sessions.json
+server/data/users.json
+server/data/accounts/
