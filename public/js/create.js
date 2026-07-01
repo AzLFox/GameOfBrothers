@@ -1,4 +1,12 @@
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  if (typeof GobAuth !== 'undefined') {
+    const user = await GobAuth.fetchMe();
+    if (!user) {
+      GobAuth.redirectIfGuest('/create');
+      return;
+    }
+  }
+
   const shell = document.querySelector('.create-shell');
   const back = document.querySelector('.create-back');
   const form = document.getElementById('create-form');

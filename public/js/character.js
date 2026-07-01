@@ -868,6 +868,39 @@ function loadSheet(char) {
   }
 }
 
+async function loadSheetAsync(char) {
+  const base = defaultSheet(char);
+  let data = null;
+
+  if (char.isUser && typeof loadUserSheet === 'function') {
+    data = await loadUserSheet(char.id);
+  }
+
+  if (!data) {
+    try {
+      const saved = localStorage.getItem(storageKey());
+      if (saved) data = JSON.parse(saved);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!data) return base;
+
+  const stats = { ...base.stats, ...data.stats };
+  return {
+    ...base,
+    ...data,
+    stats,
+    combat: migrateCombat(data, stats),
+    equipment: migrateEquipment(data, base),
+    backpack: data.backpack?.length === BACKPACK_COUNT
+      ? data.backpack
+      : base.backpack,
+    spells: migrateSpells(data, base),
+  };
+}
+
 function syncUserCardCatalog() {
   if (!catalogChar?.isUser || typeof updateUserCharacterMeta !== 'function') return;
   updateUserCharacterMeta(catalogChar.id, {
@@ -883,10 +916,20 @@ function syncUserCardCatalog() {
 
 function scheduleSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    localStorage.setItem(storageKey(), JSON.stringify(sheet));
-    syncUserCardCatalog();
+  saveTimer = setTimeout(async () => {
     const hint = document.getElementById('save-hint');
+    if (catalogChar?.isUser && typeof saveUserSheet === 'function') {
+      const result = await saveUserSheet(id, sheet);
+      if (!result?.ok) {
+        hint.textContent = result?.error ? `Ошибка: ${result.error}` : 'Не удалось сохранить';
+        hint.classList.add('visible');
+        setTimeout(() => hint.classList.remove('visible'), 3000);
+        return;
+      }
+    } else {
+      localStorage.setItem(storageKey(), JSON.stringify(sheet));
+    }
+    syncUserCardCatalog();
     hint.textContent = 'Сохранено';
     hint.classList.add('visible');
     setTimeout(() => hint.classList.remove('visible'), 1500);
@@ -1925,9 +1968,9 @@ function initTransfer() {
   });
 }
 
-function init(char) {
+async function init(char) {
   catalogChar = char;
-  sheet = loadSheet(char);
+  sheet = await loadSheetAsync(char);
 
   if (char.isUser && typeof updateUserCharacterMeta === 'function') {
     const sheetName = String(sheet.name ?? '').trim();
@@ -1984,6 +2027,6 @@ if (!id) {
         document.body.innerHTML = '<p style="color:#e8c97a;text-align:center;padding:40px;font-family:Cinzel,serif">Персонаж не найден. <a href="/" style="color:#c9a24d">Вернуться к миру</a></p>';
         return;
       }
-      init(char);
+      return init(char);
     });
 }

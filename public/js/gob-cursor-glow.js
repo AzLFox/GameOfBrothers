@@ -3,7 +3,7 @@
  */
 const GobCursorGlow = (() => {
   const INTERACTIVE =
-    '.btn-create, .card:not(.card--skeleton), .ambient-toggle, .page-header a';
+    '.btn-create, .card:not(.card--skeleton):not(.card--placeholder), .ambient-toggle, .page-header a';
 
   function canRun() {
     if (window.GobMobile.isMobile()) return false;
@@ -49,7 +49,7 @@ const GobCursorGlow = (() => {
     const carousel = document.getElementById('carousel');
     if (carousel) {
       const observer = new MutationObserver(() => {
-        carousel.querySelectorAll('.card:not(.card--skeleton)').forEach((card) => {
+        carousel.querySelectorAll('.card:not(.card--skeleton):not(.card--placeholder)').forEach((card) => {
           if (card.dataset.glowBound) return;
           card.dataset.glowBound = '1';
           card.addEventListener('mouseenter', enter);

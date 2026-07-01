@@ -420,14 +420,14 @@ body.scene-card-active .orbit-arc {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .card:not(.selected):not(.is-locked).is-hover .card-front {
+  .card:not(.selected):not(.is-locked):not(.card--placeholder).is-hover .card-front {
     box-shadow:
       0 0 32px rgba(94, 240, 200, 0.38),
       0 0 18px rgba(212, 179, 106, 0.22),
       0 0 25px rgba(0, 0, 0, 0.6);
   }
 
-  .card:not(.selected):not(.is-locked).is-hover::after {
+  .card:not(.selected):not(.is-locked):not(.card--placeholder).is-hover::after {
     content: "";
     position: absolute;
     inset: -6px;
@@ -440,14 +440,14 @@ body.scene-card-active .orbit-arc {
 }
 
 @media (hover: none) {
-  .card:not(.selected):not(.is-locked):active .card-front {
+  .card:not(.selected):not(.is-locked):not(.card--placeholder):active .card-front {
     box-shadow:
       0 0 32px rgba(94, 240, 200, 0.38),
       0 0 18px rgba(212, 179, 106, 0.22),
       0 0 25px rgba(0, 0, 0, 0.6);
   }
 
-  .card:not(.selected):not(.is-locked):active::after {
+  .card:not(.selected):not(.is-locked):not(.card--placeholder):active::after {
     content: "";
     position: absolute;
     inset: -6px;
@@ -604,6 +604,23 @@ body.card-open .card-orbit-label {
   box-shadow:
     0 8px 28px rgba(0, 0, 0, 0.45),
     0 0 24px rgba(94, 240, 200, 0.06);
+}
+
+.card--placeholder {
+  pointer-events: none;
+  cursor: default;
+  --card-flip: 180deg;
+}
+
+.card--placeholder .card-front {
+  background-image: url(/characters/card_back.jpg) !important;
+  background-size: cover;
+  background-position: center;
+  box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.8);
+}
+
+.card--placeholder::after {
+  display: none !important;
 }
 
 .card-skeleton-mist {

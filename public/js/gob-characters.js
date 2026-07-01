@@ -1,5 +1,5 @@
 /**
- * GoB character catalog — builtin heroes + user cards (localStorage).
+ * GoB character catalog — builtin heroes + user cards (API when authed, localStorage fallback).
  *
  * Limits: portrait file max 2 MB; after canvas compress target ≤ ~300 KB in storage;
  * JPEG max side 800 px, quality ~0.82; recommended upload 600×800 (3∶4).
@@ -11,11 +11,65 @@ const GobCharacters = (() => {
   const COMPRESS_MAX_SIDE = 800;
   const JPEG_QUALITY = 0.82;
 
+  let authChecked = false;
+  let isAuthed = false;
+  let apiUserChars = null;
+
   function sheetStorageKey(id) {
     return `gob_character_${id}`;
   }
 
-  function loadUserCharacters() {
+  function invalidateAuthCache() {
+    authChecked = false;
+    isAuthed = false;
+    apiUserChars = null;
+  }
+
+  async function ensureAuthState() {
+    if (authChecked) return isAuthed;
+    if (typeof GobAuth === 'undefined') {
+      authChecked = true;
+      isAuthed = false;
+      return false;
+    }
+    const user = await GobAuth.fetchMe();
+    authChecked = true;
+    isAuthed = !!user;
+    return isAuthed;
+  }
+
+  async function apiFetch(path, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    if (options.body && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+    return fetch(path, {
+      ...options,
+      headers,
+      credentials: 'same-origin',
+    });
+  }
+
+  async function refreshApiUserChars() {
+    if (!(await ensureAuthState())) {
+      apiUserChars = [];
+      return [];
+    }
+    try {
+      const res = await apiFetch('/api/me/characters');
+      if (!res.ok) {
+        apiUserChars = [];
+        return [];
+      }
+      apiUserChars = await res.json();
+      return Array.isArray(apiUserChars) ? apiUserChars : [];
+    } catch {
+      apiUserChars = [];
+      return [];
+    }
+  }
+
+  function loadUserCharactersLocal() {
     try {
       const raw = localStorage.getItem(USER_STORAGE_KEY);
       if (!raw) return [];
@@ -26,46 +80,98 @@ const GobCharacters = (() => {
     }
   }
 
-  function saveUserCharacters(chars) {
+  function saveUserCharactersLocal(chars) {
     localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(chars));
   }
 
+  function loadUserCharacters() {
+    if (isAuthed && Array.isArray(apiUserChars)) return apiUserChars;
+    return loadUserCharactersLocal();
+  }
+
+  async function loadUserCharactersAsync() {
+    if (await ensureAuthState()) {
+      return refreshApiUserChars();
+    }
+    return loadUserCharactersLocal();
+  }
+
   /** Sync carousel card text when user edits name/description on the character sheet. */
-  function updateUserCharacterMeta(charId, { name, description } = {}) {
-    const chars = loadUserCharacters();
+  async function updateUserCharacterMeta(charId, { name, description } = {}) {
+    if (await ensureAuthState()) {
+      const patch = {};
+      if (name !== undefined) patch.name = String(name).trim();
+      if (description !== undefined) patch.description = String(description).trim();
+      try {
+        const res = await apiFetch(`/api/me/characters/${encodeURIComponent(charId)}`, {
+          method: 'PATCH',
+          body: JSON.stringify(patch),
+        });
+        if (res.ok) {
+          await refreshApiUserChars();
+          return true;
+        }
+      } catch {
+        return false;
+      }
+      return false;
+    }
+
+    const chars = loadUserCharactersLocal();
     const idx = chars.findIndex((c) => c.id === charId);
     if (idx < 0) return false;
     if (name !== undefined) chars[idx].name = String(name).trim();
     if (description !== undefined) chars[idx].description = String(description).trim();
-    saveUserCharacters(chars);
+    saveUserCharactersLocal(chars);
     return true;
   }
 
-  async function loadAllCharacters() {
-    let builtin = [];
+  async function loadBuiltinCharacters() {
     try {
       const res = await fetch('/api/characters');
-      if (res.ok) builtin = await res.json();
+      if (res.ok) return await res.json();
     } catch {
-      builtin = [];
+      /* ignore */
     }
-    const user = loadUserCharacters();
-    // User cards AFTER builtin heroes — custom entries append to the carousel ring.
-    return [...builtin, ...user];
+    return [];
+  }
+
+  async function loadAllCharacters() {
+    const builtin = await loadBuiltinCharacters();
+    if (await ensureAuthState()) {
+      const user = await refreshApiUserChars();
+      return [...builtin, ...user];
+    }
+    return builtin;
+  }
+
+  async function loadCarouselCharacters() {
+    if (await ensureAuthState()) {
+      const user = await refreshApiUserChars();
+      if (user.length === 0) {
+        return { type: 'guest-placeholders' };
+      }
+      return { type: 'characters', list: user };
+    }
+    return { type: 'guest-placeholders' };
   }
 
   async function findCharacterById(id) {
     if (!id) return null;
-    const user = loadUserCharacters().find((c) => c.id === id);
-    if (user) return user;
-    try {
-      const res = await fetch('/api/characters');
-      if (!res.ok) return null;
-      const list = await res.json();
-      return list.find((c) => c.id === id) || null;
-    } catch {
-      return null;
+
+    if (id.startsWith('u_')) {
+      if (!(await ensureAuthState())) {
+        if (typeof GobAuth !== 'undefined') {
+          GobAuth.redirectIfGuest(`/character?id=${encodeURIComponent(id)}`);
+        }
+        return null;
+      }
+      const user = await refreshApiUserChars();
+      return user.find((c) => c.id === id) || null;
     }
+
+    const list = await loadBuiltinCharacters();
+    return list.find((c) => c.id === id) || null;
   }
 
   function getPortraitUrl(char) {
@@ -165,28 +271,84 @@ const GobCharacters = (() => {
     return compressImageDataUrl(dataUrl);
   }
 
-  function updateUserCharacterPortrait(charId, portrait) {
-    const chars = loadUserCharacters();
+  async function updateUserCharacterPortrait(charId, portrait) {
+    if (await ensureAuthState()) {
+      try {
+        const res = await apiFetch(`/api/me/characters/${encodeURIComponent(charId)}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ portrait: portrait || '' }),
+        });
+        if (res.ok) {
+          await refreshApiUserChars();
+          return true;
+        }
+      } catch {
+        return false;
+      }
+      return false;
+    }
+
+    const chars = loadUserCharactersLocal();
     const idx = chars.findIndex((c) => c.id === charId);
     if (idx < 0) return false;
     chars[idx].portrait = portrait || '';
-    saveUserCharacters(chars);
+    saveUserCharactersLocal(chars);
     return true;
   }
 
-  function deleteUserCharacter(charId) {
-    saveUserCharacters(loadUserCharacters().filter((c) => c.id !== charId));
+  async function deleteUserCharacter(charId) {
+    if (await ensureAuthState()) {
+      try {
+        const res = await apiFetch(`/api/me/characters/${encodeURIComponent(charId)}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          await refreshApiUserChars();
+          localStorage.removeItem(sheetStorageKey(charId));
+          return true;
+        }
+      } catch {
+        return false;
+      }
+      return false;
+    }
+
+    saveUserCharactersLocal(loadUserCharactersLocal().filter((c) => c.id !== charId));
     localStorage.removeItem(sheetStorageKey(charId));
     return true;
   }
 
   async function createCharacter({ name = '', description = '', portraitFile } = {}) {
+    if (!(await ensureAuthState())) {
+      if (typeof GobAuth !== 'undefined') {
+        GobAuth.redirectIfGuest('/create');
+        throw new Error('AUTH_REQUIRED');
+      }
+    }
+
     const trimmedName = String(name).trim();
     const trimmedDesc = String(description).trim();
     let portrait = '';
 
     if (portraitFile) {
       portrait = await processPortraitFile(portraitFile);
+    }
+
+    if (isAuthed) {
+      const res = await apiFetch('/api/me/characters', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: trimmedName,
+          description: trimmedDesc,
+          portrait,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error('CREATE_FAILED');
+      }
+      const card = await res.json();
+      await refreshApiUserChars();
+      return card;
     }
 
     const card = {
@@ -198,12 +360,52 @@ const GobCharacters = (() => {
       createdAt: new Date().toISOString(),
     };
 
-    const userChars = loadUserCharacters();
+    const userChars = loadUserCharactersLocal();
     userChars.push(card);
-    saveUserCharacters(userChars);
+    saveUserCharactersLocal(userChars);
     initSheetStorage(card);
 
     return card;
+  }
+
+  async function loadUserSheet(charId) {
+    if (await ensureAuthState()) {
+      try {
+        const res = await apiFetch(`/api/me/sheets/${encodeURIComponent(charId)}`);
+        if (res.ok) return await res.json();
+      } catch {
+        /* fall through */
+      }
+    }
+
+    try {
+      const raw = localStorage.getItem(sheetStorageKey(charId));
+      if (raw) return JSON.parse(raw);
+    } catch {
+      /* ignore */
+    }
+    return null;
+  }
+
+  async function saveUserSheet(charId, sheetData) {
+    if (await ensureAuthState()) {
+      try {
+        const res = await apiFetch(`/api/me/sheets/${encodeURIComponent(charId)}`, {
+          method: 'PUT',
+          body: JSON.stringify(sheetData),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          return { ok: false, error: err.error || `HTTP ${res.status}` };
+        }
+        return { ok: true };
+      } catch (e) {
+        return { ok: false, error: e.message || 'network error' };
+      }
+    }
+
+    localStorage.setItem(sheetStorageKey(charId), JSON.stringify(sheetData));
+    return { ok: true };
   }
 
   return {
@@ -211,12 +413,14 @@ const GobCharacters = (() => {
     PLACEHOLDER_PORTRAIT,
     MAX_PORTRAIT_BYTES,
     loadUserCharacters,
-    saveUserCharacters,
+    loadUserCharactersAsync,
+    saveUserCharacters: saveUserCharactersLocal,
     updateUserCharacterMeta,
     updateUserCharacterPortrait,
     processPortraitFile,
     deleteUserCharacter,
     loadAllCharacters,
+    loadCarouselCharacters,
     findCharacterById,
     getPortraitUrl,
     getCarouselLabel,
@@ -225,6 +429,10 @@ const GobCharacters = (() => {
     defaultSheetForCard,
     initSheetStorage,
     createCharacter,
+    loadUserSheet,
+    saveUserSheet,
+    invalidateAuthCache,
+    ensureAuthState,
   };
 })();
 
