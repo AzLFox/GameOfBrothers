@@ -1165,6 +1165,8 @@ async function loadSheetAsync(char) {
     ...data,
     stats,
     combat: migrateCombat(data, stats),
+    statClass: migrateStatClass(data, base),
+    classSkills: migrateClassSkills(data, base),
     equipment: migrateEquipment(data, base),
     backpack: data.backpack?.length === BACKPACK_COUNT
       ? data.backpack
