@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 132" fill="none">
+  <defs>
+    <linearGradient id="g3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff8e8"/>
+      <stop offset="40%" stop-color="#f0d98a"/>
+      <stop offset="100%" stop-color="#7a5a28"/>
+    </linearGradient>
+    <radialGradient id="gem3" cx="45%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#5ef0c8"/>
+      <stop offset="60%" stop-color="#2a8070"/>
+      <stop offset="100%" stop-color="#0c2824"/>
+    </radialGradient>
+    <linearGradient id="fl3" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5ef0c8" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#5ef0c8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- heavy corners -->
+  <path fill="url(#g3)" d="M0 0h28v8H5v21H0V0zm92 0h28v28h-7V6H92V0zM0 104v28h28v-7H5v-21H0zm92 7h7v21h21v7H92V111z"/>
+  <path stroke="url(#fl3)" stroke-width="1.4" fill="none" opacity="0.7" d="M3 3c12-4 20 6 22 18M117 3c-12-4-20 6-22 18M3 129c12 4 20-6 22-18M117 129c-12 4-20-6-22-18"/>
+  <!-- diamond gems -->
+  <polygon points="11,11 15,7 19,11 15,15" fill="url(#gem3)" stroke="#f0d98a" stroke-width="1.2"/>
+  <polygon points="109,11 113,7 117,11 113,15" fill="url(#gem3)" stroke="#f0d98a" stroke-width="1.2"/>
+  <polygon points="11,121 15,117 19,121 15,125" fill="url(#gem3)" stroke="#f0d98a" stroke-width="1.2"/>
+  <polygon points="109,121 113,117 117,121 113,125" fill="url(#gem3)" stroke="#f0d98a" stroke-width="1.2"/>
+  <!-- side filigree -->
+  <path stroke="#d4b36a" stroke-width="1.5" fill="none" d="M0 46c7 5 7 14 0 18M0 68c7-5 7-14 0-18" opacity="0.75"/>
+  <path stroke="#d4b36a" stroke-width="1.5" fill="none" d="M120 46c-7 5-7 14 0 18M120 68c-7-5-7-14 0-18" opacity="0.75"/>
+  <path stroke="#5ef0c8" stroke-width="1" opacity="0.5" fill="none" d="M28 1c5 7 12 7 17 0M75 1c5 7 12 7 17 0M28 131c5-7 12-7 17 0M75 131c5-7 12-7 17 0"/>
+  <!-- inner frame -->
+  <rect x="3" y="3" width="114" height="126" rx="1" stroke="#7a5a28" stroke-width="0.8" opacity="0.3"/>
+  <!-- top chain -->
+  <circle cx="34" cy="2" r="1.5" fill="#f0d98a"/>
+  <circle cx="42" cy="2" r="1.5" fill="#5ef0c8"/>
+  <circle cx="50" cy="2" r="1.5" fill="#f0d98a"/>
+  <circle cx="60" cy="2" r="2" fill="#5ef0c8"/>
+  <circle cx="70" cy="2" r="1.5" fill="#f0d98a"/>
+  <circle cx="78" cy="2" r="1.5" fill="#5ef0c8"/>
+  <circle cx="86" cy="2" r="1.5" fill="#f0d98a"/>
+</svg>

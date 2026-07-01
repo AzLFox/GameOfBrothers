@@ -14,6 +14,8 @@
   --slot-border: #6b4e2a;
   --teal: #3ec4a8;
   --shadow: rgba(0, 0, 0, 0.55);
+  /* Steam frame 224×224 @2x → слот 128×128 @1x */
+  --stat-frame-size: 128px;
 }
 
 * {
@@ -222,6 +224,12 @@ body {
     aspect-ratio: 3 / 4;
     object-fit: cover;
     object-position: center top;
+  }
+
+  .portrait-change-btn,
+  .portrait-remove-btn,
+  .btn-delete-char {
+    width: 100%;
   }
 
   .char-identity {
@@ -511,6 +519,165 @@ body {
   border-radius: 1px;
 }
 
+.portrait-tools {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.portrait-change-btn,
+.portrait-remove-btn,
+.btn-delete-char {
+  font-family: "Cinzel", serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  width: 100%;
+}
+
+.portrait-tools-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.portrait-change-btn {
+  color: var(--gold-light);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(176, 141, 87, 0.45);
+}
+
+.portrait-change-btn:hover {
+  border-color: rgba(90, 220, 180, 0.5);
+  color: #fff8e8;
+}
+
+.portrait-remove-btn {
+  color: #c8b89a;
+  background: transparent;
+  border: 1px solid rgba(176, 141, 87, 0.28);
+}
+
+.portrait-remove-btn:hover {
+  color: var(--gold-light);
+  border-color: rgba(176, 141, 87, 0.45);
+}
+
+.portrait-tools-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: rgba(200, 184, 154, 0.65);
+  line-height: 1.35;
+}
+
+.portrait-tools-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #e8a090;
+  line-height: 1.35;
+}
+
+.btn-delete-char {
+  font-family: "Cinzel", serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  min-height: 44px;
+  padding: 8px 14px;
+  color: #e8a090;
+  background: rgba(80, 20, 12, 0.35);
+  border: 1px solid rgba(200, 100, 80, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+
+.btn-delete-char:hover {
+  color: #ffd4c8;
+  border-color: rgba(232, 140, 110, 0.65);
+  background: rgba(100, 28, 18, 0.5);
+}
+
+.brumgilde-modal {
+  padding: 0;
+  border: none;
+  background: transparent;
+  max-width: min(420px, calc(100vw - 32px));
+}
+
+.brumgilde-modal::backdrop {
+  background: rgba(4, 2, 1, 0.88);
+  backdrop-filter: blur(6px);
+}
+
+.brumgilde-modal__panel {
+  padding: 28px 24px 22px;
+  border: 2px solid var(--gold-dark);
+  border-radius: 12px;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(94, 240, 200, 0.08), transparent 55%),
+    linear-gradient(165deg, #1a120c 0%, #0e0a06 100%);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65);
+}
+
+.brumgilde-modal__text {
+  margin: 0 0 22px;
+  font-family: "Cinzel", serif;
+  font-size: clamp(0.95rem, 3.8vw, 1.1rem);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0.06em;
+  text-align: center;
+  color: var(--gold-light);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+
+.brumgilde-modal__actions {
+  display: grid;
+  gap: 10px;
+}
+
+.brumgilde-btn {
+  font-family: "Cinzel", serif;
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  min-height: 48px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.15s, border-color 0.2s, background 0.2s;
+}
+
+.brumgilde-btn:active {
+  transform: scale(0.98);
+}
+
+.brumgilde-btn--confirm {
+  color: #ffd4c8;
+  background: rgba(120, 32, 20, 0.55);
+  border: 1px solid rgba(220, 100, 70, 0.55);
+}
+
+.brumgilde-btn--confirm:hover {
+  background: rgba(140, 40, 24, 0.72);
+  border-color: rgba(240, 120, 90, 0.7);
+}
+
+.brumgilde-btn--cancel {
+  color: var(--gold-light);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(176, 141, 87, 0.45);
+}
+
+.brumgilde-btn--cancel:hover {
+  border-color: rgba(90, 220, 180, 0.45);
+  color: #fff8e8;
+}
+
 .portrait-panel .field-label {
   color: var(--gold);
 }
@@ -587,14 +754,27 @@ body {
 /* ================= STATS ================= */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(3, var(--stat-frame-size));
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 4px;
 }
 
 @media (max-width: 500px) {
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, var(--stat-frame-size));
   }
+}
+
+.stat-slot {
+  position: relative;
+  width: var(--stat-frame-size);
+  height: var(--stat-frame-size);
+  overflow: visible;
+}
+
+.stat-slot:has(.stat-tier-frame) {
+  overflow: visible;
 }
 
 .stat-cell {
@@ -602,7 +782,10 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  width: 100%;
+  height: 100%;
   padding: 10px 8px;
   background: linear-gradient(180deg, #f0e0c0 0%, #d8c090 100%);
   border: 2px solid var(--slot-border);
@@ -610,6 +793,14 @@ body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
   overflow: visible;
   transition: box-shadow 0.28s ease, border-color 0.28s ease;
+}
+
+/* Steam-рамка = внешняя кромка, без CSS-border */
+.stat-cell--has-frame {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .stat-cell.is-rune-lit {
@@ -629,10 +820,10 @@ body {
 }
 
 .stat-input {
-  width: 52px;
+  width: 50px;
   text-align: center;
   font-family: "Cinzel", serif;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--ink);
   background: rgba(255, 255, 255, 0.5);
@@ -652,6 +843,150 @@ body {
   outline: none;
   border-color: var(--gold);
   background: #fff;
+}
+
+/* ===== Классы характеристик: Steam frame overlays (imported WebM) ===== */
+.stat-cell--has-frame.is-rune-lit {
+  border: none;
+  box-shadow: none;
+}
+
+.stat-tier-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: visible;
+  transition: opacity 0.35s ease;
+}
+
+.stat-tier-frame.is-dimmed {
+  opacity: 0.32;
+}
+
+.stat-tier-frame__overlay {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stat-cell--tier-1:not(.is-rune-lit):not(.stat-cell--has-frame) {
+  border-color: rgba(58, 154, 130, 0.3);
+  box-shadow: inset 0 0 12px rgba(94, 240, 200, 0.05);
+}
+
+.stat-cell--tier-2:not(.is-rune-lit):not(.stat-cell--has-frame) {
+  border-color: rgba(90, 70, 40, 0.38);
+  box-shadow: inset 0 0 14px rgba(212, 179, 106, 0.06);
+}
+
+.stat-cell--tier-3:not(.is-rune-lit):not(.stat-cell--has-frame) {
+  border-color: rgba(160, 130, 70, 0.45);
+  box-shadow: inset 0 0 18px rgba(240, 217, 138, 0.08);
+}
+
+.stat-cell--tier-4:not(.is-rune-lit):not(.stat-cell--has-frame) {
+  border-color: rgba(180, 145, 80, 0.52);
+  box-shadow:
+    inset 0 0 22px rgba(240, 217, 138, 0.1),
+    0 0 12px rgba(94, 240, 200, 0.06);
+}
+
+.stat-cell.is-rune-lit .stat-tier-frame {
+  opacity: 0.28;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-tier-frame__overlay {
+    opacity: 0.95;
+  }
+}
+
+html.gob-tier-low .stat-tier-frame {
+  opacity: 0.9;
+}
+
+.stat-class-slots {
+  position: absolute;
+  inset: 3px;
+  pointer-events: none;
+  z-index: 7;
+}
+
+.stat-class-slot {
+  position: absolute;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+}
+.stat-class-slot.is-active {
+  display: flex;
+  filter: drop-shadow(0 1px 3px rgba(42, 28, 16, 0.25));
+}
+.stat-class-slot--pos-1 { top: 0; left: 0; }
+.stat-class-slot--pos-2 { top: 0; right: 0; }
+.stat-class-slot--pos-3 { bottom: 0; left: 0; }
+.stat-class-slot--pos-4 { bottom: 0; right: 0; }
+
+/* числовое поле (Сила / Ловкость / Выносливость) */
+.stat-class-num {
+  pointer-events: auto;
+  width: 32px;
+  min-width: 0;
+  text-align: center;
+  font-family: "Cinzel", serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid var(--parchment-dark);
+  border-radius: 3px;
+  padding: 3px 2px;
+}
+.stat-class-num:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: #fff;
+}
+
+/* компактная ячейка-заклинание (Интеллект) */
+.stat-class-slot--spell .spell-slot--class {
+  pointer-events: auto;
+  width: 42px;
+  max-width: 42px;
+  gap: 0;
+}
+.spell-slot--class .spell-slot-name { display: none; }
+.spell-slot--class .spell-icon-wrap { max-width: 42px; }
+.spell-slot--class .spell-icon-ornament { inset: -5px; }
+.spell-slot--class .spell-mana-badge,
+.spell-slot--class .spell-level-badge { display: none; }
+
+/* щит (Дух) */
+.stat-class-shield {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+/* «+1» (Удача) — со случайным смещением/наклоном в своей зоне */
+.stat-class-plus {
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--gob-legendary);
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 0 8px var(--gob-legendary-glow);
+  transform: translate(var(--lx, 0), var(--ly, 0)) rotate(var(--lr, 0deg));
 }
 
 /* ================= COMBAT STATS ================= */

@@ -57,6 +57,16 @@
       <aside class="portrait-panel">
         <div class="portrait-frame">
           <img id="char-img" alt="" loading="lazy" decoding="async" width="240" height="320">
+          <div class="portrait-tools" id="portrait-tools" hidden>
+            <input type="file" id="char-portrait-input" accept="image/jpeg,image/png,image/webp" hidden>
+            <div class="portrait-tools-actions">
+              <button type="button" class="portrait-change-btn" id="char-portrait-change">Сменить фото</button>
+              <button type="button" id="btn-delete-char" class="btn-delete-char" hidden>Удалить персонажа</button>
+              <button type="button" class="portrait-remove-btn" id="char-portrait-remove" hidden>Убрать фото</button>
+            </div>
+            <p class="portrait-tools-hint">600×800 px (3∶4), до 2 МБ</p>
+            <p class="portrait-tools-error" id="char-portrait-error" hidden role="alert"></p>
+          </div>
         </div>
         <div class="char-identity">
           <label class="field-label" for="char-name">Имя</label>
@@ -187,13 +197,26 @@
       </div>
       <div id="spell-tooltip" class="spell-tooltip" hidden role="tooltip"></div>
     </dialog>
+
+    <dialog class="brumgilde-modal" id="brumgilde-modal">
+      <div class="brumgilde-modal__panel">
+        <p class="brumgilde-modal__text">ТЫ УВЕРЕН, ЧТО ГОТОВ ОТДАТЬ ЕГО БРУМГИЛЬДЕ?</p>
+        <div class="brumgilde-modal__actions">
+          <button type="button" class="brumgilde-btn brumgilde-btn--confirm" id="brumgilde-confirm">пошел он нахуй</button>
+          <button type="button" class="brumgilde-btn brumgilde-btn--cancel" id="brumgilde-cancel">ладно, пожалею его</button>
+        </div>
+      </div>
+    </dialog>
   </div>
 
   <script src="/vendor/gsap/gsap.min.js" defer></script>
   <script src="js/gob-sound.js" defer></script>
   <script src="js/gob-motion.js" defer></script>
+  <script src="js/gob-characters.js" defer></script>
+  <script src="js/gob-auth.js" defer></script>
   <script src="js/character-motion.js" defer></script>
   <script src="js/item-catalog.js" defer></script>
+  <script src="js/stat-tier-frame.js" defer></script>
   <script src="js/character.js" defer></script>
 
   <div id="gob-page-wipe" class="gob-page-wipe" aria-hidden="true" hidden>

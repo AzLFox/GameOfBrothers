@@ -75,7 +75,9 @@ function getStatCell(statKey) {
 function setStatCombatRuneLit(statKey, lit) {
   const link = STAT_COMBAT_LINKS.find((l) => l.stat === statKey);
   if (!link) return;
-  getStatCell(statKey)?.classList.toggle('is-rune-lit', lit);
+  const cell = getStatCell(statKey);
+  cell?.classList.toggle('is-rune-lit', lit);
+  StatTierFrame?.refreshDimmed?.(cell);
   document.getElementById(link.combatId)?.classList.toggle('is-rune-lit', lit);
 }
 
@@ -231,6 +233,38 @@ const STAT_KEYS = [
   { key: 'luck', label: 'Удача' },
 ];
 
+// ===== Классы характеристик =====
+// При достижении порогов 6/9/12/20 характеристика получает «класс» (тир 1..4).
+// Тир задаёт и цвет обводки ячейки (uncommon/rare/mythical/legendary), и
+// количество видимых из 4 классовых элементов, и величину бонуса к боёвке.
+const STAT_CLASS_THRESHOLDS = [6, 9, 12, 20];
+const STAT_CLASS_MAX_TIER = STAT_CLASS_THRESHOLDS.length; // 4
+
+function statClassTier(value) {
+  let tier = 0;
+  for (const th of STAT_CLASS_THRESHOLDS) if ((value || 0) >= th) tier++;
+  return tier; // 0..4
+}
+
+// характеристики, чьи 4 поля — редактируемые числа с кубика (сила/ловкость/выносливость)
+const STAT_CLASS_DICE = ['str', 'dex', 'end'];
+
+// сумма видимых (по достигнутым тирам) значений классовых полей характеристики
+function statClassDiceSum(statKey) {
+  const tier = statClassTier(sheet.stats[statKey] || 0);
+  const arr = sheet.statClass?.[statKey] || [];
+  let sum = 0;
+  for (let i = 0; i < tier; i++) sum += parseInt(arr[i], 10) || 0;
+  return sum;
+}
+
+function strClassHp()      { return statClassDiceSum('str'); }
+function dexClassEvasion() { return statClassDiceSum('dex'); }
+function endClassArmor()   { return statClassDiceSum('end'); }
+function spiClassBubble()  { return statClassTier(sheet.stats.spi  || 0); } // +1 бабл / тир
+function luckClassCrit()   { return statClassTier(sheet.stats.luck || 0); } // +1 крит / тир
+function intClassSkills()  { return statClassTier(sheet.stats.int  || 0); } // +1 скилл / тир
+
 const EQUIPMENT_SLOTS = [
   { key: 'helmet', label: 'Шлем', icon: '⛑' },
   { key: 'leftHand', label: 'Л. рука', icon: '🛡' },
@@ -358,9 +392,12 @@ function iconSrc(spec, iconId) {
 const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'];
 
 let sheet = null;
+let catalogChar = null;
 let selectedSlot = null;
 let saveTimer = null;
 let activeSpec = 'all';
+// какую коллекцию заклинаний показывает книга: основную или классовую (Интеллект)
+let spellCollection = 'main'; // 'main' | 'classInt'
 let spreadIndex = 0;
 let editingSpellId = null;
 let selectedIconId = 'star';
@@ -386,7 +423,7 @@ let spellLongPressSuppressedClick = false;
 
 function spellForSlotEl(slot) {
   const id = slot?.dataset?.spellId;
-  return id ? sheet.spells.find((s) => s.id === id) : null;
+  return id ? activeSpellList().find((s) => s.id === id) : null;
 }
 
 function bindSpellSlotDelegation(modal) {
@@ -587,7 +624,7 @@ function sumEquipmentMods() {
 }
 
 function maxHp() {
-  return sheet.stats.str * 4 + (sumEquipmentMods().hpBonus || 0);
+  return sheet.stats.str * 4 + (sumEquipmentMods().hpBonus || 0) + strClassHp();
 }
 
 function effectiveHit() {
@@ -595,7 +632,7 @@ function effectiveHit() {
 }
 
 function effectiveCrit() {
-  return critValue(sheet.stats.luck);
+  return critValue(sheet.stats.luck) + luckClassCrit();
 }
 
 function maxAp() {
@@ -623,7 +660,9 @@ function critThreshold(dieSides, luck) {
 }
 
 function spellsRemaining() {
-  return sheet.stats.int - sheet.spells.length;
+  // повышенный лимит (int + тир класса) минус изученные в книге и классовые спеллы
+  return sheet.stats.int + intClassSkills()
+    - sheet.spells.length - (sheet.classSkills?.int?.length || 0);
 }
 
 function ensureCombatTooltip() {
@@ -827,7 +866,13 @@ function updateCombatValues() {
   if (!sheet?.combat) return;
 
   const mods = sumEquipmentMods();
-  const hpMax = sheet.stats.str * 4 + (mods.hpBonus || 0);
+  // классовые вклады вливаются в те же строки, что и снаряжение — строки
+  // Уворот/Защита/Баблы появятся даже без надетых предметов
+  mods.evasion = (mods.evasion || 0) + dexClassEvasion();
+  mods.armor   = (mods.armor   || 0) + endClassArmor();
+  mods.bubble  = (mods.bubble  || 0) + spiClassBubble();
+
+  const hpMax = sheet.stats.str * 4 + (mods.hpBonus || 0) + strClassHp();
   const apMax = maxAp();
   const mpMax = maxMp();
 
@@ -835,8 +880,8 @@ function updateCombatValues() {
   document.getElementById('combat-ap-max').textContent = apMax;
   document.getElementById('combat-mp-max').textContent = mpMax;
   document.getElementById('combat-hit').textContent = sheet.stats.dex + (mods.hit || 0);
-  document.getElementById('combat-skills').textContent = sheet.stats.int;
-  document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck);
+  document.getElementById('combat-skills').textContent = sheet.stats.int + intClassSkills();
+  document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck) + luckClassCrit();
 
   updateOverheal('hp', sheet.combat.hp, hpMax);
   updateOverheal('mp', sheet.combat.mp, mpMax);
@@ -988,12 +1033,34 @@ function defaultSheet(char) {
     lore: char.lore || '',
     spells: [],
     stats: { str: 12, dex: 12, int: 12, spi: 12, end: 12, luck: 12 },
+    // числа с кубика для классовых полей (сила/ловкость/выносливость), по 4 тира
+    statClass: { str: [0, 0, 0, 0], dex: [0, 0, 0, 0], end: [0, 0, 0, 0] },
+    // отдельная «книга» скиллов класса Интеллекта (до 4 заклинаний)
+    classSkills: { int: [] },
     combat: defaultCombat({ str: 12, dex: 12, int: 12, spi: 12, end: 12, luck: 12 }),
     equipment: Object.fromEntries(
       [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS].map(s => [s.key, emptyItem()])
     ),
     backpack: Array.from({ length: BACKPACK_COUNT }, () => emptyItem()),
   };
+}
+
+// нормализует классовые поля к массивам длины 4 из целых чисел
+function migrateStatClass(data, base) {
+  const src = (data.statClass && typeof data.statClass === 'object') ? data.statClass : {};
+  const out = {};
+  STAT_CLASS_DICE.forEach((key) => {
+    const arr = Array.isArray(src[key]) ? src[key] : [];
+    out[key] = Array.from({ length: STAT_CLASS_MAX_TIER }, (_, i) => parseInt(arr[i], 10) || 0);
+  });
+  return out;
+}
+
+// классовая «книга» Интеллекта: массив спеллов через normalizeSpell, обрезка до 4
+function migrateClassSkills(data, base) {
+  const src = data.classSkills?.int;
+  const list = Array.isArray(src) ? src : [];
+  return { int: list.slice(0, STAT_CLASS_MAX_TIER).map(normalizeSpell) };
 }
 
 function migrateSpells(data, base) {
@@ -1062,6 +1129,8 @@ function loadSheet(char) {
       ...data,
       stats,
       combat: migrateCombat(data, stats),
+      statClass: migrateStatClass(data, base),
+      classSkills: migrateClassSkills(data, base),
       equipment: migrateEquipment(data, base),
       backpack: data.backpack?.length === BACKPACK_COUNT
         ? data.backpack
@@ -1073,11 +1142,70 @@ function loadSheet(char) {
   }
 }
 
+async function loadSheetAsync(char) {
+  const base = defaultSheet(char);
+  let data = null;
+
+  if (char.isUser && typeof loadUserSheet === 'function') {
+    data = await loadUserSheet(char.id);
+  }
+
+  if (!data) {
+    try {
+      const saved = localStorage.getItem(storageKey());
+      if (saved) data = JSON.parse(saved);
+    } catch {
+      data = null;
+    }
+  }
+
+  if (!data) return base;
+
+  const stats = { ...base.stats, ...data.stats };
+  return {
+    ...base,
+    ...data,
+    stats,
+    combat: migrateCombat(data, stats),
+    statClass: migrateStatClass(data, base),
+    classSkills: migrateClassSkills(data, base),
+    equipment: migrateEquipment(data, base),
+    backpack: data.backpack?.length === BACKPACK_COUNT
+      ? data.backpack
+      : base.backpack,
+    spells: migrateSpells(data, base),
+  };
+}
+
+function syncUserCardCatalog() {
+  if (!catalogChar?.isUser || typeof updateUserCharacterMeta !== 'function') return;
+  updateUserCharacterMeta(catalogChar.id, {
+    name: sheet.name ?? '',
+    description: sheet.description ?? '',
+  });
+  catalogChar = {
+    ...catalogChar,
+    name: String(sheet.name ?? '').trim(),
+    description: String(sheet.description ?? '').trim(),
+  };
+}
+
 function scheduleSave() {
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    localStorage.setItem(storageKey(), JSON.stringify(sheet));
+  saveTimer = setTimeout(async () => {
     const hint = document.getElementById('save-hint');
+    if (catalogChar?.isUser && typeof saveUserSheet === 'function') {
+      const result = await saveUserSheet(id, sheet);
+      if (!result?.ok) {
+        hint.textContent = result?.error ? `Ошибка: ${result.error}` : 'Не удалось сохранить';
+        hint.classList.add('visible');
+        setTimeout(() => hint.classList.remove('visible'), 3000);
+        return;
+      }
+    } else {
+      localStorage.setItem(storageKey(), JSON.stringify(sheet));
+    }
+    syncUserCardCatalog();
     hint.textContent = 'Сохранено';
     hint.classList.add('visible');
     setTimeout(() => hint.classList.remove('visible'), 1500);
@@ -1108,25 +1236,146 @@ function renderStats() {
   const grid = document.getElementById('stats-grid');
   grid.innerHTML = '';
   STAT_KEYS.forEach(({ key, label }) => {
+    const slot = document.createElement('div');
+    slot.className = 'stat-slot';
     const cell = document.createElement('div');
     cell.className = 'stat-cell';
+    cell.dataset.stat = key;
     cell.innerHTML = `
       <span class="stat-label">${label}</span>
       <input type="number" class="stat-input" data-stat="${key}" min="0" max="999" value="${sheet.stats[key]}">
       ${createLinkRunesMarkup(key, 'stat')}
+      <div class="stat-class-slots stat-class-slots--${key}"></div>
     `;
-    const input = cell.querySelector('input');
+    const input = cell.querySelector('.stat-input');
     input.addEventListener('input', () => {
       sheet.stats[key] = parseInt(input.value, 10) || 0;
       scheduleSave();
+      renderStatClassSlots(cell, key);
       updateCombatValues();
       updateSlotWarnings();
       if (selectedSlot?.group === 'equipment' && slotSupportsClasses(selectedSlot.key)) {
         renderReqHint(selectedSlot.key);
       }
     });
-    grid.appendChild(cell);
+    slot.appendChild(cell);
+    renderStatClassSlots(cell, key);
+    grid.appendChild(slot);
   });
+}
+
+// Обводка ячейки по достигнутому тиру + 4 классовых элемента (по одному на тир).
+// Слот i виден только когда tier > i.
+function updateStatTierFrame(cell, tier) {
+  if (typeof StatTierFrame !== 'undefined') {
+    StatTierFrame.attach(cell, tier);
+    return;
+  }
+}
+
+function renderStatClassSlots(cell, statKey) {
+  const tier = statClassTier(sheet.stats[statKey] || 0);
+
+  for (let t = 1; t <= STAT_CLASS_MAX_TIER; t++) cell.classList.remove(`stat-cell--tier-${t}`);
+  if (tier > 0) cell.classList.add(`stat-cell--tier-${tier}`);
+  updateStatTierFrame(cell, tier);
+
+  const overlay = cell.querySelector('.stat-class-slots');
+  if (!overlay) return;
+  overlay.innerHTML = '';
+
+  for (let i = 0; i < STAT_CLASS_MAX_TIER; i++) {
+    const slot = document.createElement('div');
+    slot.className = `stat-class-slot stat-class-slot--pos-${i + 1}`;
+    const active = tier > i;
+    slot.classList.toggle('is-active', active);
+    if (active) fillStatClassSlot(slot, statKey, i);
+    overlay.appendChild(slot);
+  }
+}
+
+// точечная перерисовка классовых слотов одной характеристики (после правок в книге)
+function refreshStatClassSlots(statKey) {
+  const cell = document.querySelector(`.stat-cell[data-stat="${statKey}"]`);
+  if (cell) renderStatClassSlots(cell, statKey);
+}
+
+function fillStatClassSlot(slot, statKey, i) {
+  const tierNo = i + 1;
+
+  // Сила / Ловкость / Выносливость — редактируемое число с кубика
+  if (STAT_CLASS_DICE.includes(statKey)) {
+    if (!Array.isArray(sheet.statClass?.[statKey])) {
+      sheet.statClass = { ...(sheet.statClass || {}), [statKey]: [0, 0, 0, 0] };
+    }
+    slot.classList.add('stat-class-slot--num');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.className = 'stat-class-num';
+    input.maxLength = 3;
+    input.value = String(sheet.statClass[statKey][i] || 0);
+    input.setAttribute('aria-label', `${statLabel(statKey)}: бонус класса, тир ${tierNo}`);
+    input.title = `Значение с кубика (тир ${tierNo})`;
+    input.addEventListener('input', () => {
+      const clean = input.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 3);
+      if (clean !== input.value) {
+        const atEnd = input.selectionStart === input.value.length;
+        input.value = clean;
+        if (atEnd) input.setSelectionRange(clean.length, clean.length);
+      }
+      sheet.statClass[statKey][i] = parseInt(clean, 10) || 0;
+      scheduleSave();
+      updateCombatValues();
+    });
+    slot.appendChild(input);
+    return;
+  }
+
+  // Интеллект — ячейка-заклинание как в книге; клик открывает классовую книгу
+  if (statKey === 'int') {
+    slot.classList.add('stat-class-slot--spell');
+    const intList = Array.isArray(sheet.classSkills?.int) ? sheet.classSkills.int : [];
+    const spell = intList[i] || null;
+    const cellEl = createSpellSlot(spell);
+    cellEl.classList.add('spell-slot--class');
+    cellEl.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openSpellbookModal('classInt');
+    });
+    slot.appendChild(cellEl);
+    return;
+  }
+
+  // Дух — щит-маркер (+1 бабл за тир)
+  if (statKey === 'spi') {
+    slot.classList.add('stat-class-slot--shield');
+    const img = document.createElement('img');
+    img.className = 'stat-class-shield';
+    img.src = iconSrc('buff', 'shield');
+    img.alt = '';
+    img.setAttribute('aria-hidden', 'true');
+    img.draggable = false;
+    img.title = 'Дух: +1 бабл за тир класса';
+    slot.appendChild(img);
+    return;
+  }
+
+  // Удача — «+1» со случайным смещением в своей зоне (меняется при перезагрузке)
+  if (statKey === 'luck') {
+    slot.classList.add('stat-class-slot--luck');
+    const label = document.createElement('span');
+    label.className = 'stat-class-plus';
+    label.setAttribute('aria-hidden', 'true');
+    label.title = 'Удача: +1 крит за тир класса';
+    label.textContent = '+1';
+    label.style.setProperty('--lx', `${(Math.random() * 40 - 20).toFixed(1)}%`);
+    label.style.setProperty('--ly', `${(Math.random() * 40 - 20).toFixed(1)}%`);
+    label.style.setProperty('--lr', `${(Math.random() * 24 - 12).toFixed(1)}deg`);
+    slot.appendChild(label);
+    return;
+  }
 }
 
 function paintSlotButton(btn, slotDef, slotKey, group) {
@@ -1489,6 +1738,44 @@ function bindSpellbookResize() {
   });
 }
 
+// Открывает книгу заклинаний в нужном режиме: 'main' — основная книга,
+// 'classInt' — отдельная книга скиллов класса Интеллекта (те же ячейки/редактор).
+function openSpellbookModal(mode = 'main') {
+  const modal = document.getElementById('spellbook-modal');
+  spellCollection = mode === 'classInt' ? 'classInt' : 'main';
+  spreadIndex = 0;
+  if (spellCollection === 'classInt') activeSpec = 'all';
+  destroySpellbookInstance();
+  loadSpellbookFlip();
+  renderSpellTabs();
+  applySpellbookMode();
+
+  const mountSpellbook = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => renderSpellGrids());
+    });
+  };
+
+  if (typeof CharMotion !== 'undefined') {
+    CharMotion.openSpellbook(modal, mountSpellbook);
+  } else {
+    modal.showModal();
+    mountSpellbook();
+  }
+}
+
+// Подстройка книги под режим: в классовой книге скрываем вкладки специализаций
+// и прячем кнопку «создать», когда достигнут лимит тиров Интеллекта.
+function applySpellbookMode() {
+  const tabs = document.getElementById('spellbook-tabs');
+  const createBtn = document.getElementById('spell-create-btn');
+  const isClass = spellCollection === 'classInt';
+  if (tabs) tabs.hidden = isClass;
+  if (createBtn) {
+    createBtn.hidden = isClass && activeSpellList().length >= classIntCapacity();
+  }
+}
+
 function bindSpellbook() {
   const btn = document.getElementById('spellbook-btn');
   const modal = document.getElementById('spellbook-modal');
@@ -1502,24 +1789,7 @@ function bindSpellbook() {
 
   modal.addEventListener('scroll', hideSpellTooltip, { passive: true });
 
-  btn.addEventListener('click', () => {
-    spreadIndex = 0;
-    destroySpellbookInstance();
-    loadSpellbookFlip();
-
-    const mountSpellbook = () => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => renderSpellGrids());
-      });
-    };
-
-    if (typeof CharMotion !== 'undefined') {
-      CharMotion.openSpellbook(modal, mountSpellbook);
-    } else {
-      modal.showModal();
-      mountSpellbook();
-    }
-  });
+  btn.addEventListener('click', () => openSpellbookModal('main'));
   close.addEventListener('click', () => closeSpellbookModal());
   modal.addEventListener('click', (e) => {
     if (e.target === modal) closeSpellbookModal();
@@ -1545,9 +1815,32 @@ function updateSpellEditorPreview(spec, iconId) {
   art.innerHTML = `<img class="spell-icon-img${legendary ? ' spell-icon-img--legendary' : ''}" src="${iconSrc(spec, iconId)}" alt="" draggable="false">`;
 }
 
+// активная коллекция книги (основная либо классовая книга Интеллекта)
+function activeSpellList() {
+  if (spellCollection === 'classInt') {
+    if (!Array.isArray(sheet.classSkills?.int)) {
+      sheet.classSkills = { ...(sheet.classSkills || {}), int: [] };
+    }
+    return sheet.classSkills.int;
+  }
+  return sheet.spells;
+}
+
+function setActiveSpellList(next) {
+  if (spellCollection === 'classInt') sheet.classSkills.int = next;
+  else sheet.spells = next;
+}
+
+// сколько классовых спеллов можно держать = число достигнутых тиров Интеллекта
+function classIntCapacity() {
+  return statClassTier(sheet.stats.int || 0);
+}
+
 function filteredSpells() {
-  if (activeSpec === 'all') return sheet.spells;
-  return sheet.spells.filter(s => s.spec === activeSpec);
+  const list = activeSpellList();
+  // классовая книга не фильтруется по специализации — там максимум 4 спелла
+  if (spellCollection === 'classInt' || activeSpec === 'all') return list;
+  return list.filter(s => s.spec === activeSpec);
 }
 
 function renderSpellTabs() {
@@ -1619,6 +1912,14 @@ function closeSpellbookModal() {
   hideSpellTooltip();
   closeSpellEditor();
   destroySpellbookInstance();
+  // возвращаем книгу в основной режим и восстанавливаем вкладки
+  if (spellCollection !== 'main') {
+    spellCollection = 'main';
+    const tabs = document.getElementById('spellbook-tabs');
+    if (tabs) tabs.hidden = false;
+    const createBtn = document.getElementById('spell-create-btn');
+    if (createBtn) createBtn.hidden = false;
+  }
   if (typeof CharMotion !== 'undefined') {
     CharMotion.closeSpellbook(modal);
   } else {
@@ -1724,6 +2025,7 @@ function renderSpellGrids() {
 
     spreadIndex = Math.floor(startPage / 2);
     updatePageNav(spells.length);
+    applySpellbookMode();
   });
 }
 
@@ -1808,7 +2110,7 @@ function openSpellEditor(spellId) {
 
   let spell;
   if (spellId) {
-    spell = sheet.spells.find(s => s.id === spellId);
+    spell = activeSpellList().find(s => s.id === spellId);
     document.getElementById('spell-editor-title').textContent = 'Редактировать';
     deleteBtn.hidden = false;
   } else {
@@ -1863,7 +2165,7 @@ function bindSpellEditor() {
 
 function readSpellForm() {
   const existing = editingSpellId
-    ? sheet.spells.find(s => s.id === editingSpellId)
+    ? activeSpellList().find(s => s.id === editingSpellId)
     : null;
   return {
     name: document.getElementById('spell-name').value.trim(),
@@ -1883,28 +2185,36 @@ function saveSpell() {
     return;
   }
 
+  const list = activeSpellList();
   if (editingSpellId) {
-    const spell = sheet.spells.find(s => s.id === editingSpellId);
+    const spell = list.find(s => s.id === editingSpellId);
     if (spell) Object.assign(spell, data);
   } else {
-    sheet.spells.push({ id: uid(), ...data });
+    // классовая книга ограничена числом достигнутых тиров Интеллекта
+    if (spellCollection === 'classInt' && list.length >= classIntCapacity()) {
+      closeSpellEditor();
+      return;
+    }
+    list.push({ id: uid(), ...data });
   }
 
   scheduleSave();
   closeSpellEditor();
   renderSpellGrids();
+  if (spellCollection === 'classInt') refreshStatClassSlots('int');
   updateCombatValues();
 }
 
 function deleteSpell() {
   if (!editingSpellId) return;
-  sheet.spells = sheet.spells.filter(s => s.id !== editingSpellId);
+  setActiveSpellList(activeSpellList().filter(s => s.id !== editingSpellId));
   const total = filteredSpells().length;
   const maxSpread = Math.max(0, Math.ceil(total / SPELLS_PER_SPREAD) - 1);
   if (spreadIndex > maxSpread) spreadIndex = maxSpread;
   scheduleSave();
   closeSpellEditor();
   renderSpellGrids();
+  if (spellCollection === 'classInt') refreshStatClassSlots('int');
   updateCombatValues();
 }
 
@@ -1968,6 +2278,25 @@ function exportToSharedFormat() {
     },
     equipment,
     backpack,
+    // числа с кубика для классов Силы/Ловкости/Выносливости
+    statClass: {
+      str: (s.statClass?.str ?? []).slice(0, STAT_CLASS_MAX_TIER).map(n => toInt(n, 0)),
+      dex: (s.statClass?.dex ?? []).slice(0, STAT_CLASS_MAX_TIER).map(n => toInt(n, 0)),
+      end: (s.statClass?.end ?? []).slice(0, STAT_CLASS_MAX_TIER).map(n => toInt(n, 0)),
+    },
+    // классовая книга скиллов Интеллекта
+    classSkills: {
+      int: (s.classSkills?.int ?? []).map(sp => ({
+        id:        sp.id        ?? uid(),
+        name:      sp.name      ?? '',
+        desc:      sp.desc      ?? '',
+        spec:      sp.spec      ?? 'buff',
+        level:     sp.level     ?? 1,
+        mana:      sp.mana      ?? 0,
+        icon:      sp.icon      ?? 'default',
+        iconImage: sp.iconImage ?? '',
+      })),
+    },
     spells: (s.spells ?? []).map(sp => ({
       id:        sp.id        ?? uid(),
       name:      sp.name      ?? '',
@@ -2070,6 +2399,28 @@ function importFromSharedFormat(jsonString) {
     iconImage: strVal(s?.iconImage),
   }));
 
+  // ── Классовые поля (числа с кубика) ─────────────────────────────────
+  const statClass = {};
+  STAT_CLASS_DICE.forEach((key) => {
+    const arr = Array.isArray(raw.statClass?.[key]) ? raw.statClass[key] : [];
+    statClass[key] = Array.from({ length: STAT_CLASS_MAX_TIER }, (_, i) => toInt(arr[i], 0));
+  });
+
+  // ── Классовая книга Интеллекта ──────────────────────────────────────
+  const rawClassInt = Array.isArray(raw.classSkills?.int) ? raw.classSkills.int : [];
+  const classSkills = {
+    int: rawClassInt.slice(0, STAT_CLASS_MAX_TIER).map(s => normalizeSpell({
+      id:        strVal(s?.id) || uid(),
+      name:      strVal(s?.name),
+      desc:      strVal(s?.desc),
+      spec:      ['damage', 'buff', 'heal', 'debuff'].includes(s?.spec) ? s.spec : 'buff',
+      level:     Math.min(5, Math.max(1, toInt(s?.level, 1))),
+      mana:      Math.max(0, toInt(s?.mana, 0)),
+      icon:      strVal(s?.icon) || 'default',
+      iconImage: strVal(s?.iconImage),
+    })),
+  };
+
   // ── Описание / квента ───────────────────────────────────────────────
   const description = strVal(raw.description);
   const lore        = strVal(raw.lore);
@@ -2082,6 +2433,8 @@ function importFromSharedFormat(jsonString) {
       lore,
       stats,
       combat,
+      statClass,
+      classSkills,
       equipment,
       backpack,
       spells,
@@ -2107,6 +2460,107 @@ function renderSheet() {
 
   spreadIndex = 0;
   renderSpellGrids();
+}
+
+function portraitErrorMessage(err) {
+  if (err?.message === 'FILE_TOO_LARGE') {
+    return 'Файл больше 2 МБ — выберите изображение меньше.';
+  }
+  if (err?.message === 'NOT_IMAGE') {
+    return 'Нужен файл изображения (JPEG, PNG или WebP).';
+  }
+  if (err?.name === 'QuotaExceededError') {
+    return 'Слишком большое фото — не хватает места в хранилище.';
+  }
+  return 'Не удалось обработать изображение.';
+}
+
+function initUserCharacterTools(char) {
+  const portraitTools = document.getElementById('portrait-tools');
+
+  if (!char.isUser) {
+    portraitTools?.setAttribute('hidden', '');
+    return;
+  }
+
+  portraitTools?.removeAttribute('hidden');
+  bindPortraitTools(char);
+  bindDeleteCharacter(char);
+}
+
+function bindPortraitTools(char) {
+  const input = document.getElementById('char-portrait-input');
+  const changeBtn = document.getElementById('char-portrait-change');
+  const removeBtn = document.getElementById('char-portrait-remove');
+  const errorEl = document.getElementById('char-portrait-error');
+  const img = document.getElementById('char-img');
+
+  removeBtn.hidden = !char.portrait;
+
+  changeBtn?.addEventListener('click', () => input?.click());
+
+  input?.addEventListener('change', async () => {
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    errorEl.hidden = true;
+    try {
+      const dataUrl = await processPortraitFile(file);
+      updateUserCharacterPortrait(char.id, dataUrl);
+      catalogChar = { ...catalogChar, portrait: dataUrl };
+      img.src = dataUrl;
+      removeBtn.hidden = false;
+      const hint = document.getElementById('save-hint');
+      if (hint) {
+        hint.textContent = 'Портрет сохранён';
+        hint.classList.add('visible');
+        setTimeout(() => hint.classList.remove('visible'), 1500);
+      }
+    } catch (err) {
+      errorEl.textContent = portraitErrorMessage(err);
+      errorEl.hidden = false;
+    }
+  });
+
+  removeBtn?.addEventListener('click', () => {
+    updateUserCharacterPortrait(char.id, '');
+    catalogChar = { ...catalogChar, portrait: '' };
+    img.src = PLACEHOLDER_PORTRAIT;
+    removeBtn.hidden = true;
+    errorEl.hidden = true;
+  });
+}
+
+function bindDeleteCharacter(char) {
+  const modal = document.getElementById('brumgilde-modal');
+  const btnOpen = document.getElementById('btn-delete-char');
+  const btnConfirm = document.getElementById('brumgilde-confirm');
+  const btnCancel = document.getElementById('brumgilde-cancel');
+
+  if (!modal || !btnOpen) return;
+
+  btnOpen.removeAttribute('hidden');
+
+  btnOpen.addEventListener('click', () => {
+    if (typeof modal.showModal === 'function') modal.showModal();
+  });
+
+  btnCancel?.addEventListener('click', () => modal.close());
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.close();
+  });
+
+  btnConfirm?.addEventListener('click', () => {
+    deleteUserCharacter(char.id);
+    modal.close();
+    if (typeof GobMotion !== 'undefined') {
+      GobMotion.navigateTo('/');
+    } else {
+      window.location.href = '/';
+    }
+  });
 }
 
 function initTransfer() {
@@ -2219,15 +2673,30 @@ function initTransfer() {
   });
 }
 
-function init(char) {
-  sheet = loadSheet(char);
+async function init(char) {
+  catalogChar = char;
+  sheet = await loadSheetAsync(char);
 
-  document.getElementById('char-img').src = `/characters/${char.id}.jpg`;
-  document.getElementById('char-img').alt = char.name;
-  document.title = `GoB — ${sheet.name || char.name}`;
+  if (char.isUser && typeof updateUserCharacterMeta === 'function') {
+    const sheetName = String(sheet.name ?? '').trim();
+    const sheetDesc = String(sheet.description ?? '').trim();
+    const catalogName = String(char.name ?? '').trim();
+    const catalogDesc = String(char.description ?? '').trim();
+    if (sheetName !== catalogName || sheetDesc !== catalogDesc) {
+      updateUserCharacterMeta(char.id, { name: sheet.name ?? '', description: sheet.description ?? '' });
+      catalogChar = { ...char, name: sheetName, description: sheetDesc };
+    }
+  }
+
+  document.getElementById('char-img').src = typeof getPortraitUrl === 'function'
+    ? getPortraitUrl(char)
+    : `/characters/${char.id}.jpg`;
+  document.getElementById('char-img').alt = sheet.name || char.name || 'Без имени';
+  document.title = `GoB — ${sheet.name || char.name || 'Без имени'}`;
 
   bindField(document.getElementById('char-name'), 'name', () => {
-    document.title = `GoB — ${sheet.name}`;
+    document.title = `GoB — ${sheet.name || 'Без имени'}`;
+    document.getElementById('char-img').alt = sheet.name || 'Без имени';
   });
   bindField(document.getElementById('char-desc'), 'description');
   bindField(document.getElementById('char-lore'), 'lore');
@@ -2238,6 +2707,7 @@ function init(char) {
   renderBackpack();
   bindSlotEditor();
   bindSpellbook();
+  initUserCharacterTools(char);
 
   if (typeof CharMotion !== 'undefined') {
     CharMotion.bindBackLink();
@@ -2256,14 +2726,12 @@ function init(char) {
 if (!id) {
   document.body.innerHTML = '<p style="color:#e8c97a;text-align:center;padding:40px;font-family:Cinzel,serif">Персонаж не выбран. <a href="/" style="color:#c9a24d">Вернуться к миру</a></p>';
 } else {
-  fetch('/api/characters')
-    .then(r => r.json())
-    .then(data => {
-      const char = data.find(x => x.id === id);
+  findCharacterById(id)
+    .then((char) => {
       if (!char) {
         document.body.innerHTML = '<p style="color:#e8c97a;text-align:center;padding:40px;font-family:Cinzel,serif">Персонаж не найден. <a href="/" style="color:#c9a24d">Вернуться к миру</a></p>';
         return;
       }
-      init(char);
+      return init(char);
     });
 }

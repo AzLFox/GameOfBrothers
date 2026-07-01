@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="e1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8ab8a8"/>
+      <stop offset="45%" stop-color="#d4b36a"/>
+      <stop offset="100%" stop-color="#5a4020"/>
+    </linearGradient>
+    <linearGradient id="i1" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#5ef0c8" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#5ef0c8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#e1)" fill-rule="evenodd" d="M0 0h64v64H0V0zm8 8h48v48H8V8z"/>
+  <path fill="none" stroke="#3a9a82" stroke-width="0.8" opacity="0.5" d="M10 10h44v44H10z"/>
+  <path fill="#d4b36a" d="M2 2h12v3H5v9H2V2zm50 0h12v12h-3V5H52V2zM2 50v12h12v-3H5V50H2zm50 3h3v9h9v3H52V53z"/>
+  <circle cx="5" cy="5" r="1.5" fill="#5ef0c8" opacity="0.55"/>
+  <circle cx="59" cy="5" r="1.5" fill="#5ef0c8" opacity="0.55"/>
+  <circle cx="5" cy="59" r="1.5" fill="#5ef0c8" opacity="0.55"/>
+  <circle cx="59" cy="59" r="1.5" fill="#5ef0c8" opacity="0.55"/>
+  <rect x="8" y="8" width="48" height="48" fill="url(#i1)" opacity="0.4"/>
+</svg>
