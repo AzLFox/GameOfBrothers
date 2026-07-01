@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="e3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff0c8"/>
+      <stop offset="35%" stop-color="#f0d98a"/>
+      <stop offset="70%" stop-color="#c9a24d"/>
+      <stop offset="100%" stop-color="#5a4020"/>
+    </linearGradient>
+    <radialGradient id="g3" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#5ef0c8" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#5ef0c8" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <path fill="url(#e3)" fill-rule="evenodd" d="M0 0h64v64H0V0zm6 6h52v52H6V6z"/>
+  <path fill="none" stroke="#5ef0c8" stroke-width="1.2" opacity="0.5" d="M8 8h48v48H8z"/>
+  <path fill="#f0d98a" d="M0 0h16v5H4v11H0V0zm48 0h16v16h-5V4H48V0zM0 48v16h16v-5H4V48H0zm48 5h5v11h11v5H48V53z"/>
+  <path fill="none" stroke="#d4b36a" stroke-width="0.8" d="M6 6c10-3 18 4 22 14M58 6c-10-3-18 4-22 14M6 58c10 3 18-4 22-14M58 58c-10 3-18-4-22-14" opacity="0.55"/>
+  <rect x="6" y="6" width="52" height="52" fill="url(#g3)"/>
+  <text x="3" y="10" font-size="8" fill="#5ef0c8" opacity="0.8" font-family="serif">ß</text>
+  <text x="55" y="10" font-size="8" fill="#5ef0c8" opacity="0.8" font-family="serif">Þ</text>
+  <text x="3" y="62" font-size="8" fill="#5ef0c8" opacity="0.8" font-family="serif">±</text>
+  <text x="55" y="62" font-size="8" fill="#5ef0c8" opacity="0.8" font-family="serif">²</text>
+</svg>

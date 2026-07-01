@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="e2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0d98a"/>
+      <stop offset="40%" stop-color="#d4b36a"/>
+      <stop offset="100%" stop-color="#6b4e2a"/>
+    </linearGradient>
+    <linearGradient id="t2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5ef0c8" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#5ef0c8" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#5ef0c8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#e2)" fill-rule="evenodd" d="M0 0h64v64H0V0zm7 7h50v50H7V7z"/>
+  <path fill="none" stroke="#5ef0c8" stroke-width="1" opacity="0.35" d="M9 9h46v46H9z"/>
+  <path fill="#f0d98a" d="M1 1h14v4H5v11H1V1zm48 0h15v15h-4V5H49V1zM1 48v15h15v-4H5V48H1zm48 4h4v11h11v4H49V52z"/>
+  <path stroke="url(#t2)" stroke-width="1.2" fill="none" d="M12 2h40M2 12v40M52 12v40M12 62h40"/>
+  <text x="4" y="9" font-size="7" fill="#5ef0c8" opacity="0.65" font-family="serif"> </text>
+  <text x="56" y="9" font-size="7" fill="#5ef0c8" opacity="0.65" font-family="serif">¢</text>
+  <text x="4" y="62" font-size="7" fill="#5ef0c8" opacity="0.65" font-family="serif">¦</text>
+  <text x="56" y="62" font-size="7" fill="#5ef0c8" opacity="0.65" font-family="serif">¨</text>
+</svg>

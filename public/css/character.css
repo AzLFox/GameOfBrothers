@@ -14,6 +14,8 @@
   --slot-border: #6b4e2a;
   --teal: #3ec4a8;
   --shadow: rgba(0, 0, 0, 0.55);
+  /* Steam frame 224×224 @2x → слот 128×128 @1x */
+  --stat-frame-size: 128px;
 }
 
 * {
@@ -752,14 +754,27 @@ body {
 /* ================= STATS ================= */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
+  grid-template-columns: repeat(3, var(--stat-frame-size));
+  justify-content: center;
+  gap: 16px;
+  padding: 10px 4px;
 }
 
 @media (max-width: 500px) {
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, var(--stat-frame-size));
   }
+}
+
+.stat-slot {
+  position: relative;
+  width: var(--stat-frame-size);
+  height: var(--stat-frame-size);
+  overflow: visible;
+}
+
+.stat-slot:has(.stat-tier-frame) {
+  overflow: visible;
 }
 
 .stat-cell {
@@ -769,7 +784,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  min-height: 112px;
+  width: 100%;
+  height: 100%;
   padding: 10px 8px;
   background: linear-gradient(180deg, #f0e0c0 0%, #d8c090 100%);
   border: 2px solid var(--slot-border);
@@ -777,6 +793,14 @@ body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
   overflow: visible;
   transition: box-shadow 0.28s ease, border-color 0.28s ease;
+}
+
+/* Steam-рамка = внешняя кромка, без CSS-border */
+.stat-cell--has-frame {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: visible;
 }
 
 .stat-cell.is-rune-lit {
@@ -796,10 +820,10 @@ body {
 }
 
 .stat-input {
-  width: 52px;
+  width: 50px;
   text-align: center;
   font-family: "Cinzel", serif;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   font-weight: 700;
   color: var(--ink);
   background: rgba(255, 255, 255, 0.5);
@@ -821,42 +845,77 @@ body {
   background: #fff;
 }
 
-/* ===== Классы характеристик: обводка по редкости + 4 угловых элемента ===== */
-/* Обводка активна, пока ячейка не подсвечена руной (ховер имеет приоритет). */
-.stat-cell--tier-1:not(.is-rune-lit) {
-  border-color: var(--gob-uncommon);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px var(--gob-uncommon-glow),
-    0 0 12px var(--gob-uncommon-glow);
+/* ===== Классы характеристик: Steam frame overlays (imported WebM) ===== */
+.stat-cell--has-frame.is-rune-lit {
+  border: none;
+  box-shadow: none;
 }
-.stat-cell--tier-2:not(.is-rune-lit) {
-  border-color: var(--gob-rare);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px var(--gob-rare-glow),
-    0 0 12px var(--gob-rare-glow);
+
+.stat-tier-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  overflow: visible;
+  transition: opacity 0.35s ease;
 }
-.stat-cell--tier-3:not(.is-rune-lit) {
-  border-color: var(--gob-mythical);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px var(--gob-mythical-glow),
-    0 0 13px var(--gob-mythical-glow);
+
+.stat-tier-frame.is-dimmed {
+  opacity: 0.32;
 }
-.stat-cell--tier-4:not(.is-rune-lit) {
-  border-color: var(--gob-legendary);
+
+.stat-tier-frame__overlay {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.stat-cell--tier-1:not(.is-rune-lit):not(.stat-cell--has-frame) {
+  border-color: rgba(58, 154, 130, 0.3);
+  box-shadow: inset 0 0 12px rgba(94, 240, 200, 0.05);
+}
+
+.stat-cell--tier-2:not(.is-rune-lit):not(.stat-cell--has-frame) {
+  border-color: rgba(90, 70, 40, 0.38);
+  box-shadow: inset 0 0 14px rgba(212, 179, 106, 0.06);
+}
+
+.stat-cell--tier-3:not(.is-rune-lit):not(.stat-cell--has-frame) {
+  border-color: rgba(160, 130, 70, 0.45);
+  box-shadow: inset 0 0 18px rgba(240, 217, 138, 0.08);
+}
+
+.stat-cell--tier-4:not(.is-rune-lit):not(.stat-cell--has-frame) {
+  border-color: rgba(180, 145, 80, 0.52);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px var(--gob-legendary-glow),
-    0 0 16px var(--gob-legendary-glow);
+    inset 0 0 22px rgba(240, 217, 138, 0.1),
+    0 0 12px rgba(94, 240, 200, 0.06);
+}
+
+.stat-cell.is-rune-lit .stat-tier-frame {
+  opacity: 0.28;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stat-tier-frame__overlay {
+    opacity: 0.95;
+  }
+}
+
+html.gob-tier-low .stat-tier-frame {
+  opacity: 0.9;
 }
 
 .stat-class-slots {
   position: absolute;
-  inset: 2px;
+  inset: 3px;
   pointer-events: none;
-  z-index: 3;
+  z-index: 7;
 }
 
 .stat-class-slot {
@@ -867,7 +926,10 @@ body {
   width: 42px;
   height: 42px;
 }
-.stat-class-slot.is-active { display: flex; }
+.stat-class-slot.is-active {
+  display: flex;
+  filter: drop-shadow(0 1px 3px rgba(42, 28, 16, 0.25));
+}
 .stat-class-slot--pos-1 { top: 0; left: 0; }
 .stat-class-slot--pos-2 { top: 0; right: 0; }
 .stat-class-slot--pos-3 { bottom: 0; left: 0; }

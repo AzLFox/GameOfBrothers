@@ -75,7 +75,9 @@ function getStatCell(statKey) {
 function setStatCombatRuneLit(statKey, lit) {
   const link = STAT_COMBAT_LINKS.find((l) => l.stat === statKey);
   if (!link) return;
-  getStatCell(statKey)?.classList.toggle('is-rune-lit', lit);
+  const cell = getStatCell(statKey);
+  cell?.classList.toggle('is-rune-lit', lit);
+  StatTierFrame?.refreshDimmed?.(cell);
   document.getElementById(link.combatId)?.classList.toggle('is-rune-lit', lit);
 }
 
@@ -1234,6 +1236,8 @@ function renderStats() {
   const grid = document.getElementById('stats-grid');
   grid.innerHTML = '';
   STAT_KEYS.forEach(({ key, label }) => {
+    const slot = document.createElement('div');
+    slot.className = 'stat-slot';
     const cell = document.createElement('div');
     cell.className = 'stat-cell';
     cell.dataset.stat = key;
@@ -1254,18 +1258,27 @@ function renderStats() {
         renderReqHint(selectedSlot.key);
       }
     });
+    slot.appendChild(cell);
     renderStatClassSlots(cell, key);
-    grid.appendChild(cell);
+    grid.appendChild(slot);
   });
 }
 
 // Обводка ячейки по достигнутому тиру + 4 классовых элемента (по одному на тир).
 // Слот i виден только когда tier > i.
+function updateStatTierFrame(cell, tier) {
+  if (typeof StatTierFrame !== 'undefined') {
+    StatTierFrame.attach(cell, tier);
+    return;
+  }
+}
+
 function renderStatClassSlots(cell, statKey) {
   const tier = statClassTier(sheet.stats[statKey] || 0);
 
   for (let t = 1; t <= STAT_CLASS_MAX_TIER; t++) cell.classList.remove(`stat-cell--tier-${t}`);
   if (tier > 0) cell.classList.add(`stat-cell--tier-${tier}`);
+  updateStatTierFrame(cell, tier);
 
   const overlay = cell.querySelector('.stat-class-slots');
   if (!overlay) return;
