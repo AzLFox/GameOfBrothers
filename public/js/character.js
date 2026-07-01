@@ -1305,14 +1305,35 @@ function renderStats() {
     input.addEventListener('input', () => {
       sheet.stats[key] = parseInt(input.value, 10) || 0;
       scheduleSave();
+      refreshStatTierFrame(key);
       updateCombatValues();
       updateSlotWarnings();
       if (selectedSlot?.group === 'equipment' && slotSupportsClasses(selectedSlot.key)) {
         renderReqHint(selectedSlot.key);
       }
     });
-    grid.appendChild(cell);
+    slot.appendChild(cell);
+    applyStatTierFrame(cell, key);
+    grid.appendChild(slot);
   });
+}
+
+function updateStatTierFrame(cell, tier) {
+  if (typeof StatTierFrame !== 'undefined') {
+    StatTierFrame.attach(cell, tier);
+  }
+}
+
+function applyStatTierFrame(cell, statKey) {
+  const tier = statClassTier(sheet.stats[statKey] || 0);
+  for (let t = 1; t <= STAT_CLASS_MAX_TIER; t++) cell.classList.remove(`stat-cell--tier-${t}`);
+  if (tier > 0) cell.classList.add(`stat-cell--tier-${tier}`);
+  updateStatTierFrame(cell, tier);
+}
+
+function refreshStatTierFrame(statKey) {
+  const cell = getStatCell(statKey);
+  if (cell) applyStatTierFrame(cell, statKey);
 }
 
 // ===== Разворачиваемые боевые строки: разбивка по источникам =====
