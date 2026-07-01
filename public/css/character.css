@@ -109,7 +109,15 @@ body {
 
 .portrait-panel { grid-area: portrait; }
 .stats-panel { grid-area: stats; }
-.combat-panel { grid-area: combat; }
+.combat-panel {
+  grid-area: combat;
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  height: 0;
+  min-height: 100%;
+  overflow: hidden;
+}
 .backpack-panel { grid-area: backpack; }
 .lore-panel { grid-area: lore; }
 .equipment-panel { grid-area: equipment; }
@@ -266,7 +274,14 @@ body {
   }
 
   .stats-panel { grid-area: stats; }
-  .combat-panel { grid-area: combat; }
+  .combat-panel {
+    grid-area: combat;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    align-self: auto;
+  }
   .equipment-panel { grid-area: equipment; }
   .backpack-panel { grid-area: backpack; }
   .lore-panel { grid-area: lore; }
@@ -975,10 +990,25 @@ html.gob-tier-low .stat-tier-frame {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .combat-panel .panel-title {
+  flex-shrink: 0;
   font-size: 1.05rem;
+}
+
+@media (max-width: 700px) {
+  .combat-grid {
+    flex: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+  }
 }
 
 .combat-row {
