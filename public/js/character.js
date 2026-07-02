@@ -2014,11 +2014,53 @@ function closeSlotEditor() {
   }
 }
 
+function clearSlot(group, key) {
+  if (group === 'backpack') {
+    sheet.backpack[key] = emptyItem();
+  } else {
+    sheet.equipment[key] = emptyItem();
+    reconcileHands(key);
+  }
+  scheduleSave();
+  updateSlotUI(group, key);
+  updateCombatValues();
+  if (selectedSlot && selectedSlot.group === group && String(selectedSlot.key) === String(key)) {
+    document.getElementById('slot-name').value = '';
+    document.getElementById('slot-desc').value = '';
+    renderClassSection(group, key);
+  }
+}
+
+function bindSlotClear() {
+  const modal = document.getElementById('slot-clear-modal');
+  const btnOpen = document.getElementById('slot-editor-clear');
+  const btnConfirm = document.getElementById('slot-clear-confirm');
+  const btnCancel = document.getElementById('slot-clear-cancel');
+  if (!modal || !btnOpen) return;
+
+  btnOpen.addEventListener('click', () => {
+    if (!selectedSlot) return;
+    if (typeof modal.showModal === 'function') modal.showModal();
+  });
+
+  btnCancel?.addEventListener('click', () => modal.close());
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.close();
+  });
+
+  btnConfirm?.addEventListener('click', () => {
+    if (selectedSlot) clearSlot(selectedSlot.group, selectedSlot.key);
+    modal.close();
+  });
+}
+
 function bindSlotEditor() {
   const nameEl = document.getElementById('slot-name');
   const descEl = document.getElementById('slot-desc');
 
   document.getElementById('slot-editor-close').addEventListener('click', closeSlotEditor);
+  bindSlotClear();
 
   const apply = () => {
     if (!selectedSlot) return;

@@ -77,6 +77,7 @@
     <aside class="slot-editor panel" id="slot-editor" hidden>
       <header class="slot-editor-header">
         <h2 class="panel-title" id="slot-editor-title">Предмет</h2>
+        <button type="button" class="slot-editor-clear" id="slot-editor-clear" aria-label="Очистить слот" title="Очистить слот">🗑</button>
         <button type="button" class="slot-editor-close" id="slot-editor-close" aria-label="Закрыть редактор">×</button>
       </header>
       <div class="slot-editor-body">
@@ -247,6 +248,16 @@
         <div class="brumgilde-modal__actions">
           <button type="button" class="brumgilde-btn brumgilde-btn--confirm" id="brumgilde-confirm">пошел он нахуй</button>
           <button type="button" class="brumgilde-btn brumgilde-btn--cancel" id="brumgilde-cancel">ладно, пожалею его</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog class="brumgilde-modal" id="slot-clear-modal">
+      <div class="brumgilde-modal__panel">
+        <p class="brumgilde-modal__text" id="slot-clear-text">Очистить этот слот?</p>
+        <div class="brumgilde-modal__actions">
+          <button type="button" class="brumgilde-btn brumgilde-btn--confirm" id="slot-clear-confirm">Очистить</button>
+          <button type="button" class="brumgilde-btn brumgilde-btn--cancel" id="slot-clear-cancel">Отмена</button>
         </div>
       </div>
     </dialog>
