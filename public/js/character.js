@@ -639,23 +639,24 @@ function sumEquipmentMods() {
 }
 
 function maxHp() {
-  return sheet.stats.str * 4 + (sumEquipmentMods().hpBonus || 0) + strClassHp();
+  return sheet.stats.str * 4 + (sumEquipmentMods().hpBonus || 0) + strClassHp()
+    + customSourcesSum('combat-row-hp');
 }
 
 function effectiveHit() {
-  return sheet.stats.dex + (sumEquipmentMods().hit || 0);
+  return sheet.stats.dex + (sumEquipmentMods().hit || 0) + customSourcesSum('combat-row-hit');
 }
 
 function effectiveCrit() {
-  return critValue(sheet.stats.luck) + luckClassCrit();
+  return critValue(sheet.stats.luck) + luckClassCrit() + customSourcesSum('combat-row-crit');
 }
 
 function maxAp() {
-  return sheet.stats.end;
+  return sheet.stats.end + customSourcesSum('combat-row-ap');
 }
 
 function maxMp() {
-  return sheet.stats.spi;
+  return sheet.stats.spi + customSourcesSum('combat-row-mp');
 }
 
 function overheal(current, max) {
@@ -821,7 +822,8 @@ function formatModValue(key, val) {
 function extraRowVisible(key) {
   const stat = CLASS_ROW_STAT[key] || null;
   const hasClass = stat && statClassTier(sheet.stats[stat] || 0) >= 1;
-  return Boolean(hasClass) || equipmentModSources(key).length > 0;
+  return Boolean(hasClass) || equipmentModSources(key).length > 0
+    || customRowSources(`combat-row-${key}`).length > 0;
 }
 
 function renderExtraCombatRows(mods) {
@@ -935,17 +937,25 @@ function updateCombatValues(opts = {}) {
   mods.evasion = (mods.evasion || 0) + dexClassEvasion();
   mods.armor   = (mods.armor   || 0) + endClassArmor();
   mods.bubble  = (mods.bubble  || 0) + spiClassBubble();
+  // пользовательские источники вливаются в те же строки-агрегаты снаряжения/классов
+  // (базовые строки hp/hit/skills/mp/ap/crit учитываются отдельно ниже)
+  const BASE_COMBAT_ROWS = new Set(['combat-row-hp', 'combat-row-hit', 'combat-row-skills', 'combat-row-mp', 'combat-row-ap', 'combat-row-crit']);
+  Object.keys(sheet.combatCustom || {}).forEach((rowId) => {
+    if (BASE_COMBAT_ROWS.has(rowId)) return;
+    const modKey = rowId.replace('combat-row-', '');
+    mods[modKey] = (mods[modKey] || 0) + customSourcesSum(rowId);
+  });
 
-  const hpMax = sheet.stats.str * 4 + (mods.hpBonus || 0) + strClassHp();
+  const hpMax = sheet.stats.str * 4 + (mods.hpBonus || 0) + strClassHp() + customSourcesSum('combat-row-hp');
   const apMax = maxAp();
   const mpMax = maxMp();
 
   document.getElementById('combat-hp-max').textContent = hpMax;
   document.getElementById('combat-ap-max').textContent = apMax;
   document.getElementById('combat-mp-max').textContent = mpMax;
-  document.getElementById('combat-hit').textContent = sheet.stats.dex + (mods.hit || 0);
-  document.getElementById('combat-skills').textContent = sheet.stats.int + intClassSkills();
-  document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck) + luckClassCrit();
+  document.getElementById('combat-hit').textContent = sheet.stats.dex + (mods.hit || 0) + customSourcesSum('combat-row-hit');
+  document.getElementById('combat-skills').textContent = sheet.stats.int + intClassSkills() + customSourcesSum('combat-row-skills');
+  document.getElementById('combat-crit').textContent = critValue(sheet.stats.luck) + luckClassCrit() + customSourcesSum('combat-row-crit');
 
   updateOverheal('hp', sheet.combat.hp, hpMax);
   updateOverheal('mp', sheet.combat.mp, mpMax);
@@ -1111,6 +1121,9 @@ function defaultSheet(char) {
     ),
     // отдельная «книга» скиллов класса Интеллекта (до 4 заклинаний)
     classSkills: { int: [] },
+    // произвольные пользовательские источники бонусов по боевым строкам:
+    // { [rowId]: [{ id, label, value }] }
+    combatCustom: {},
     combat: defaultCombat({ str: 12, dex: 12, int: 12, spi: 12, end: 12, luck: 12 }),
     equipment: Object.fromEntries(
       [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS].map(s => [s.key, emptyItem()])
@@ -1130,6 +1143,24 @@ function migrateStatClass(data, base) {
       const n = parseInt(arr[i], 10);
       return Number.isFinite(n) ? n : STAT_CLASS_DEFAULT[key];
     });
+  });
+  return out;
+}
+
+// произвольные источники бонусов боевых строк: { [rowId]: [{id, label, value}] }
+function migrateCombatCustom(data) {
+  const src = (data.combatCustom && typeof data.combatCustom === 'object') ? data.combatCustom : {};
+  const out = {};
+  Object.entries(src).forEach(([rowId, list]) => {
+    if (!Array.isArray(list)) return;
+    const clean = list
+      .filter(s => s && typeof s === 'object')
+      .map(s => ({
+        id: typeof s.id === 'string' && s.id ? s.id : uid(),
+        label: typeof s.label === 'string' ? s.label : '',
+        value: parseInt(s.value, 10) || 0,
+      }));
+    if (clean.length) out[rowId] = clean;
   });
   return out;
 }
@@ -1209,6 +1240,7 @@ function loadSheet(char) {
       combat: migrateCombat(data, stats),
       statClass: migrateStatClass(data, base),
       classSkills: migrateClassSkills(data, base),
+      combatCustom: migrateCombatCustom(data),
       equipment: migrateEquipment(data, base),
       backpack: data.backpack?.length === BACKPACK_COUNT
         ? data.backpack
@@ -1247,6 +1279,7 @@ async function loadSheetAsync(char) {
     combat: migrateCombat(data, stats),
     statClass: migrateStatClass(data, base),
     classSkills: migrateClassSkills(data, base),
+    combatCustom: migrateCombatCustom(data),
     equipment: migrateEquipment(data, base),
     backpack: data.backpack?.length === BACKPACK_COUNT
       ? data.backpack
@@ -1424,6 +1457,50 @@ function equipmentModSources(modKey) {
   return out;
 }
 
+// произвольные пользовательские источники для боевой строки (не заведённые системой)
+function customRowSources(rowId) {
+  const list = sheet.combatCustom?.[rowId];
+  return Array.isArray(list) ? list : [];
+}
+
+function customSourcesSum(rowId) {
+  return customRowSources(rowId).reduce((sum, s) => sum + (parseInt(s.value, 10) || 0), 0);
+}
+
+// оборачивает произвольные источники в формат, понятный buildBreakdown
+function customSourceEntries(rowId) {
+  return customRowSources(rowId).map(entry => ({
+    label: entry.label,
+    value: entry.value,
+    editable: true,
+    custom: true,
+    onEdit(v) { entry.value = v; scheduleSave(); updateCombatValues({ rebuildExtra: false }); },
+    onLabelEdit(v) { entry.label = v; scheduleSave(); },
+    onRemove() {
+      const list = sheet.combatCustom[rowId];
+      const idx = list?.findIndex(s => s.id === entry.id) ?? -1;
+      if (idx === -1) return;
+      list.splice(idx, 1);
+      if (!list.length) delete sheet.combatCustom[rowId];
+      scheduleSave();
+      updateCombatValues();
+    },
+  }));
+}
+
+function addCustomSource(rowId) {
+  if (!sheet.combatCustom[rowId]) sheet.combatCustom[rowId] = [];
+  sheet.combatCustom[rowId].push({ id: uid(), label: '', value: 0 });
+  scheduleSave();
+  updateCombatValues();
+  // фокус на новой строке названия источника
+  requestAnimationFrame(() => {
+    const row = document.getElementById(rowId);
+    const input = row?.querySelector('.combat-breakdown-row--custom:last-of-type .combat-breakdown-label-input');
+    input?.focus();
+  });
+}
+
 // источники (и связанная характеристика) для боевой строки по её id
 function combatRowSources(rowId) {
   const st = sheet.stats;
@@ -1433,26 +1510,36 @@ function combatRowSources(rowId) {
         { label: 'Сила ×4', value: st.str * 4, editable: false },
         ...statClassFieldSources('str'),
         ...equipmentModSources('hpBonus'),
+        ...customSourceEntries(rowId),
       ] };
     case 'combat-row-hit':
       return { stat: 'dex', sources: [
         { label: 'Ловкость', value: st.dex, editable: false },
         ...equipmentModSources('hit'),
+        ...customSourceEntries(rowId),
       ] };
     case 'combat-row-skills':
       return { stat: 'int', classBook: true, sources: [
         { label: 'Интеллект', value: st.int, editable: false },
         ...statClassFieldSources('int'),
+        ...customSourceEntries(rowId),
       ] };
     case 'combat-row-mp':
-      return { stat: 'spi', sources: [{ label: 'Дух', value: st.spi, editable: false }] };
+      return { stat: 'spi', sources: [
+        { label: 'Дух', value: st.spi, editable: false },
+        ...customSourceEntries(rowId),
+      ] };
     case 'combat-row-ap':
-      return { stat: 'end', sources: [{ label: 'Выносливость', value: st.end, editable: false }] };
+      return { stat: 'end', sources: [
+        { label: 'Выносливость', value: st.end, editable: false },
+        ...customSourceEntries(rowId),
+      ] };
     case 'combat-row-crit':
       return { stat: 'luck', sources: [
         { label: 'Удача ÷2', value: critValue(st.luck), editable: false },
         ...statClassFieldSources('luck'),
         ...equipmentModSources('critDie'),
+        ...customSourceEntries(rowId),
       ] };
     default: {
       // строки-агрегаты снаряжения/классов: id вида combat-row-<modKey>
@@ -1461,6 +1548,7 @@ function combatRowSources(rowId) {
       return { stat, sources: [
         ...(stat ? statClassFieldSources(stat) : []),
         ...equipmentModSources(modKey),
+        ...customSourceEntries(rowId),
       ] };
     }
   }
@@ -1544,11 +1632,25 @@ function buildBreakdown(row) {
     const line = document.createElement('div');
     line.className = 'combat-breakdown-row';
     if (src.slotKey) { line.classList.add('combat-breakdown-row--equip'); highlightSourceSlot(src.slotKey); }
+    if (src.custom) line.classList.add('combat-breakdown-row--custom');
 
-    const labelEl = document.createElement('span');
-    labelEl.className = 'combat-breakdown-label';
-    labelEl.textContent = src.label;
-    line.appendChild(labelEl);
+    if (src.custom) {
+      const labelInput = document.createElement('input');
+      labelInput.type = 'text';
+      labelInput.className = 'combat-breakdown-label-input';
+      labelInput.maxLength = 40;
+      labelInput.placeholder = 'Название источника';
+      labelInput.value = src.label || '';
+      labelInput.setAttribute('aria-label', 'Название источника');
+      labelInput.addEventListener('click', (e) => e.stopPropagation());
+      labelInput.addEventListener('input', () => src.onLabelEdit(labelInput.value));
+      line.appendChild(labelInput);
+    } else {
+      const labelEl = document.createElement('span');
+      labelEl.className = 'combat-breakdown-label';
+      labelEl.textContent = src.label;
+      line.appendChild(labelEl);
+    }
 
     if (src.editable) {
       const input = document.createElement('input');
@@ -1575,8 +1677,26 @@ function buildBreakdown(row) {
       valEl.textContent = String(src.value ?? 0);
       line.appendChild(valEl);
     }
+
+    if (src.custom) {
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'combat-breakdown-remove';
+      removeBtn.textContent = '×';
+      removeBtn.setAttribute('aria-label', 'Удалить источник');
+      removeBtn.addEventListener('click', (e) => { e.stopPropagation(); src.onRemove(); });
+      line.appendChild(removeBtn);
+    }
+
     box.appendChild(line);
   });
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'combat-breakdown-add';
+  addBtn.textContent = '+ добавить источник';
+  addBtn.addEventListener('click', (e) => { e.stopPropagation(); addCustomSource(row.id); });
+  box.appendChild(addBtn);
 
   if (classBook) appendIntClassBook(box);
 }

@@ -1569,6 +1569,65 @@ html.gob-tier-low .stat-tier-frame {
   background: #fff;
 }
 
+/* пользовательский источник — редактируемое название + кнопка удаления */
+.combat-breakdown-row--custom {
+  background: rgba(196, 140, 62, 0.12);
+  border-color: rgba(196, 140, 62, 0.4);
+}
+
+.combat-breakdown-label-input {
+  flex: 1;
+  min-width: 0;
+  font-family: "Crimson Pro", Georgia, serif;
+  font-size: 0.94rem;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--parchment-dark);
+  border-radius: 3px;
+  padding: 3px 6px;
+}
+.combat-breakdown-label-input:focus {
+  outline: none;
+  border-color: var(--gold);
+  background: #fff;
+}
+
+.combat-breakdown-remove {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  border: 1px solid rgba(160, 24, 24, 0.35);
+  border-radius: 3px;
+  background: rgba(160, 24, 24, 0.08);
+  color: #a01818;
+  font-family: "Cinzel", serif;
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.combat-breakdown-remove:hover {
+  background: rgba(160, 24, 24, 0.18);
+}
+
+.combat-breakdown-add {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 4px 10px;
+  font-family: "Crimson Pro", Georgia, serif;
+  font-size: 0.88rem;
+  color: var(--ink-muted);
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px dashed rgba(122, 90, 40, 0.4);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.combat-breakdown-add:hover {
+  color: var(--ink);
+  border-color: var(--gold);
+  background: rgba(255, 255, 255, 0.55);
+}
+
 .combat-breakdown-book {
   display: flex;
   flex-wrap: wrap;
