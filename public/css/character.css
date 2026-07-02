@@ -2008,6 +2008,25 @@ html.gob-tier-low .stat-tier-frame {
   color: #8b1010;
 }
 
+.slot-editor-clear {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 1px solid var(--gold-dark);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.08);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ink-muted);
+  transition: background 0.15s, color 0.15s;
+}
+
+.slot-editor-clear:hover {
+  background: rgba(160, 24, 24, 0.12);
+  color: #8b1010;
+}
+
 .slot-editor[hidden] {
   display: none;
 }
