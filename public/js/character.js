@@ -564,6 +564,8 @@ function showSpellTooltip(spell, anchorEl) {
       <span>${escapeHtml(specLabel(spell.spec))}</span>
       <span>Ур. ${ROMAN[spell.level] || spell.level}</span>
       <span>${spell.mana} маны</span>
+      <span>${spell.ap} AP</span>
+      <span>${spell.hp} HP</span>
       ${legendary ? '<span class="spell-tooltip-legend">Легендарное</span>' : ''}
     </p>
     <p class="spell-tooltip-desc${desc ? '' : ' spell-tooltip-desc--empty'}">${escapeHtml(desc || 'Описание не задано')}</p>
@@ -1091,7 +1093,7 @@ function uid() {
 }
 
 function emptySpell() {
-  return { id: uid(), name: '', desc: '', spec: 'damage', level: 1, mana: 0, icon: defaultIconForSpec('damage'), iconImage: '' };
+  return { id: uid(), name: '', desc: '', spec: 'damage', level: 1, mana: 0, ap: 0, hp: 0, icon: defaultIconForSpec('damage'), iconImage: '' };
 }
 
 function normalizeSpell(spell) {
@@ -1103,6 +1105,8 @@ function normalizeSpell(spell) {
   const icons = allIconsForSpec(s.spec);
   if (!s.icon || !icons.includes(s.icon)) s.icon = defaultIconForSpec(s.spec);
   if (s.iconImage === undefined) s.iconImage = '';
+  if (!Number.isFinite(s.ap)) s.ap = 0;
+  if (!Number.isFinite(s.hp)) s.hp = 0;
   return s;
 }
 
@@ -1182,6 +1186,8 @@ function migrateSpells(data, base) {
       spec: 'buff',
       level: 1,
       mana: 0,
+      ap: 0,
+      hp: 0,
       icon: 'fireball',
     })];
   }
@@ -2274,6 +2280,8 @@ function createSpellSlot(spell) {
         <div class="spell-icon-art spell-icon-art--${spell.spec}">${spellIconHtml(spell)}</div>
       </div>
       <span class="spell-mana-badge">${spell.mana}</span>
+      <span class="spell-ap-badge">${spell.ap}</span>
+      <span class="spell-hp-badge">${spell.hp}</span>
       <span class="spell-level-badge">${ROMAN[spell.level] || spell.level}</span>
     </div>
     <span class="spell-slot-name">${spell.name || 'Без названия'}</span>
@@ -2514,6 +2522,8 @@ function openSpellEditor(spellId) {
   document.getElementById('spell-name').value = spell.name;
   document.getElementById('spell-level').value = spell.level;
   document.getElementById('spell-mana').value = spell.mana;
+  document.getElementById('spell-ap').value = spell.ap;
+  document.getElementById('spell-hp').value = spell.hp;
   document.getElementById('spell-desc').value = spell.desc;
   renderSpecPicker(spell.spec);
   renderIconPicker(selectedIconId, spell.spec);
@@ -2559,6 +2569,8 @@ function readSpellForm() {
     iconImage: existing?.iconImage || '',
     level: Math.min(5, Math.max(1, parseInt(document.getElementById('spell-level').value, 10) || 1)),
     mana: Math.max(0, parseInt(document.getElementById('spell-mana').value, 10) || 0),
+    ap: Math.max(0, parseInt(document.getElementById('spell-ap').value, 10) || 0),
+    hp: Math.max(0, parseInt(document.getElementById('spell-hp').value, 10) || 0),
     desc: document.getElementById('spell-desc').value,
   };
 }
