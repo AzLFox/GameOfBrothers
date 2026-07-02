@@ -1218,6 +1218,8 @@ html.gob-tier-low .stat-tier-frame {
 .spell-slot--class .spell-icon-wrap { max-width: 42px; }
 .spell-slot--class .spell-icon-ornament { inset: -5px; }
 .spell-slot--class .spell-mana-badge,
+.spell-slot--class .spell-ap-badge,
+.spell-slot--class .spell-hp-badge,
 .spell-slot--class .spell-level-badge { display: none; }
 
 /* ================= COMBAT STATS ================= */
@@ -2820,14 +2822,13 @@ html.gob-tier-low .stat-tier-frame {
 .spell-mana-badge {
   position: absolute;
   top: -6px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: -2px;
   min-width: 22px;
   height: 22px;
   padding: 0 5px;
   border-radius: 50%;
-  background: linear-gradient(180deg, #e04040, #a01818);
-  border: 2px solid #f0a0a0;
+  background: linear-gradient(180deg, #4090e0, #1858a0);
+  border: 2px solid #a0c8f0;
   font-family: "Cinzel", serif;
   font-size: 0.7rem;
   font-weight: 700;
@@ -2848,6 +2849,37 @@ html.gob-tier-low .stat-tier-frame {
   color: #f0e0c0;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
   z-index: 2;
+}
+
+.spell-ap-badge,
+.spell-hp-badge {
+  position: absolute;
+  top: -6px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  border-radius: 50%;
+  font-family: "Cinzel", serif;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 16px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  z-index: 2;
+}
+
+.spell-ap-badge {
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(180deg, #40c060, #188040);
+  border: 2px solid #a0f0b8;
+}
+
+.spell-hp-badge {
+  right: -2px;
+  background: linear-gradient(180deg, #e04040, #a01818);
+  border: 2px solid #f0a0a0;
 }
 
 .spell-slot-name {
