@@ -125,12 +125,29 @@ export function destroySpellbookFlip() {
   ensureFlipRoot();
 }
 
+/**
+ * StPageFlip's flipNext/flipPrev route through the same corner-click gate as
+ * manual dragging (disableFlipByClick). In portrait/single-page mode the
+ * library's hardcoded corner point for flipPrev falls outside its own corner
+ * hit-test, so the gate silently swallows programmatic "prev" flips. Lift the
+ * gate just for the call.
+ */
+function flipViaButton(direction) {
+  if (!pageFlip) return;
+  const settings = pageFlip.getSettings();
+  const wasDisabled = settings.disableFlipByClick;
+  settings.disableFlipByClick = false;
+  if (direction === 'next') pageFlip.flipNext('top');
+  else pageFlip.flipPrev('top');
+  settings.disableFlipByClick = wasDisabled;
+}
+
 export function flipNext() {
-  pageFlip?.flipNext('top');
+  flipViaButton('next');
 }
 
 export function flipPrev() {
-  pageFlip?.flipPrev('top');
+  flipViaButton('prev');
 }
 
 export function getPageFlip() {
