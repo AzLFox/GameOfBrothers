@@ -1078,6 +1078,23 @@ body {
   background: #fff;
 }
 
+.stat-input--critical {
+  color: #a01818;
+}
+
+.stat-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.combat-tooltip-advantage {
+  font-style: normal;
+  font-weight: 700;
+  color: #7a5a1e;
+}
+
 /* Steam-рамки по тиру (6/9/12/20); классовые поля — в развёртке боевых строк */
 /* ===== Классы характеристик: Steam frame overlays (imported WebM) ===== */
 .stat-cell--has-frame.is-rune-lit {

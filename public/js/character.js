@@ -173,6 +173,12 @@ function handleTouchRuneTap(e, stat, combatId, fromCombatRow) {
       combatEl.classList.add('is-hint-active');
       showCombatTooltip(html, combatEl);
     }
+  } else if (!fromCombatRow) {
+    const statEl = getStatCell(stat);
+    if (statEl) {
+      activeCombatHintRow = statEl;
+      showCombatTooltip(statTooltipHtml(stat), statEl);
+    }
   }
 }
 
@@ -748,13 +754,27 @@ function bindCombatHint(rowEl, getHtml) {
   });
 }
 
+function advantageTag(sides, value) {
+  return sides <= value ? ' <span class="combat-tooltip-advantage">(Преимущество)</span>' : '';
+}
+
 function hitTooltipHtml() {
   const hit = effectiveHit();
   const lines = HIT_DICE.map((sides) => {
     const threshold = hitThreshold(sides, hit);
-    return `<p class="combat-tooltip-line">D${sides} попадания: <strong>от ${sides} до ${threshold}</strong></p>`;
+    return `<p class="combat-tooltip-line">D${sides} попадания: <strong>от ${sides} до ${threshold}</strong>${advantageTag(sides, hit)}</p>`;
   }).join('');
   return `<p class="combat-tooltip-title">Пороги попадания</p>${lines}`;
+}
+
+function statTooltipHtml(statKey) {
+  const value = sheet.stats[statKey] || 0;
+  const lines = HIT_DICE.map((sides) => {
+    const max = Math.min(sides, value);
+    const body = value > 0 ? `от 1 до ${max}` : 'нет успешных значений';
+    return `<p class="combat-tooltip-line">D${sides}: <strong>${body}</strong>${advantageTag(sides, value)}</p>`;
+  }).join('');
+  return `<p class="combat-tooltip-title">Пороги проверки</p>${lines}`;
 }
 
 function skillsTooltipHtml() {
@@ -769,7 +789,7 @@ function critTooltipHtml() {
   const crit = effectiveCrit();
   const lines = HIT_DICE.map((sides) => {
     const threshold = Math.max(2, sides - crit);
-    return `<p class="combat-tooltip-line">D${sides} крит: <strong>от ${sides} до ${threshold}</strong></p>`;
+    return `<p class="combat-tooltip-line">D${sides} крит: <strong>от ${sides} до ${threshold}</strong>${advantageTag(sides, crit)}</p>`;
   }).join('');
   return `<p class="combat-tooltip-title">Пороги крита</p>${lines}`;
 }
@@ -1300,7 +1320,7 @@ function renderStats() {
     cell.className = 'stat-cell';
     cell.dataset.stat = key;
     cell.innerHTML = `
-      <span class="stat-label">${label}</span>
+      <span class="stat-label">${label}<span class="combat-hint-icon" aria-hidden="true">i</span></span>
       <input type="number" class="stat-input" data-stat="${key}" min="0" max="999" value="${sheet.stats[key]}">
       ${createLinkRunesMarkup(key, 'stat')}
     `;
@@ -1309,6 +1329,7 @@ function renderStats() {
       sheet.stats[key] = parseInt(input.value, 10) || 0;
       scheduleSave();
       refreshStatTierFrame(key);
+      applyStatCritical(key);
       updateCombatValues();
       updateSlotWarnings();
       if (selectedSlot?.group === 'equipment' && slotSupportsClasses(selectedSlot.key)) {
@@ -1317,6 +1338,8 @@ function renderStats() {
     });
     slot.appendChild(cell);
     applyStatTierFrame(cell, key);
+    applyStatCritical(key);
+    bindCombatHint(cell, () => statTooltipHtml(key));
     grid.appendChild(slot);
   });
 }
@@ -1337,6 +1360,13 @@ function applyStatTierFrame(cell, statKey) {
 function refreshStatTierFrame(statKey) {
   const cell = getStatCell(statKey);
   if (cell) applyStatTierFrame(cell, statKey);
+}
+
+function applyStatCritical(statKey) {
+  const cell = getStatCell(statKey);
+  const input = cell?.querySelector('.stat-input');
+  if (!input) return;
+  input.classList.toggle('stat-input--critical', (sheet.stats[statKey] || 0) <= 0);
 }
 
 // ===== Разворачиваемые боевые строки: разбивка по источникам =====
