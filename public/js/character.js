@@ -361,6 +361,21 @@ function meetsTierReq(slotKey, item) {
 const BACKPACK_COUNT = 6;
 const SPELLS_PER_PAGE = 7;
 const SPELLS_PER_SPREAD = SPELLS_PER_PAGE * 2;
+
+/** На мобильных PageFlip показывает по одной физической странице за раз,
+ *  поэтому шаг навигации — 1 страница, а не разворот из двух. */
+function spellbookPageStep() {
+  return (typeof GobMobile !== 'undefined' && GobMobile.isMobile()) ? 1 : 2;
+}
+
+function spellbookTotalPages(totalSpells) {
+  const totalSpreads = Math.max(1, Math.ceil(totalSpells / SPELLS_PER_SPREAD));
+  return totalSpreads * 2;
+}
+
+function spellbookTotalSteps(totalSpells) {
+  return Math.ceil(spellbookTotalPages(totalSpells) / spellbookPageStep());
+}
 /** Порядок заполнения: крупные → средний → мелкие (индексы слотов 0..6) */
 const SPELL_SLOT_FILL_ORDER = [0, 1, 5, 6, 3, 2, 4];
 
@@ -2086,7 +2101,7 @@ function bindSlotEditor() {
 function spellbookFlipHandlers() {
   return {
     onFlip(pageIndex) {
-      spreadIndex = Math.floor(pageIndex / 2);
+      spreadIndex = Math.floor(pageIndex / spellbookPageStep());
       updatePageNav(filteredSpells().length);
     },
     onFlipping(flipping) {
@@ -2106,13 +2121,13 @@ function scheduleSpellbookRelayout() {
     const pf = window.SpellbookFlip.getPageFlip();
     const startPage = pf
       ? Math.min(pf.getCurrentPageIndex(), pages.length - 1)
-      : Math.min(spreadIndex * 2, pages.length - 1);
+      : Math.min(spreadIndex * spellbookPageStep(), pages.length - 1);
 
     spellbookFlipReady = false;
     window.SpellbookFlip.createSpellbookFlip(spellbookFlipHandlers());
     window.SpellbookFlip.loadSpellbookPages(pages, startPage);
     spellbookFlipReady = true;
-    spreadIndex = Math.floor(startPage / 2);
+    spreadIndex = Math.floor(startPage / spellbookPageStep());
     updatePageNav(filteredSpells().length);
   }, 250);
 }
@@ -2381,7 +2396,7 @@ function updatePageNav(totalSpells) {
   const prev = document.getElementById('spell-page-prev');
   const next = document.getElementById('spell-page-next');
   const indicator = document.getElementById('spell-page-indicator');
-  const totalSpreads = Math.max(1, Math.ceil(totalSpells / SPELLS_PER_SPREAD));
+  const totalSpreads = spellbookTotalSteps(totalSpells);
 
   prev.hidden = spreadIndex <= 0;
   next.hidden = spreadIndex >= totalSpreads - 1;
@@ -2406,7 +2421,7 @@ function renderSpellGrids() {
     const pf = window.SpellbookFlip.getPageFlip();
     const startPage = pf
       ? Math.min(pf.getCurrentPageIndex(), pages.length - 1)
-      : Math.min(spreadIndex * 2, pages.length - 1);
+      : Math.min(spreadIndex * spellbookPageStep(), pages.length - 1);
 
     if (!spellbookFlipReady) {
       window.SpellbookFlip.createSpellbookFlip(spellbookFlipHandlers());
@@ -2416,7 +2431,7 @@ function renderSpellGrids() {
       window.SpellbookFlip.updateSpellbookPages(pages, startPage);
     }
 
-    spreadIndex = Math.floor(startPage / 2);
+    spreadIndex = Math.floor(startPage / spellbookPageStep());
     updatePageNav(spells.length);
     applySpellbookMode();
   });
@@ -2427,7 +2442,7 @@ function turnPage(direction) {
   hideSpellTooltip();
 
   const spells = filteredSpells();
-  const maxSpread = Math.max(0, Math.ceil(spells.length / SPELLS_PER_SPREAD) - 1);
+  const maxSpread = Math.max(0, spellbookTotalSteps(spells.length) - 1);
   if (direction === 'next' && spreadIndex >= maxSpread) return;
   if (direction === 'prev' && spreadIndex <= 0) return;
 
@@ -2605,7 +2620,7 @@ function deleteSpell() {
   if (!editingSpellId) return;
   setActiveSpellList(activeSpellList().filter(s => s.id !== editingSpellId));
   const total = filteredSpells().length;
-  const maxSpread = Math.max(0, Math.ceil(total / SPELLS_PER_SPREAD) - 1);
+  const maxSpread = Math.max(0, spellbookTotalSteps(total) - 1);
   if (spreadIndex > maxSpread) spreadIndex = maxSpread;
   scheduleSave();
   closeSpellEditor();
