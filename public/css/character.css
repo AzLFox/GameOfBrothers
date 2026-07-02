@@ -2552,6 +2552,8 @@ html.gob-tier-low .stat-tier-frame {
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90' viewBox='0 0 90 90'%3E%3Cpath d='M5 85 Q35 65 85 5' stroke='%23a08050' stroke-width='.9' fill='none' opacity='.2'/%3E%3C/svg%3E"),
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E"),
     linear-gradient(185deg, #ccc0a0 0%, #d8c898 50%, #e0cc9a 100%);
+  background-position: left bottom, center, center;
+  background-size: 72px 72px, 200px 200px, 100% 100%;
 }
 
 .spellbook-page-inner::before {
