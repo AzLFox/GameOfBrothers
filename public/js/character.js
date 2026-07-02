@@ -2618,6 +2618,50 @@ function saveSpell() {
 
 function deleteSpell() {
   if (!editingSpellId) return;
+
+  const modal = document.getElementById('spell-delete-modal');
+  if (!modal) {
+    performSpellDelete();
+    return;
+  }
+
+  const spell = activeSpellList().find(s => s.id === editingSpellId);
+  const textEl = document.getElementById('spell-delete-text');
+  if (textEl) {
+    textEl.textContent = spell && spell.name ? `Удалить «${spell.name}»?` : 'Удалить это заклинание?';
+  }
+
+  const btnConfirm = document.getElementById('spell-delete-confirm');
+  const btnCancel = document.getElementById('spell-delete-cancel');
+
+  const onConfirm = () => {
+    cleanup();
+    performSpellDelete();
+  };
+  const onCancel = () => {
+    cleanup();
+    modal.close();
+  };
+  const onBackdropClick = (e) => {
+    if (e.target === modal) onCancel();
+  };
+  function cleanup() {
+    btnConfirm?.removeEventListener('click', onConfirm);
+    btnCancel?.removeEventListener('click', onCancel);
+    modal.removeEventListener('click', onBackdropClick);
+  }
+
+  btnConfirm?.addEventListener('click', onConfirm);
+  btnCancel?.addEventListener('click', onCancel);
+  modal.addEventListener('click', onBackdropClick);
+
+  if (typeof modal.showModal === 'function') modal.showModal();
+}
+
+function performSpellDelete() {
+  const modal = document.getElementById('spell-delete-modal');
+  if (modal?.open) modal.close();
+
   setActiveSpellList(activeSpellList().filter(s => s.id !== editingSpellId));
   const total = filteredSpells().length;
   const maxSpread = Math.max(0, spellbookTotalSteps(total) - 1);
