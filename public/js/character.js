@@ -183,8 +183,11 @@ function bindStatCombatRunes() {
     if (isTouchRuneMode()) {
       STAT_COMBAT_LINKS.forEach(({ stat, combatId }) => {
         const statEl = getStatCell(stat);
-        if (!statEl) return;
-        statEl.addEventListener('click', (e) => handleTouchRuneTap(e, stat, combatId, false));
+        const combatEl = document.getElementById(combatId);
+        if (statEl) statEl.addEventListener('click', (e) => handleTouchRuneTap(e, stat, combatId, false));
+        // тап по самой боевой строке показывает подсказку так же, как ховер на десктопе,
+        // не мешая раскрытию источников (setupCombatRowExpand висит на том же элементе)
+        if (combatEl) combatEl.addEventListener('click', (e) => handleTouchRuneTap(e, stat, combatId, true));
       });
 
       document.addEventListener('click', (e) => {
