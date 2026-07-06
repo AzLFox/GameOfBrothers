@@ -87,6 +87,49 @@ body {
   opacity: 1;
 }
 
+.char-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-invites {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid rgba(176, 141, 87, 0.45);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+
+.btn-invites img {
+  display: block;
+  width: 32px;
+  height: 32px;
+  pointer-events: none;
+}
+
+.btn-invites:hover {
+  border-color: rgba(90, 220, 180, 0.55);
+  box-shadow: 0 0 12px rgba(90, 220, 180, 0.15);
+}
+
+.btn-invites--has-mail {
+  border-color: rgba(201, 162, 77, 0.75);
+  animation: invite-mail-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes invite-mail-pulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(201, 162, 77, 0); }
+  50% { box-shadow: 0 0 14px rgba(201, 162, 77, 0.35); }
+}
+
 .btn-transfer {
   font-family: "Cinzel", serif;
   font-size: 0.78rem;
@@ -104,6 +147,309 @@ body {
 .btn-transfer:hover {
   border-color: rgba(90, 220, 180, 0.5);
   color: #fff8e8;
+}
+
+/* ================= INVITE LETTER MODAL ================= */
+.invite-letter-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.invite-letter-modal.hidden {
+  display: none;
+}
+
+.invite-letter-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 2, 1, 0.72);
+}
+
+.invite-letter-modal__panel {
+  position: relative;
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(80vh, 560px);
+  overflow: auto;
+  margin: 16px;
+  padding: 20px 22px 24px;
+}
+
+.invite-letter-modal__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.invite-letter-modal__header .panel-title {
+  flex: 1;
+  margin: 0;
+}
+
+.invite-letter-modal__icon {
+  flex-shrink: 0;
+}
+
+.invite-letter-modal__close {
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--gold-light);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.invite-letter-empty {
+  margin: 0;
+  color: rgba(232, 201, 122, 0.7);
+  font-style: italic;
+}
+
+.invite-letter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.invite-letter-card {
+  padding: 16px 18px;
+  border: 1px solid rgba(176, 141, 87, 0.35);
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(24, 18, 12, 0.9), rgba(12, 8, 6, 0.85));
+}
+
+.invite-letter-salute {
+  margin: 0 0 8px;
+  font-family: "Crimson Pro", serif;
+  font-size: 1.05rem;
+  color: #f0e6d0;
+}
+
+.invite-letter-body {
+  margin: 0 0 14px;
+  font-family: "Crimson Pro", serif;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: rgba(232, 216, 184, 0.92);
+}
+
+.invite-letter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.invite-letter-btn {
+  font-family: "Cinzel", serif;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  min-height: 36px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid rgba(176, 141, 87, 0.45);
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--gold-light);
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+
+.invite-letter-btn--accept:hover {
+  border-color: rgba(90, 220, 180, 0.55);
+  color: #fff8e8;
+}
+
+.invite-letter-btn--decline:hover {
+  border-color: rgba(220, 120, 90, 0.55);
+  color: #ffe8e0;
+}
+
+body.invite-letter-open {
+  overflow: hidden;
+}
+
+/* ================= INVITE TOAST ================= */
+.invite-toast {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 1100;
+  width: min(420px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px 14px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(212, 179, 106, 0.55);
+  background:
+    linear-gradient(135deg, rgba(240, 217, 138, 0.12) 0%, transparent 42%),
+    linear-gradient(180deg, rgba(42, 28, 16, 0.97) 0%, rgba(18, 12, 8, 0.98) 100%);
+  box-shadow:
+    0 0 0 1px rgba(94, 240, 200, 0.08) inset,
+    0 12px 40px rgba(0, 0, 0, 0.55),
+    0 0 28px rgba(201, 162, 77, 0.18);
+  transform: translate(-50%, -120%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.45s ease;
+}
+
+.invite-toast::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(176, 141, 87, 0.22);
+  pointer-events: none;
+}
+
+.invite-toast--visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.invite-toast--leaving {
+  transform: translate(-50%, -24px);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.invite-toast__icon-wrap {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, rgba(240, 217, 138, 0.22), rgba(12, 8, 6, 0.6));
+  border: 1px solid rgba(201, 162, 77, 0.45);
+  box-shadow: 0 0 18px rgba(201, 162, 77, 0.2);
+  flex-shrink: 0;
+}
+
+.invite-toast__icon-wrap::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 1px solid rgba(94, 240, 200, 0.15);
+  animation: invite-toast-ring 2.4s ease-in-out infinite;
+}
+
+@keyframes invite-toast-ring {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.08); opacity: 0.9; }
+}
+
+.invite-toast__icon {
+  width: 36px;
+  height: 36px;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
+}
+
+.invite-toast__body {
+  min-width: 0;
+}
+
+.invite-toast__eyebrow {
+  margin: 0 0 4px;
+  font-family: var(--gob-font-display, "Cinzel", serif);
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gob-teal, #5ef0c8);
+}
+
+.invite-toast__title {
+  margin: 0 0 4px;
+  font-family: var(--gob-font-display, "Cinzel", serif);
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  color: var(--gob-gold-light, #f0d98a);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.5);
+}
+
+.invite-toast__text {
+  margin: 0;
+  font-family: var(--gob-font-body, "Crimson Pro", serif);
+  font-size: 0.92rem;
+  line-height: 1.35;
+  color: rgba(232, 216, 184, 0.88);
+}
+
+.invite-toast__text strong {
+  color: #fff0d0;
+  font-weight: 600;
+}
+
+.invite-toast__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.invite-toast__read {
+  font-family: var(--gob-font-display, "Cinzel", serif);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(94, 240, 200, 0.35);
+  background: linear-gradient(180deg, rgba(94, 240, 200, 0.14), rgba(12, 40, 36, 0.35));
+  color: #e8fff8;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+}
+
+.invite-toast__read:hover {
+  border-color: rgba(94, 240, 200, 0.65);
+  box-shadow: 0 0 14px rgba(94, 240, 200, 0.18);
+}
+
+.invite-toast__dismiss {
+  font-family: var(--gob-font-display, "Cinzel", serif);
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  border: none;
+  background: none;
+  color: rgba(200, 184, 154, 0.65);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.invite-toast__dismiss:hover {
+  color: #fff0d0;
+}
+
+@media (max-width: 700px) {
+  .invite-toast {
+    top: max(72px, calc(56px + env(safe-area-inset-top)));
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    gap: 10px 12px;
+    padding: 12px 14px;
+  }
+
+  .invite-toast__actions {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+  }
 }
 
 /* ================= TRANSFER MODAL ================= */
@@ -403,6 +749,15 @@ body {
 
   .char-header-title {
     font-size: 1.2rem;
+  }
+
+  .char-header-tools {
+    margin-left: auto;
+  }
+
+  .btn-invites {
+    width: 44px;
+    height: 40px;
   }
 
   .save-hint {
@@ -715,6 +1070,11 @@ body {
 
   .coin-pouch-closed-art {
     width: 72px;
+  }
+
+  .group-dock-icon {
+    width: 72px;
+    height: 72px;
   }
 
   .coin-add-btn {
@@ -2096,7 +2456,7 @@ html.gob-tier-low .stat-tier-frame {
   display: none;
 }
 
-/* ================= FLOAT DOCK (coin pouch + spellbook) ================= */
+/* ================= FLOAT DOCK (group + coin pouch + spellbook) ================= */
 .char-float-dock {
   position: fixed;
   right: 24px;
@@ -2106,6 +2466,51 @@ html.gob-tier-low .stat-tier-frame {
   flex-direction: column;
   align-items: center;
   gap: 10px;
+}
+
+/* ================= GROUP DOCK BUTTON ================= */
+.group-dock-btn {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 10px;
+  border: none;
+  background: radial-gradient(ellipse at center, rgba(40, 24, 12, 0.85) 0%, transparent 70%);
+  cursor: pointer;
+  transition: transform 0.25s, filter 0.25s;
+  border-radius: 12px;
+  text-decoration: none;
+}
+
+.group-dock-btn:hover {
+  transform: scale(1.08) translateY(-4px);
+  filter: drop-shadow(0 8px 24px rgba(201, 162, 77, 0.45));
+}
+
+.group-dock-btn:active {
+  transform: scale(1.02);
+}
+
+.group-dock-icon {
+  display: block;
+  width: 80px;
+  height: 80px;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.7));
+  transition: filter 0.25s;
+}
+
+.group-dock-btn:hover .group-dock-icon {
+  filter: drop-shadow(0 6px 20px rgba(201, 162, 77, 0.35)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.7));
+}
+
+.group-dock-label {
+  font-family: "Cinzel", serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: var(--gold-light);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
 }
 
 /* ================= COIN POUCH ================= */

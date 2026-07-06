@@ -2233,6 +2233,27 @@ function updateSpellEditorPreview(spec, iconId) {
   wrap.className = `spell-icon-wrap spell-icon-wrap--${spec}${legendary ? ' spell-icon-wrap--legendary' : ''}`;
   art.className = `spell-icon-art spell-icon-art--${spec}`;
   art.innerHTML = `<img class="spell-icon-img${legendary ? ' spell-icon-img--legendary' : ''}" src="${iconSrc(spec, iconId)}" alt="" draggable="false">`;
+
+  wrap.querySelectorAll('.spell-mana-badge, .spell-ap-badge, .spell-hp-badge, .spell-level-badge').forEach((el) => el.remove());
+  wrap.insertAdjacentHTML('beforeend', spellCostBadgesHtml(readSpellEditorCosts()));
+}
+
+function readSpellEditorCosts() {
+  return {
+    level: Math.min(5, Math.max(1, parseInt(document.getElementById('spell-level')?.value, 10) || 1)),
+    mana: Math.max(0, parseInt(document.getElementById('spell-mana')?.value, 10) || 0),
+    ap: Math.max(0, parseInt(document.getElementById('spell-ap')?.value, 10) || 0),
+    hp: Math.max(0, parseInt(document.getElementById('spell-hp')?.value, 10) || 0),
+  };
+}
+
+function spellCostBadgesHtml({ mana, ap, hp, level }) {
+  let html = '';
+  if (mana > 0) html += `<span class="spell-mana-badge">${mana}</span>`;
+  if (ap > 0) html += `<span class="spell-ap-badge">${ap}</span>`;
+  if (hp > 0) html += `<span class="spell-hp-badge">${hp}</span>`;
+  html += `<span class="spell-level-badge">${ROMAN[level] || level}</span>`;
+  return html;
 }
 
 // активная коллекция книги (основная либо классовая книга Интеллекта)
@@ -2308,10 +2329,7 @@ function createSpellSlot(spell) {
       <div class="spell-icon-ring">
         <div class="spell-icon-art spell-icon-art--${spell.spec}">${spellIconHtml(spell)}</div>
       </div>
-      <span class="spell-mana-badge">${spell.mana}</span>
-      <span class="spell-ap-badge">${spell.ap}</span>
-      <span class="spell-hp-badge">${spell.hp}</span>
-      <span class="spell-level-badge">${ROMAN[spell.level] || spell.level}</span>
+      ${spellCostBadgesHtml(spell)}
     </div>
     <span class="spell-slot-name">${spell.name || 'Без названия'}</span>
   `;
@@ -2585,6 +2603,11 @@ function bindSpellEditor() {
   document.getElementById('spell-editor-close').addEventListener('click', closeSpellEditor);
   document.getElementById('spell-save-btn').addEventListener('click', saveSpell);
   document.getElementById('spell-delete-btn').addEventListener('click', deleteSpell);
+  ['spell-mana', 'spell-ap', 'spell-hp', 'spell-level'].forEach((id) => {
+    document.getElementById(id)?.addEventListener('input', () => {
+      updateSpellEditorPreview(selectedSpec, selectedIconId);
+    });
+  });
 }
 
 function readSpellForm() {
@@ -3094,6 +3117,14 @@ async function init(char) {
   CoinPouch?.init?.(sheet, scheduleSave);
   initUserCharacterTools(char);
   initTransfer();
+  if (typeof GobInvites !== 'undefined') {
+    GobInvites.bind(char.id);
+  }
+
+  const groupDock = document.getElementById('group-dock-btn');
+  if (groupDock && id) {
+    groupDock.href = `/group?id=${encodeURIComponent(id)}`;
+  }
 
   if (typeof CharMotion !== 'undefined') {
     CharMotion.bindBackLink();

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0604">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Gates of Beyond · Группа</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/gob-tokens.css">
+  <link rel="stylesheet" href="css/group.css">
+  <link rel="stylesheet" href="css/gob-polish.css">
+  <script src="js/gob-transition-guard.js"></script>
+  <script src="js/gob-mobile.js"></script>
+</head>
+<body class="group-page">
+  <div class="group-shell">
+    <header class="group-header">
+      <a href="/" class="group-back" id="group-back">← К листу</a>
+      <h1 class="group-title">Группа приключенцев</h1>
+      <p class="group-subtitle" id="group-subtitle">Соберите отряд для похода</p>
+    </header>
+
+    <section class="group-panel panel" id="group-list-panel" aria-labelledby="group-list-title">
+      <h2 class="panel-title" id="group-list-title">Мои группы</h2>
+      <p class="group-invite-hint">У героя может быть несколько отрядов. Создайте новый или выберите существующий.</p>
+      <div class="group-list" id="group-list"></div>
+      <p class="group-empty" id="group-list-empty" hidden>Вы ещё не состоите ни в одной группе.</p>
+
+      <form class="group-create-form" id="group-create-form">
+        <label class="group-create-label" for="group-create-name">Новая группа</label>
+        <div class="group-create-row">
+          <input type="text" id="group-create-name" class="group-create-input" maxlength="48" placeholder="Название отряда" required>
+          <button type="submit" class="group-create-btn">Создать</button>
+        </div>
+        <p class="group-create-error hidden" id="group-create-error"></p>
+      </form>
+    </section>
+
+    <section class="group-panel panel" id="group-detail-panel" hidden aria-labelledby="group-roster-title">
+      <div class="group-detail-head">
+        <button type="button" class="group-detail-back" id="group-detail-back">← Все группы</button>
+        <h2 class="panel-title group-detail-name" id="group-active-name">Группа</h2>
+      </div>
+      <h3 class="group-section-label" id="group-roster-title">В группе</h3>
+      <p class="group-capacity" id="group-capacity" aria-live="polite"></p>
+      <div class="group-roster" id="group-roster"></div>
+      <p class="group-empty" id="group-empty" hidden>Пока никого нет — пригласите героев ниже.</p>
+    </section>
+
+    <section class="group-panel panel" id="group-invite-panel" hidden aria-labelledby="group-invite-title">
+      <h2 class="panel-title" id="group-invite-title">Пригласить</h2>
+      <nav class="group-steps" id="group-steps" aria-label="Шаги приглашения">
+        <span class="group-step group-step--active" data-step="accounts">1. Аккаунт</span>
+        <span class="group-step" data-step="heroes">2. Герой</span>
+      </nav>
+
+      <div class="group-step-panel" id="group-step-accounts">
+        <p class="group-invite-hint">Выберите аккаунт — покажем привязанных к нему героев.</p>
+        <div class="group-account-list" id="group-account-list"></div>
+        <p class="group-invite-empty" id="group-accounts-empty" hidden>Нет доступных аккаунтов. Войдите, чтобы видеть героев игроков.</p>
+      </div>
+
+      <div class="group-step-panel" id="group-step-heroes" hidden>
+        <button type="button" class="group-step-back" id="group-step-back">← К аккаунтам</button>
+        <p class="group-invite-hint" id="group-heroes-hint">Выберите героя для приглашения.</p>
+        <div class="group-invite-list" id="group-invite-list"></div>
+        <p class="group-invite-empty" id="group-invite-empty" hidden>Все герои этого аккаунта уже в группе.</p>
+      </div>
+    </section>
+  </div>
+
+  <div id="gob-page-wipe" class="gob-page-wipe" aria-hidden="true" hidden>
+    <div class="gob-page-wipe__void"></div>
+    <div class="gob-page-wipe__mist"></div>
+  </div>
+
+  <script src="js/gob-auth.js" defer></script>
+  <script src="js/gob-characters.js" defer></script>
+  <script src="js/gob-group.js" defer></script>
+  <script src="js/group.js" defer></script>
+</body>
+</html>

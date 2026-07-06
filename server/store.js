@@ -112,6 +112,131 @@ function sheetFile(userId, charId) {
   return path.join(accountDir(userId), 'sheets', `${charId}.json`);
 }
 
+function groupFile(userId) {
+  return path.join(accountDir(userId), 'group.json');
+}
+
+function partiesDir() {
+  return path.join(DATA_DIR, 'parties');
+}
+
+function partyGroupFile(groupId) {
+  return path.join(partiesDir(), `${groupId}.json`);
+}
+
+function getPartyGroup(groupId) {
+  if (!groupId) return null;
+  return readJson(partyGroupFile(groupId), null);
+}
+
+function savePartyGroup(group) {
+  if (!group?.id) return;
+  writeJson(partyGroupFile(group.id), group);
+}
+
+function deletePartyGroup(groupId) {
+  const file = partyGroupFile(groupId);
+  if (fs.existsSync(file)) fs.unlinkSync(file);
+}
+
+function charGroupsFile(userId) {
+  return path.join(accountDir(userId), 'char-groups.json');
+}
+
+function getCharGroupIds(userId, charId) {
+  const all = readJson(charGroupsFile(userId), {});
+  return Array.isArray(all[charId]) ? all[charId].filter(Boolean) : [];
+}
+
+function setCharGroupIds(userId, charId, groupIds) {
+  const all = readJson(charGroupsFile(userId), {});
+  const ids = [...new Set(groupIds.filter(Boolean))];
+  if (ids.length) all[charId] = ids;
+  else delete all[charId];
+  writeJson(charGroupsFile(userId), all);
+}
+
+function addCharToGroup(userId, charId, groupId) {
+  const ids = new Set(getCharGroupIds(userId, charId));
+  ids.add(groupId);
+  setCharGroupIds(userId, charId, [...ids]);
+}
+
+function removeCharFromGroup(userId, charId, groupId) {
+  const ids = getCharGroupIds(userId, charId).filter((id) => id !== groupId);
+  setCharGroupIds(userId, charId, ids);
+}
+
+function getPartyGroupsForChar(userId, charId) {
+  return getCharGroupIds(userId, charId)
+    .map((id) => getPartyGroup(id))
+    .filter(Boolean);
+}
+
+function syncCharacterInParties(userId, char) {
+  if (!char?.id) return;
+  getCharGroupIds(userId, char.id).forEach((groupId) => {
+    const group = getPartyGroup(groupId);
+    if (!group?.members) return;
+    const idx = group.members.findIndex((m) => m.charId === char.id);
+    if (idx < 0) return;
+    group.members[idx] = {
+      ...group.members[idx],
+      name: String(char.name ?? '').trim(),
+      description: String(char.description ?? '').trim(),
+      portrait: String(char.portrait ?? ''),
+    };
+    savePartyGroup(group);
+  });
+}
+
+function defaultGroup() {
+  return { ownerUserId: '', leaderCharId: '', members: [] };
+}
+
+function getUserGroup(userId) {
+  return readJson(groupFile(userId), defaultGroup());
+}
+
+function saveUserGroup(userId, group) {
+  writeJson(groupFile(userId), group);
+}
+
+function invitesFile(userId) {
+  return path.join(accountDir(userId), 'invites.json');
+}
+
+function sentInvitesFile(userId) {
+  return path.join(accountDir(userId), 'sent-invites.json');
+}
+
+function getUserInvites(userId) {
+  return readJson(invitesFile(userId), []);
+}
+
+function saveUserInvites(userId, invites) {
+  writeJson(invitesFile(userId), invites);
+}
+
+function getSentInvites(userId) {
+  return readJson(sentInvitesFile(userId), []);
+}
+
+function saveSentInvites(userId, invites) {
+  writeJson(sentInvitesFile(userId), invites);
+}
+
+function findUserByCharId(charId) {
+  if (typeof charId !== 'string' || !charId.startsWith('u_')) return null;
+  for (const user of getUsers()) {
+    const chars = getUserCharacters(user.id);
+    if (chars.some((c) => c.id === charId)) {
+      return user;
+    }
+  }
+  return null;
+}
+
 function getUserCharacters(userId) {
   return readJson(charactersFile(userId), []);
 }
@@ -174,5 +299,20 @@ module.exports = {
   getUserSheet,
   saveUserSheet,
   deleteUserSheet,
+  getUserGroup,
+  saveUserGroup,
+  getPartyGroup,
+  savePartyGroup,
+  deletePartyGroup,
+  getCharGroupIds,
+  addCharToGroup,
+  removeCharFromGroup,
+  getPartyGroupsForChar,
+  syncCharacterInParties,
+  getUserInvites,
+  saveUserInvites,
+  getSentInvites,
+  saveSentInvites,
+  findUserByCharId,
   deleteUser,
 };
