@@ -13,7 +13,7 @@ const CharMotion = (() => {
     scrollParallaxBound = true;
 
     const panels = document.querySelectorAll(
-      '.stats-panel, .combat-panel, .equipment-panel, .backpack-panel, .lore-panel',
+      '.stats-panel, .combat-panel, .equipment-panel, .effects-panel, .backpack-panel, .lore-panel',
     );
     if (!panels.length) return;
 
@@ -67,6 +67,7 @@ const CharMotion = (() => {
       document.querySelector('.stats-panel'),
       document.querySelector('.combat-panel'),
       document.querySelector('.equipment-panel'),
+      document.querySelector('.effects-panel'),
       document.querySelector('.backpack-panel'),
       document.querySelector('.lore-panel'),
       document.getElementById('char-float-dock'),

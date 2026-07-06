@@ -148,6 +148,29 @@
         <div class="combat-grid" id="combat-grid"></div>
       </section>
 
+      <section class="effects-panel panel">
+        <h2 class="panel-title">Баффы и дебаффы</h2>
+        <div class="effects-split">
+          <div class="effects-col effects-col--buff">
+            <div class="effects-col__head">
+              <h3 class="effects-col__title">Баффы</h3>
+              <button type="button" class="effects-add-btn" id="btn-add-buff" title="Добавить бафф">+ Добавить</button>
+            </div>
+            <div class="effects-list" id="buffs-list" aria-live="polite"></div>
+            <p class="effects-empty" id="buffs-empty">Нет активных баффов</p>
+          </div>
+          <div class="effects-divider" aria-hidden="true"></div>
+          <div class="effects-col effects-col--debuff">
+            <div class="effects-col__head">
+              <h3 class="effects-col__title">Дебаффы</h3>
+              <button type="button" class="effects-add-btn effects-add-btn--debuff" id="btn-add-debuff" title="Добавить дебафф">+ Добавить</button>
+            </div>
+            <div class="effects-list" id="debuffs-list" aria-live="polite"></div>
+            <p class="effects-empty" id="debuffs-empty">Нет активных дебаффов</p>
+          </div>
+        </div>
+      </section>
+
       <section class="backpack-panel panel">
         <h2 class="panel-title">Рюкзак</h2>
         <div class="backpack-frame">
@@ -324,6 +347,27 @@
         </aside>
       </div>
       <div id="spell-tooltip" class="spell-tooltip" hidden role="tooltip"></div>
+    </dialog>
+
+    <dialog class="effect-modal" id="effect-modal">
+      <form class="effect-modal__panel panel" method="dialog" id="effect-form">
+        <header class="effect-modal__header">
+          <h2 class="panel-title" id="effect-modal-title">Новый эффект</h2>
+          <button type="button" class="effect-modal__close" id="effect-modal-close" aria-label="Закрыть">×</button>
+        </header>
+        <label class="field-label" for="effect-name">Название</label>
+        <input type="text" class="field-input" id="effect-name" autocomplete="off" spellcheck="false" placeholder="Например: Благословение стойкости">
+        <label class="field-label" for="effect-source">Источник</label>
+        <input type="text" class="field-input" id="effect-source" autocomplete="off" spellcheck="false" placeholder="Смерть, заклинание, артефакт…">
+        <label class="field-label" for="effect-desc">Описание</label>
+        <textarea class="field-input field-input--desc" id="effect-desc" rows="4" spellcheck="false" placeholder="Что даёт или отнимает эффект"></textarea>
+        <div class="effect-modal__actions">
+          <button type="button" class="effect-btn effect-btn--remove" id="effect-remove" hidden>Снять эффект</button>
+          <span class="effect-modal__spacer"></span>
+          <button type="button" class="effect-btn effect-btn--cancel" id="effect-cancel">Отмена</button>
+          <button type="submit" class="effect-btn effect-btn--save" id="effect-save">Сохранить</button>
+        </div>
+      </form>
     </dialog>
 
     <dialog class="brumgilde-modal" id="brumgilde-modal">

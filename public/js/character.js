@@ -1111,6 +1111,28 @@ function emptySpell() {
   return { id: uid(), name: '', desc: '', spec: 'damage', level: 1, mana: 0, ap: 0, hp: 0, icon: defaultIconForSpec('damage'), iconImage: '' };
 }
 
+function emptyEffect() {
+  return { id: uid(), name: '', desc: '', source: '' };
+}
+
+function migrateEffects(data) {
+  const normalize = (list) => {
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((e) => e && typeof e === 'object')
+      .map((e) => ({
+        id: typeof e.id === 'string' && e.id ? e.id : uid(),
+        name: typeof e.name === 'string' ? e.name : '',
+        desc: typeof e.desc === 'string' ? e.desc : '',
+        source: typeof e.source === 'string' ? e.source : '',
+      }));
+  };
+  return {
+    buffs: normalize(data.buffs),
+    debuffs: normalize(data.debuffs),
+  };
+}
+
 function normalizeSpell(spell) {
   const s = { ...spell };
   if (!s.spec) {
@@ -1130,6 +1152,8 @@ function defaultSheet(char) {
     name: char.name || '',
     description: char.description || '',
     lore: char.lore || '',
+    buffs: [],
+    debuffs: [],
     spells: [],
     stats: { str: 12, dex: 12, int: 12, spi: 12, end: 12, luck: 12 },
     // редактируемые классовые поля всех характеристик (по 4 тира на стат)
@@ -1269,6 +1293,7 @@ function loadSheet(char) {
         ? data.backpack
         : base.backpack,
       spells: migrateSpells(data, base),
+      ...migrateEffects(data),
       wealth: typeof CoinPouch !== 'undefined'
         ? CoinPouch.migrateWealth(data)
         : { gold: 0, silver: 0, bronze: 0 },
@@ -1314,6 +1339,7 @@ async function loadSheetAsync(char) {
       ? data.backpack
       : base.backpack,
     spells: migrateSpells(data, base),
+    ...migrateEffects(data),
     wealth: typeof CoinPouch !== 'undefined'
       ? CoinPouch.migrateWealth(data)
       : { gold: 0, silver: 0, bronze: 0 },
@@ -1811,6 +1837,182 @@ function renderBackpack() {
       'backpack'
     ));
   }
+}
+
+let effectEdit = null;
+
+function effectListKey(type) {
+  return type === 'buff' ? 'buffs' : 'debuffs';
+}
+
+function renderEffectCard(effect, type) {
+  const card = document.createElement('article');
+  card.className = `effect-card effect-card--${type}`;
+  card.dataset.id = effect.id;
+  card.dataset.type = type;
+
+  const glow = document.createElement('div');
+  glow.className = 'effect-card__glow';
+  glow.setAttribute('aria-hidden', 'true');
+
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'effect-card__remove';
+  removeBtn.title = 'Снять эффект';
+  removeBtn.setAttribute('aria-label', 'Снять эффект');
+  removeBtn.textContent = '×';
+
+  const name = document.createElement('h4');
+  name.className = 'effect-card__name';
+  name.textContent = effect.name.trim() || 'Без названия';
+
+  card.append(glow, removeBtn, name);
+
+  if (effect.source.trim()) {
+    const source = document.createElement('span');
+    source.className = 'effect-card__source';
+    source.textContent = effect.source.trim();
+    card.appendChild(source);
+  }
+
+  if (effect.desc.trim()) {
+    const desc = document.createElement('p');
+    desc.className = 'effect-card__desc';
+    desc.textContent = effect.desc.trim();
+    card.appendChild(desc);
+  }
+
+  card.addEventListener('click', (e) => {
+    if (e.target === removeBtn) return;
+    openEffectModal(type, effect.id);
+  });
+
+  removeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    removeEffect(type, effect.id);
+  });
+
+  return card;
+}
+
+function renderEffects() {
+  const buffsList = document.getElementById('buffs-list');
+  const debuffsList = document.getElementById('debuffs-list');
+  const buffsEmpty = document.getElementById('buffs-empty');
+  const debuffsEmpty = document.getElementById('debuffs-empty');
+  if (!buffsList || !debuffsList) return;
+
+  buffsList.innerHTML = '';
+  debuffsList.innerHTML = '';
+
+  (sheet.buffs ?? []).forEach((e) => buffsList.appendChild(renderEffectCard(e, 'buff')));
+  (sheet.debuffs ?? []).forEach((e) => debuffsList.appendChild(renderEffectCard(e, 'debuff')));
+
+  if (buffsEmpty) buffsEmpty.hidden = (sheet.buffs ?? []).length > 0;
+  if (debuffsEmpty) debuffsEmpty.hidden = (sheet.debuffs ?? []).length > 0;
+}
+
+function removeEffect(type, id) {
+  const key = effectListKey(type);
+  sheet[key] = (sheet[key] ?? []).filter((e) => e.id !== id);
+  scheduleSave();
+  renderEffects();
+}
+
+function openEffectModal(type, id = null) {
+  const modal = document.getElementById('effect-modal');
+  const title = document.getElementById('effect-modal-title');
+  const removeBtn = document.getElementById('effect-remove');
+  const nameInput = document.getElementById('effect-name');
+  const sourceInput = document.getElementById('effect-source');
+  const descInput = document.getElementById('effect-desc');
+
+  effectEdit = { type, id };
+
+  const isBuff = type === 'buff';
+  modal.classList.toggle('effect-modal--buff', isBuff);
+  modal.classList.toggle('effect-modal--debuff', !isBuff);
+
+  const existing = id
+    ? (sheet[effectListKey(type)] ?? []).find((e) => e.id === id)
+    : null;
+
+  title.textContent = existing
+    ? (isBuff ? 'Редактировать бафф' : 'Редактировать дебафф')
+    : (isBuff ? 'Новый бафф' : 'Новый дебафф');
+
+  nameInput.value = existing?.name ?? '';
+  sourceInput.value = existing?.source ?? '';
+  descInput.value = existing?.desc ?? '';
+  removeBtn.hidden = !existing;
+
+  modal.showModal();
+  requestAnimationFrame(() => nameInput.focus());
+}
+
+function closeEffectModal() {
+  const modal = document.getElementById('effect-modal');
+  if (modal?.open) modal.close();
+  effectEdit = null;
+}
+
+function saveEffectFromModal() {
+  if (!effectEdit) return;
+  const { type, id } = effectEdit;
+  const key = effectListKey(type);
+  const name = document.getElementById('effect-name').value.trim();
+  const source = document.getElementById('effect-source').value.trim();
+  const desc = document.getElementById('effect-desc').value.trim();
+
+  if (!name && !desc) {
+    document.getElementById('effect-name').focus();
+    return;
+  }
+
+  const entry = {
+    id: id || uid(),
+    name: name || (type === 'buff' ? 'Бафф' : 'Дебафф'),
+    source,
+    desc,
+  };
+
+  const list = [...(sheet[key] ?? [])];
+  const idx = id ? list.findIndex((e) => e.id === id) : -1;
+  if (idx >= 0) list[idx] = entry;
+  else list.push(entry);
+  sheet[key] = list;
+
+  scheduleSave();
+  renderEffects();
+  closeEffectModal();
+}
+
+function bindEffects() {
+  document.getElementById('btn-add-buff')?.addEventListener('click', () => openEffectModal('buff'));
+  document.getElementById('btn-add-debuff')?.addEventListener('click', () => openEffectModal('debuff'));
+
+  const modal = document.getElementById('effect-modal');
+  const form = document.getElementById('effect-form');
+  const closeBtn = document.getElementById('effect-modal-close');
+  const cancelBtn = document.getElementById('effect-cancel');
+  const removeBtn = document.getElementById('effect-remove');
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveEffectFromModal();
+  });
+
+  closeBtn?.addEventListener('click', closeEffectModal);
+  cancelBtn?.addEventListener('click', closeEffectModal);
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) closeEffectModal();
+  });
+
+  removeBtn?.addEventListener('click', () => {
+    if (!effectEdit?.id) return;
+    removeEffect(effectEdit.type, effectEdit.id);
+    closeEffectModal();
+  });
 }
 
 function getItem(group, key) {
@@ -2742,6 +2944,8 @@ function exportToSharedFormat() {
     name: s.name ?? '',
     description: s.description ?? '',
     lore: s.lore ?? '',
+    buffs: (s.buffs ?? []).map((e) => ({ ...e })),
+    debuffs: (s.debuffs ?? []).map((e) => ({ ...e })),
     stats: { ...s.stats },
     combat: { ...s.combat },
     // редактируемые классовые поля всех характеристик
@@ -2831,6 +3035,7 @@ function importFromSharedFormat(jsonString) {
       name: strVal(raw.name) || 'Импортированный персонаж',
       description: strVal(raw.description),
       lore: strVal(raw.lore),
+      ...migrateEffects(raw),
       stats,
       combat: migrateCombat(raw, stats),
       statClass: migrateStatClass(raw, base),
@@ -2863,6 +3068,7 @@ function renderSheet() {
   renderCombat();
   renderEquipment();
   renderBackpack();
+  renderEffects();
 
   spreadIndex = 0;
   renderSpellGrids();
@@ -3112,6 +3318,8 @@ async function init(char) {
   renderCombat();
   renderEquipment();
   renderBackpack();
+  bindEffects();
+  renderEffects();
   bindSlotEditor();
   bindSpellbook();
   CoinPouch?.init?.(sheet, scheduleSave);
