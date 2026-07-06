@@ -69,6 +69,7 @@ const CharMotion = (() => {
       document.querySelector('.equipment-panel'),
       document.querySelector('.effects-panel'),
       document.querySelector('.backpack-panel'),
+      document.querySelector('.quests-panel'),
       document.querySelector('.lore-panel'),
       document.getElementById('char-float-dock'),
     ].filter(Boolean);

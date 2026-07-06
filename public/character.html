@@ -178,9 +178,18 @@
         </div>
       </section>
 
+      <section class="quests-panel panel">
+        <div class="quests-panel__head">
+          <h2 class="panel-title">Задания</h2>
+          <button type="button" class="quests-add-btn" id="btn-add-quest" title="Добавить задание">+ Добавить</button>
+        </div>
+        <div class="quests-list" id="quests-list" aria-live="polite"></div>
+        <p class="quests-empty" id="quests-empty">Нет активных заданий</p>
+      </section>
+
       <section class="lore-panel panel">
-        <h2 class="panel-title">История</h2>
-        <textarea class="field-input field-input--lore" id="char-lore" rows="8" placeholder="Предыстория, заметки, приключения…" spellcheck="false"></textarea>
+        <h2 class="panel-title">Заметки</h2>
+        <textarea class="field-input field-input--lore" id="char-lore" rows="8" placeholder="Заметки, предыстория, приключения…" spellcheck="false"></textarea>
       </section>
 
       <section class="equipment-panel panel">
@@ -366,6 +375,34 @@
           <span class="effect-modal__spacer"></span>
           <button type="button" class="effect-btn effect-btn--cancel" id="effect-cancel">Отмена</button>
           <button type="submit" class="effect-btn effect-btn--save" id="effect-save">Сохранить</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="quest-modal" id="quest-modal">
+      <form class="quest-modal__panel panel" method="dialog" id="quest-form">
+        <header class="quest-modal__header">
+          <h2 class="panel-title" id="quest-modal-title">Новое задание</h2>
+          <button type="button" class="quest-modal__close" id="quest-modal-close" aria-label="Закрыть">×</button>
+        </header>
+        <label class="field-label" for="quest-from">От кого</label>
+        <input type="text" class="field-input" id="quest-from" autocomplete="off" spellcheck="false" placeholder="Квестодатель">
+        <label class="field-label" for="quest-summary">Суть задания</label>
+        <textarea class="field-input field-input--desc" id="quest-summary" rows="3" spellcheck="false" placeholder="Что нужно сделать"></textarea>
+        <label class="field-label" for="quest-location">Место получения</label>
+        <input type="text" class="field-input" id="quest-location" autocomplete="off" spellcheck="false" placeholder="Город, деревня, таверна…">
+        <label class="field-label" for="quest-reward">Награда</label>
+        <input type="text" class="field-input" id="quest-reward" autocomplete="off" spellcheck="false" placeholder="Золото, предмет, услуга…">
+        <label class="field-label" for="quest-conditions">Дополнительные условия</label>
+        <textarea class="field-input field-input--desc" id="quest-conditions" rows="2" spellcheck="false" placeholder="Условия, влияющие на награду"></textarea>
+        <div class="quest-modal__status" id="quest-status-row" hidden>
+          <input type="checkbox" id="quest-completed-check">
+          <label for="quest-completed-check">Выполнено (ожидает сдачи)</label>
+        </div>
+        <div class="quest-modal__actions">
+          <span class="quest-modal__spacer"></span>
+          <button type="button" class="effect-btn effect-btn--cancel" id="quest-cancel">Отмена</button>
+          <button type="submit" class="effect-btn effect-btn--save" id="quest-save">Сохранить</button>
         </div>
       </form>
     </dialog>

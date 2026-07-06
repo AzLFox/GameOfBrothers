@@ -1133,6 +1133,28 @@ function migrateEffects(data) {
   };
 }
 
+function migrateQuests(data) {
+  if (!Array.isArray(data.quests)) return [];
+  let orderBase = 0;
+  return data.quests
+    .filter((q) => q && typeof q === 'object')
+    .map((q, i) => {
+      const status = ['active', 'completed', 'turned_in'].includes(q.status) ? q.status : 'active';
+      const order = Number.isFinite(q.order) ? q.order : orderBase + i;
+      orderBase = Math.max(orderBase, order) + 1;
+      return {
+        id: typeof q.id === 'string' && q.id ? q.id : uid(),
+        from: typeof q.from === 'string' ? q.from : '',
+        summary: typeof q.summary === 'string' ? q.summary : '',
+        location: typeof q.location === 'string' ? q.location : '',
+        reward: typeof q.reward === 'string' ? q.reward : '',
+        conditions: typeof q.conditions === 'string' ? q.conditions : '',
+        status,
+        order,
+      };
+    });
+}
+
 function normalizeSpell(spell) {
   const s = { ...spell };
   if (!s.spec) {
@@ -1154,6 +1176,7 @@ function defaultSheet(char) {
     lore: char.lore || '',
     buffs: [],
     debuffs: [],
+    quests: [],
     spells: [],
     stats: { str: 12, dex: 12, int: 12, spi: 12, end: 12, luck: 12 },
     // редактируемые классовые поля всех характеристик (по 4 тира на стат)
@@ -1294,6 +1317,7 @@ function loadSheet(char) {
         : base.backpack,
       spells: migrateSpells(data, base),
       ...migrateEffects(data),
+      quests: migrateQuests(data),
       wealth: typeof CoinPouch !== 'undefined'
         ? CoinPouch.migrateWealth(data)
         : { gold: 0, silver: 0, bronze: 0 },
@@ -1340,6 +1364,7 @@ async function loadSheetAsync(char) {
       : base.backpack,
     spells: migrateSpells(data, base),
     ...migrateEffects(data),
+    quests: migrateQuests(data),
     wealth: typeof CoinPouch !== 'undefined'
       ? CoinPouch.migrateWealth(data)
       : { gold: 0, silver: 0, bronze: 0 },
@@ -2012,6 +2037,329 @@ function bindEffects() {
     if (!effectEdit?.id) return;
     removeEffect(effectEdit.type, effectEdit.id);
     closeEffectModal();
+  });
+}
+
+let questEdit = null;
+
+const QUEST_STATUS_RANK = { completed: 0, active: 1, turned_in: 2 };
+
+function sortedQuests() {
+  return [...(sheet.quests ?? [])].sort((a, b) => {
+    const ra = QUEST_STATUS_RANK[a.status] ?? 1;
+    const rb = QUEST_STATUS_RANK[b.status] ?? 1;
+    if (ra !== rb) return ra - rb;
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
+}
+
+function findQuest(id) {
+  return (sheet.quests ?? []).find((q) => q.id === id);
+}
+
+function questFieldRow(icon, label, value, extraClass = '') {
+  if (!value?.trim()) return null;
+  const row = document.createElement('div');
+  row.className = `quest-card__row ${extraClass}`.trim();
+
+  const iconEl = document.createElement('span');
+  iconEl.className = 'quest-card__row-icon';
+  iconEl.setAttribute('aria-hidden', 'true');
+  iconEl.textContent = icon;
+
+  const body = document.createElement('div');
+  body.className = 'quest-card__row-body';
+
+  const lbl = document.createElement('span');
+  lbl.className = 'quest-card__row-label';
+  lbl.textContent = label;
+
+  const val = document.createElement('span');
+  val.className = 'quest-card__row-value';
+  val.textContent = value.trim();
+
+  body.append(lbl, val);
+  row.append(iconEl, body);
+  return row;
+}
+
+function renderQuestCard(quest) {
+  const card = document.createElement('article');
+  card.className = 'quest-card';
+  card.dataset.id = quest.id;
+  if (quest.status === 'completed') card.classList.add('quest-card--completed');
+  if (quest.status === 'turned_in') card.classList.add('quest-card--turned-in');
+
+  const inner = document.createElement('div');
+  inner.className = 'quest-card__inner';
+
+  const accent = document.createElement('div');
+  accent.className = 'quest-card__accent';
+  accent.setAttribute('aria-hidden', 'true');
+
+  const glow = document.createElement('div');
+  glow.className = 'quest-card__glow';
+  glow.setAttribute('aria-hidden', 'true');
+
+  const header = document.createElement('header');
+  header.className = 'quest-card__header';
+
+  const titleWrap = document.createElement('div');
+  titleWrap.className = 'quest-card__title-wrap';
+
+  const scrollMark = document.createElement('span');
+  scrollMark.className = 'quest-card__scroll';
+  scrollMark.setAttribute('aria-hidden', 'true');
+  scrollMark.textContent = 'ᛞ';
+
+  const title = document.createElement('h3');
+  title.className = 'quest-card__title';
+  title.textContent = quest.summary.trim() || 'Задание без названия';
+
+  titleWrap.append(scrollMark, title);
+  header.appendChild(titleWrap);
+
+  if (quest.status === 'completed') {
+    const badge = document.createElement('span');
+    badge.className = 'quest-card__badge quest-card__badge--turn-in';
+    badge.textContent = 'Сдать квестодателю';
+    header.appendChild(badge);
+  }
+
+  inner.append(accent, glow, header);
+
+  if (quest.location.trim()) {
+    const origin = document.createElement('div');
+    origin.className = 'quest-card__origin';
+
+    const pin = document.createElement('span');
+    pin.className = 'quest-card__origin-pin';
+    pin.setAttribute('aria-hidden', 'true');
+
+    const body = document.createElement('div');
+    body.className = 'quest-card__origin-body';
+
+    const lbl = document.createElement('span');
+    lbl.className = 'quest-card__origin-label';
+    lbl.textContent = 'Взято в';
+
+    const place = document.createElement('span');
+    place.className = 'quest-card__origin-place';
+    place.textContent = quest.location.trim();
+
+    body.append(lbl, place);
+    origin.append(pin, body);
+    inner.appendChild(origin);
+  }
+
+  const meta = document.createElement('div');
+  meta.className = 'quest-card__meta';
+  [
+    questFieldRow('✦', 'От кого', quest.from),
+    questFieldRow('⚖', 'Дополнительные условия', quest.conditions),
+  ].filter(Boolean).forEach((el) => meta.appendChild(el));
+
+  if (quest.reward.trim()) {
+    const reward = document.createElement('div');
+    reward.className = 'quest-card__reward';
+    reward.innerHTML = '<span class="quest-card__reward-icon" aria-hidden="true">◎</span>';
+    const rewardBody = document.createElement('div');
+    rewardBody.className = 'quest-card__reward-body';
+    const rewardLbl = document.createElement('span');
+    rewardLbl.className = 'quest-card__reward-label';
+    rewardLbl.textContent = 'Награда';
+    const rewardVal = document.createElement('span');
+    rewardVal.className = 'quest-card__reward-value';
+    rewardVal.textContent = quest.reward.trim();
+    rewardBody.append(rewardLbl, rewardVal);
+    reward.appendChild(rewardBody);
+    meta.appendChild(reward);
+  }
+
+  if (meta.childElementCount) inner.appendChild(meta);
+
+  const actions = document.createElement('footer');
+  actions.className = 'quest-card__actions';
+
+  const mkBtn = (text, className, handler) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `quest-action-btn ${className}`;
+    btn.textContent = text;
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handler();
+    });
+    return btn;
+  };
+
+  if (quest.status === 'active') {
+    actions.append(
+      mkBtn('Выполнено', 'quest-action-btn--complete', () => completeQuest(quest.id)),
+      mkBtn('Забыть', 'quest-action-btn--forget', () => forgetQuest(quest.id)),
+    );
+  } else if (quest.status === 'completed') {
+    actions.append(
+      mkBtn('Сдать', 'quest-action-btn--turn-in', () => turnInQuest(quest.id)),
+      mkBtn('Отменить', 'quest-action-btn--cancel', () => cancelQuestComplete(quest.id)),
+    );
+  } else if (quest.status === 'turned_in') {
+    actions.append(mkBtn('Забыть', 'quest-action-btn--forget', () => forgetQuest(quest.id)));
+  }
+
+  inner.appendChild(actions);
+  card.appendChild(inner);
+
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('.quest-action-btn')) return;
+    openQuestModal(quest.id);
+  });
+
+  return card;
+}
+
+function renderQuests() {
+  const list = document.getElementById('quests-list');
+  const empty = document.getElementById('quests-empty');
+  if (!list) return;
+
+  list.innerHTML = '';
+  const quests = sortedQuests();
+  quests.forEach((q) => list.appendChild(renderQuestCard(q)));
+
+  if (empty) empty.hidden = quests.length > 0;
+}
+
+function updateQuest(id, patch) {
+  const idx = (sheet.quests ?? []).findIndex((q) => q.id === id);
+  if (idx < 0) return;
+  sheet.quests[idx] = { ...sheet.quests[idx], ...patch };
+  scheduleSave();
+  renderQuests();
+}
+
+function completeQuest(id) {
+  const q = findQuest(id);
+  if (!q || q.status !== 'active') return;
+  updateQuest(id, { status: 'completed' });
+}
+
+function cancelQuestComplete(id) {
+  const q = findQuest(id);
+  if (!q || q.status !== 'completed') return;
+  updateQuest(id, { status: 'active' });
+}
+
+function turnInQuest(id) {
+  const q = findQuest(id);
+  if (!q || q.status !== 'completed') return;
+  updateQuest(id, { status: 'turned_in' });
+}
+
+function forgetQuest(id) {
+  const q = findQuest(id);
+  if (!q || q.status === 'completed') return;
+  sheet.quests = (sheet.quests ?? []).filter((item) => item.id !== id);
+  scheduleSave();
+  renderQuests();
+}
+
+function openQuestModal(id = null) {
+  const modal = document.getElementById('quest-modal');
+  const title = document.getElementById('quest-modal-title');
+  const statusRow = document.getElementById('quest-status-row');
+  const completedCheck = document.getElementById('quest-completed-check');
+
+  questEdit = id;
+
+  const existing = id ? findQuest(id) : null;
+
+  title.textContent = existing ? 'Редактировать задание' : 'Новое задание';
+  document.getElementById('quest-from').value = existing?.from ?? '';
+  document.getElementById('quest-summary').value = existing?.summary ?? '';
+  document.getElementById('quest-location').value = existing?.location ?? '';
+  document.getElementById('quest-reward').value = existing?.reward ?? '';
+  document.getElementById('quest-conditions').value = existing?.conditions ?? '';
+
+  const canToggleComplete = existing && existing.status !== 'turned_in';
+  statusRow.hidden = !canToggleComplete;
+  if (canToggleComplete) {
+    completedCheck.checked = existing.status === 'completed';
+    completedCheck.disabled = false;
+  }
+
+  modal.showModal();
+  requestAnimationFrame(() => document.getElementById('quest-summary').focus());
+}
+
+function closeQuestModal() {
+  const modal = document.getElementById('quest-modal');
+  if (modal?.open) modal.close();
+  questEdit = null;
+}
+
+function saveQuestFromModal() {
+  const from = document.getElementById('quest-from').value.trim();
+  const summary = document.getElementById('quest-summary').value.trim();
+  const location = document.getElementById('quest-location').value.trim();
+  const reward = document.getElementById('quest-reward').value.trim();
+  const conditions = document.getElementById('quest-conditions').value.trim();
+
+  if (!summary && !from && !location) {
+    document.getElementById('quest-summary').focus();
+    return;
+  }
+
+  const completedCheck = document.getElementById('quest-completed-check');
+  const statusRow = document.getElementById('quest-status-row');
+  const existing = questEdit ? findQuest(questEdit) : null;
+
+  let status = existing?.status ?? 'active';
+  if (existing?.status === 'turned_in') {
+    status = 'turned_in';
+  } else if (existing && statusRow && !statusRow.hidden) {
+    status = completedCheck.checked ? 'completed' : 'active';
+  }
+
+  const entry = {
+    id: questEdit || uid(),
+    from,
+    summary: summary || 'Задание',
+    location,
+    reward,
+    conditions,
+    status,
+    order: existing?.order ?? Date.now(),
+  };
+
+  const list = [...(sheet.quests ?? [])];
+  const idx = questEdit ? list.findIndex((q) => q.id === questEdit) : -1;
+  if (idx >= 0) list[idx] = entry;
+  else list.push(entry);
+  sheet.quests = list;
+
+  scheduleSave();
+  renderQuests();
+  closeQuestModal();
+}
+
+function bindQuests() {
+  document.getElementById('btn-add-quest')?.addEventListener('click', () => openQuestModal());
+
+  const modal = document.getElementById('quest-modal');
+  const form = document.getElementById('quest-form');
+  const closeBtn = document.getElementById('quest-modal-close');
+  const cancelBtn = document.getElementById('quest-cancel');
+
+  form?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveQuestFromModal();
+  });
+
+  closeBtn?.addEventListener('click', closeQuestModal);
+  cancelBtn?.addEventListener('click', closeQuestModal);
+  modal?.addEventListener('click', (e) => {
+    if (e.target === modal) closeQuestModal();
   });
 }
 
@@ -2946,6 +3294,7 @@ function exportToSharedFormat() {
     lore: s.lore ?? '',
     buffs: (s.buffs ?? []).map((e) => ({ ...e })),
     debuffs: (s.debuffs ?? []).map((e) => ({ ...e })),
+    quests: (s.quests ?? []).map((q) => ({ ...q })),
     stats: { ...s.stats },
     combat: { ...s.combat },
     // редактируемые классовые поля всех характеристик
@@ -3036,6 +3385,7 @@ function importFromSharedFormat(jsonString) {
       description: strVal(raw.description),
       lore: strVal(raw.lore),
       ...migrateEffects(raw),
+      quests: migrateQuests(raw),
       stats,
       combat: migrateCombat(raw, stats),
       statClass: migrateStatClass(raw, base),
@@ -3069,6 +3419,7 @@ function renderSheet() {
   renderEquipment();
   renderBackpack();
   renderEffects();
+  renderQuests();
 
   spreadIndex = 0;
   renderSpellGrids();
@@ -3320,6 +3671,8 @@ async function init(char) {
   renderBackpack();
   bindEffects();
   renderEffects();
+  bindQuests();
+  renderQuests();
   bindSlotEditor();
   bindSpellbook();
   CoinPouch?.init?.(sheet, scheduleSave);
