@@ -668,11 +668,11 @@ body {
   }
 
   .coin-pouch-sheet {
-    width: min(200px, calc(100vw - 32px));
+    width: min(var(--coin-pouch-open-size, 240px), calc(100vw - 32px));
   }
 
   .coin-sack {
-    width: min(188px, calc(100vw - 40px));
+    width: min(var(--coin-pouch-open-size, 240px), calc(100vw - 40px));
   }
 
   .coin-sack-visual {
@@ -2077,6 +2077,7 @@ html.gob-tier-low .stat-tier-frame {
 /* ================= COIN POUCH ================= */
 .coin-pouch {
   position: relative;
+  --coin-pouch-open-size: 240px;
 }
 
 .coin-pouch.is-open {
@@ -2129,7 +2130,7 @@ html.gob-tier-low .stat-tier-frame {
   right: 0;
   bottom: 100%;
   margin-bottom: 6px;
-  width: 200px;
+  width: var(--coin-pouch-open-size, 240px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2174,13 +2175,13 @@ html.gob-tier-low .stat-tier-frame {
 
 .coin-sack-visual {
   position: relative;
-  width: 188px;
+  width: var(--coin-pouch-open-size, 240px);
   aspect-ratio: 4 / 5;
   line-height: 0;
 }
 
 .coin-sack--illustrated {
-  width: 188px;
+  width: var(--coin-pouch-open-size);
   display: flex;
   flex-direction: column;
   align-items: center;
