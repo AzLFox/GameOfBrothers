@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 140" width="120" height="140">
+  <defs>
+    <linearGradient id="sack-cloth" x1="20%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%" stop-color="#c49a62"/>
+      <stop offset="45%" stop-color="#a67c48"/>
+      <stop offset="100%" stop-color="#6b4524"/>
+    </linearGradient>
+    <linearGradient id="sack-shade" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.18"/>
+      <stop offset="55%" stop-color="#000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000" stop-opacity="0.28"/>
+    </linearGradient>
+    <linearGradient id="rope" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d8c090"/>
+      <stop offset="100%" stop-color="#8b6914"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-10%" width="140%" height="130%">
+      <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <!-- closed collar -->
+    <path d="M34 28 C44 18 76 18 86 28 L82 38 C72 32 48 32 38 38 Z" fill="#b88952" stroke="#5c3818" stroke-width="1.5"/>
+
+    <!-- rope wraps -->
+    <ellipse cx="60" cy="40" rx="30" ry="6" fill="none" stroke="url(#rope)" stroke-width="4"/>
+    <ellipse cx="60" cy="44" rx="28" ry="5" fill="none" stroke="#6b4e2a" stroke-width="3"/>
+    <rect x="52" y="36" width="16" height="10" rx="3" fill="url(#rope)" stroke="#6b4e2a" stroke-width="1"/>
+    <path d="M56 46 L64 46 L60 54 Z" fill="#8b6914"/>
+
+    <!-- body -->
+    <path d="M28 46 C24 70 22 98 34 118 C48 132 72 132 86 118 C98 98 96 70 92 46 C82 52 38 52 28 46 Z"
+          fill="url(#sack-cloth)" stroke="#5c3818" stroke-width="2.2"/>
+    <path d="M28 46 C24 70 22 98 34 118 C48 132 72 132 86 118 C98 98 96 70 92 46 C82 52 38 52 28 46 Z"
+          fill="url(#sack-shade)"/>
+
+    <!-- stitch -->
+    <path d="M38 72 Q60 82 82 72" fill="none" stroke="#5c3818" stroke-width="1" stroke-dasharray="3 4" opacity="0.45"/>
+  </g>
+</svg>

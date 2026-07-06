@@ -1148,6 +1148,8 @@ function defaultSheet(char) {
       [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS].map(s => [s.key, emptyItem()])
     ),
     backpack: Array.from({ length: BACKPACK_COUNT }, () => emptyItem()),
+    wealth: { gold: 0, silver: 0, bronze: 0 },
+    coinPile: [],
   };
 }
 
@@ -1267,6 +1269,12 @@ function loadSheet(char) {
         ? data.backpack
         : base.backpack,
       spells: migrateSpells(data, base),
+      wealth: typeof CoinPouch !== 'undefined'
+        ? CoinPouch.migrateWealth(data)
+        : { gold: 0, silver: 0, bronze: 0 },
+      coinPile: typeof CoinPouch !== 'undefined'
+        ? CoinPouch.migrateCoinPile(data)
+        : (Array.isArray(data.coinPile) ? data.coinPile : []),
     };
   } catch {
     return base;
@@ -1306,6 +1314,12 @@ async function loadSheetAsync(char) {
       ? data.backpack
       : base.backpack,
     spells: migrateSpells(data, base),
+    wealth: typeof CoinPouch !== 'undefined'
+      ? CoinPouch.migrateWealth(data)
+      : { gold: 0, silver: 0, bronze: 0 },
+    coinPile: typeof CoinPouch !== 'undefined'
+      ? CoinPouch.migrateCoinPile(data)
+      : (Array.isArray(data.coinPile) ? data.coinPile : []),
   };
 }
 
@@ -2720,6 +2734,15 @@ function exportToSharedFormat() {
     ),
     backpack: (s.backpack ?? []).map(item => cloneItem(item ?? emptyItem())),
     spells: (s.spells ?? []).map(sp => ({ ...sp })),
+    wealth: {
+      gold: Math.max(0, Math.floor(s.wealth?.gold ?? 0)),
+      silver: Math.max(0, Math.floor(s.wealth?.silver ?? 0)),
+      bronze: Math.max(0, Math.floor(s.wealth?.bronze ?? 0)),
+    },
+    wealthBronze: typeof CoinPouch !== 'undefined'
+      ? CoinPouch.totalEquivalentBronze(s.wealth)
+      : Math.max(0, Math.floor(s.wealthBronze ?? 0)),
+    coinPile: (s.coinPile ?? []).map((c) => ({ ...c })),
   };
 }
 
@@ -2792,6 +2815,12 @@ function importFromSharedFormat(jsonString) {
       equipment: migrateEquipment(raw, base),
       backpack,
       spells: migrateSpells(raw, base),
+      wealth: typeof CoinPouch !== 'undefined'
+        ? CoinPouch.migrateWealth(raw)
+        : { gold: 0, silver: 0, bronze: 0 },
+      coinPile: typeof CoinPouch !== 'undefined'
+        ? CoinPouch.migrateCoinPile(raw)
+        : (Array.isArray(raw.coinPile) ? raw.coinPile : []),
     },
   };
 }
@@ -2814,6 +2843,7 @@ function renderSheet() {
 
   spreadIndex = 0;
   renderSpellGrids();
+  CoinPouch?.render?.();
 }
 
 function portraitErrorMessage(err) {
@@ -3061,6 +3091,7 @@ async function init(char) {
   renderBackpack();
   bindSlotEditor();
   bindSpellbook();
+  CoinPouch?.init?.(sheet, scheduleSave);
   initUserCharacterTools(char);
   initTransfer();
 

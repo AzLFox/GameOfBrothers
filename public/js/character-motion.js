@@ -69,7 +69,7 @@ const CharMotion = (() => {
       document.querySelector('.equipment-panel'),
       document.querySelector('.backpack-panel'),
       document.querySelector('.lore-panel'),
-      document.getElementById('spellbook-btn'),
+      document.getElementById('char-float-dock'),
     ].filter(Boolean);
 
     const portraitBits = [portraitFrame, nameLabel, nameInput, descLabel, descInput].filter(Boolean);

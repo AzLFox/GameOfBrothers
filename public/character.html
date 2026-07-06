@@ -153,10 +153,63 @@
 
     <div id="combat-tooltip" class="combat-tooltip" hidden role="tooltip"></div>
 
-    <button type="button" class="spellbook-btn" id="spellbook-btn" aria-label="Книга заклинаний" title="Книга заклинаний">
-      <img class="spellbook-icon" src="/img/spellbook-icon.svg" alt="" width="80" height="80" draggable="false">
-      <span class="spellbook-label">Заклинания</span>
-    </button>
+    <div class="char-float-dock" id="char-float-dock">
+      <aside class="coin-pouch" id="coin-pouch">
+        <button type="button" class="coin-pouch-closed" id="coin-pouch-toggle" aria-expanded="false" aria-controls="coin-pouch-sheet" title="Кошелёк">
+          <img class="coin-pouch-closed-art" src="/img/ui/coin-pouch-closed.svg" alt="" width="72" height="84" draggable="false">
+        </button>
+
+        <div class="coin-pouch-sheet" id="coin-pouch-sheet" hidden>
+          <div class="coin-sack" id="coin-sack">
+            <div class="coin-sack-collar" aria-hidden="true">
+              <span class="coin-sack-flap coin-sack-flap--left"></span>
+              <span class="coin-sack-flap coin-sack-flap--right"></span>
+            </div>
+            <div class="coin-sack-rope" aria-hidden="true"></div>
+            <div class="coin-sack-belly">
+              <div class="coin-sack-opening" id="coin-pouch-drop-zone" aria-hidden="true"></div>
+              <div class="coin-sack-coins" id="coin-pouch-coins" aria-hidden="true"></div>
+              <p class="coin-sack-empty" id="coin-pouch-empty">Пусто</p>
+              <p class="coin-sack-totals" id="coin-pouch-totals" aria-live="polite"></p>
+            </div>
+          </div>
+          <div class="coin-sack-editor" aria-label="Редактировать баланс">
+            <label class="coin-edit-row coin-edit-row--gold">
+              <img src="/img/ui/coin-gold.png" alt="" width="22" height="22" draggable="false">
+              <input type="number" class="coin-edit-input" min="0" max="9999" step="1" data-wealth-input="gold" aria-label="Золотые монеты">
+            </label>
+            <label class="coin-edit-row coin-edit-row--silver">
+              <img src="/img/ui/coin-silver.png" alt="" width="22" height="22" draggable="false">
+              <input type="number" class="coin-edit-input" min="0" max="9999" step="1" data-wealth-input="silver" aria-label="Серебряные монеты">
+            </label>
+            <label class="coin-edit-row coin-edit-row--bronze">
+              <img src="/img/ui/coin-bronze.png" alt="" width="22" height="22" draggable="false">
+              <input type="number" class="coin-edit-input" min="0" max="9999" step="1" data-wealth-input="bronze" aria-label="Бронзовые монеты">
+            </label>
+            <p class="coin-sack-equivalent" id="coin-pouch-equivalent" aria-live="polite"></p>
+          </div>
+          <div class="coin-sack-actions" aria-label="Добавить монеты">
+            <button type="button" class="coin-add-btn coin-add-btn--gold" data-add-coin="gold">
+              <img src="/img/ui/coin-gold.png" alt="" width="20" height="20" draggable="false">
+              <span>+1 золото</span>
+            </button>
+            <button type="button" class="coin-add-btn coin-add-btn--silver" data-add-coin="silver">
+              <img src="/img/ui/coin-silver.png" alt="" width="20" height="20" draggable="false">
+              <span>+1 серебро</span>
+            </button>
+            <button type="button" class="coin-add-btn coin-add-btn--bronze" data-add-coin="bronze">
+              <img src="/img/ui/coin-bronze.png" alt="" width="20" height="20" draggable="false">
+              <span>+1 бронза</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <button type="button" class="spellbook-btn" id="spellbook-btn" aria-label="Книга заклинаний" title="Книга заклинаний">
+        <img class="spellbook-icon" src="/img/spellbook-icon.svg" alt="" width="80" height="80" draggable="false">
+        <span class="spellbook-label">Заклинания</span>
+      </button>
+    </div>
 
     <dialog class="spellbook-modal" id="spellbook-modal">
       <div class="spellbook-open" role="document">
@@ -291,6 +344,7 @@
   <script src="js/character-motion.js" defer></script>
   <script src="js/item-catalog.js" defer></script>
   <script src="js/stat-tier-frame.js" defer></script>
+  <script src="js/coin-pouch.js" defer></script>
   <script src="js/character.js" defer></script>
 
   <div id="gob-page-wipe" class="gob-page-wipe" aria-hidden="true" hidden>
