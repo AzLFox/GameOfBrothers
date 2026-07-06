@@ -156,21 +156,19 @@
     <div class="char-float-dock" id="char-float-dock">
       <aside class="coin-pouch" id="coin-pouch">
         <button type="button" class="coin-pouch-closed" id="coin-pouch-toggle" aria-expanded="false" aria-controls="coin-pouch-sheet" title="Кошелёк">
-          <img class="coin-pouch-closed-art" src="/img/ui/coin-pouch-closed.svg" alt="" width="72" height="84" draggable="false">
+          <img class="coin-pouch-closed-art" src="/img/ui/coin-pouch-closed.png" alt="" width="80" height="96" draggable="false">
         </button>
 
         <div class="coin-pouch-sheet" id="coin-pouch-sheet" hidden>
           <div class="coin-sack" id="coin-sack">
-            <div class="coin-sack-collar" aria-hidden="true">
-              <span class="coin-sack-flap coin-sack-flap--left"></span>
-              <span class="coin-sack-flap coin-sack-flap--right"></span>
-            </div>
-            <div class="coin-sack-rope" aria-hidden="true"></div>
-            <div class="coin-sack-belly">
-              <div class="coin-sack-opening" id="coin-pouch-drop-zone" aria-hidden="true"></div>
-              <div class="coin-sack-coins" id="coin-pouch-coins" aria-hidden="true"></div>
-              <p class="coin-sack-empty" id="coin-pouch-empty">Пусто</p>
-              <p class="coin-sack-totals" id="coin-pouch-totals" aria-live="polite"></p>
+            <div class="coin-sack-visual">
+              <img class="coin-sack-art" src="/img/ui/coin-pouch-open.png" alt="" width="200" height="240" draggable="false">
+              <div class="coin-sack-belly">
+                <div class="coin-sack-opening" id="coin-pouch-drop-zone" aria-hidden="true"></div>
+                <div class="coin-sack-coins" id="coin-pouch-coins" aria-hidden="true"></div>
+                <p class="coin-sack-empty" id="coin-pouch-empty">Пусто</p>
+                <p class="coin-sack-totals" id="coin-pouch-totals" aria-live="polite"></p>
+              </div>
             </div>
           </div>
           <div class="coin-sack-editor" aria-label="Редактировать баланс">

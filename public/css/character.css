@@ -672,7 +672,15 @@ body {
   }
 
   .coin-sack {
-    width: min(188px, calc(100vw - 40px));
+    width: min(200px, calc(100vw - 40px));
+  }
+
+  .coin-sack-visual {
+    width: 100%;
+  }
+
+  .coin-pouch-closed-art {
+    width: 72px;
   }
 
   .coin-add-btn {
@@ -2098,10 +2106,16 @@ html.gob-tier-low .stat-tier-frame {
 
 .coin-pouch-closed-art {
   display: block;
-  width: 72px;
-  height: 84px;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.65));
-  transition: transform 0.35s ease;
+  width: 80px;
+  height: auto;
+  aspect-ratio: 5 / 6;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 12px rgba(201, 162, 77, 0.15));
+  transition: transform 0.35s ease, filter 0.25s ease;
+}
+
+.coin-pouch-closed:hover .coin-pouch-closed-art {
+  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 18px rgba(201, 162, 77, 0.28));
 }
 
 .coin-pouch.is-open .coin-pouch-closed {
@@ -2139,89 +2153,41 @@ html.gob-tier-low .stat-tier-frame {
   pointer-events: auto;
 }
 
-/* --- open sack (OSE-style) --- */
+/* --- open sack (illustrated) --- */
 .coin-sack {
   position: relative;
-  width: 188px;
-  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55));
+  width: 200px;
+  filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.6));
 }
 
-.coin-sack-collar {
+.coin-sack-visual {
   position: relative;
-  z-index: 3;
-  height: 34px;
-  margin-bottom: -8px;
+  width: 200px;
+  line-height: 0;
 }
 
-.coin-sack-flap {
-  position: absolute;
-  top: 6px;
-  width: 52px;
-  height: 28px;
-  background: linear-gradient(180deg, #d4a86a 0%, #a67c48 55%, #8b6238 100%);
-  border: 2px solid #5c3818;
-  border-radius: 40% 40% 20% 20%;
-  transform-origin: bottom center;
-  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.coin-sack-flap--left {
-  left: 24px;
-  transform: rotate(-28deg);
-}
-
-.coin-sack-flap--right {
-  right: 24px;
-  transform: rotate(28deg);
-}
-
-.coin-pouch.is-open .coin-sack-flap--left {
-  transform: rotate(-58deg) translateY(-4px);
-}
-
-.coin-pouch.is-open .coin-sack-flap--right {
-  transform: rotate(58deg) translateY(-4px);
-}
-
-.coin-sack-rope {
-  position: relative;
-  z-index: 4;
-  height: 14px;
-  margin: 0 28px;
-  border-radius: 8px;
-  background:
-    repeating-linear-gradient(90deg, #c9a24d 0 4px, #8b6914 4px 8px);
-  border: 2px solid #5c3818;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-
-.coin-sack-rope::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -8px;
-  width: 14px;
-  height: 10px;
-  margin-left: -7px;
-  background: linear-gradient(180deg, #d8c090, #8b6914);
-  clip-path: polygon(20% 0, 80% 0, 100% 100%, 0 100%);
+.coin-sack-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
 }
 
 .coin-sack-belly {
-  position: relative;
+  position: absolute;
   z-index: 2;
-  height: 148px;
-  margin-top: -2px;
-  padding: 24px 12px 30px;
-  background:
-    radial-gradient(ellipse 90% 70% at 50% 18%, rgba(255, 220, 160, 0.2) 0%, transparent 55%),
-    radial-gradient(ellipse 100% 95% at 50% 85%, #5c3818 0%, transparent 62%),
-    linear-gradient(180deg, #c49a62 0%, #a67c48 42%, #7a4e28 100%);
-  border: 2.5px solid #5c3818;
-  border-radius: 48% 48% 44% 44% / 22% 22% 58% 58%;
-  box-shadow:
-    inset 0 8px 18px rgba(0, 0, 0, 0.22),
-    inset 0 -6px 14px rgba(0, 0, 0, 0.18);
+  left: 13%;
+  right: 13%;
+  top: 38%;
+  bottom: 12%;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
 }
 
@@ -2229,9 +2195,9 @@ html.gob-tier-low .stat-tier-frame {
   position: absolute;
   left: 50%;
   top: -56px;
-  width: 88px;
-  height: 110px;
-  margin-left: -44px;
+  width: 68%;
+  height: 96px;
+  margin-left: -34%;
   pointer-events: none;
   z-index: 6;
   overflow: visible;
@@ -2240,10 +2206,10 @@ html.gob-tier-low .stat-tier-frame {
 .coin-sack-coins {
   position: absolute;
   z-index: 1;
-  left: 10px;
-  right: 10px;
-  top: 22px;
-  bottom: 26px;
+  left: 2px;
+  right: 2px;
+  top: 4px;
+  bottom: 18px;
   width: auto;
   min-height: 0;
   overflow: hidden;
@@ -2511,7 +2477,7 @@ html.gob-tier-low .stat-tier-frame {
   animation: coin-pile-settle 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.coin-sack.is-catching .coin-sack-belly {
+.coin-sack.is-catching .coin-sack-visual {
   animation: sack-catch 0.36s ease;
 }
 
@@ -2524,9 +2490,8 @@ html.gob-tier-low .stat-tier-frame {
 @media (prefers-reduced-motion: reduce) {
   .coin-drop,
   .coin-pile-coin,
-  .coin-sack.is-catching .coin-sack-belly,
-  .coin-pouch-sheet,
-  .coin-sack-flap {
+  .coin-sack.is-catching .coin-sack-visual,
+  .coin-pouch-sheet {
     animation: none !important;
     transition: none !important;
   }
