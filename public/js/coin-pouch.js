@@ -8,7 +8,11 @@ const CoinPouch = (() => {
   const BRONZE_PER_SILVER = 10;
   const SILVER_PER_GOLD = 10;
   const BRONZE_PER_GOLD = BRONZE_PER_SILVER * SILVER_PER_GOLD;
-  const MAX_VISIBLE_COINS = 32;
+  const COINS_PER_ZONE = 15;
+  const PILE_ZONES = 4;
+  const MAX_VISIBLE_COINS = PILE_ZONES * COINS_PER_ZONE;
+  const ZONE_LAYER_STEP = 0.54;
+  const ZONE_SPREAD_BOOST = 1.3;
 
   const COIN_SRC = {
     bronze: '/img/ui/coin-bronze.png',
@@ -19,7 +23,7 @@ const CoinPouch = (() => {
   function coinSize(kind) {
     const desktop = window.matchMedia('(min-width: 701px)').matches;
     if (desktop) return { gold: 54, silver: 48, bronze: 42 }[kind];
-    return { gold: 34, silver: 30, bronze: 26 }[kind];
+    return { gold: 44, silver: 40, bronze: 36 }[kind];
   }
 
   let sheet = null;
@@ -108,20 +112,84 @@ const CoinPouch = (() => {
     return coinsEl?.clientHeight || 100;
   }
 
-  function randomPilePosition(kind) {
+  const COIN_ASSET = {
+    gold: { w: 1536, h: 1024, padBottom: 0.09, padTop: 0.05 },
+    silver: { w: 1536, h: 1024, padBottom: 0.10, padTop: 0.051 },
+    bronze: { w: 1536, h: 1024, padBottom: 0.08, padTop: 0.037 },
+  };
+
+  function coinRenderedHeight(kind) {
+    const size = coinSize(kind);
+    const a = COIN_ASSET[kind] || COIN_ASSET.bronze;
+    return size * (a.h / a.w);
+  }
+
+  /** Отступ визуального низа монеты от CSS bottom (пустое поле в PNG + вписывание в квадрат) */
+  function coinVisualInsetBottom(kind) {
+    const a = COIN_ASSET[kind] || COIN_ASSET.bronze;
+    return coinRenderedHeight(kind) * a.padBottom;
+  }
+
+  function coinVisualInsetTop(kind) {
+    const a = COIN_ASSET[kind] || COIN_ASSET.bronze;
+    return coinRenderedHeight(kind) * a.padTop;
+  }
+
+  function visualBottomToCss(visualBottom, kind) {
+    return Math.max(0, visualBottom - coinVisualInsetBottom(kind));
+  }
+
+  function zoneForPileIndex(index) {
+    return Math.min(PILE_ZONES - 1, Math.floor(index / COINS_PER_ZONE));
+  }
+
+  function randomPilePosition(kind, pileIndex = 0) {
     const size = coinSize(kind);
     const maxX = Math.max(4, bellyWidth() - size - 4);
-    const maxY = Math.max(4, bellyHeight() - size * 0.55);
+    const insetB = coinVisualInsetBottom(kind);
+    const insetT = coinVisualInsetTop(kind);
+    const renderedH = coinRenderedHeight(kind);
+    const visualMaxY = Math.max(12, bellyHeight() - size + insetB + insetT);
+    const zone = zoneForPileIndex(pileIndex);
+
+    const evenStep = (visualMaxY / Math.max(1, PILE_ZONES - 1)) * ZONE_SPREAD_BOOST;
+    const layerStep = Math.max(renderedH * ZONE_LAYER_STEP, evenStep);
+
+    let visualYLo;
+    let visualYHi;
+    if (zone === 0) {
+      visualYLo = 0;
+      visualYHi = Math.min(visualMaxY, layerStep * 0.48);
+    } else if (zone >= PILE_ZONES - 1) {
+      visualYLo = Math.max(0, visualMaxY - layerStep * 0.62);
+      visualYHi = visualMaxY;
+    } else {
+      const base = zone * layerStep;
+      visualYLo = Math.max(0, base - layerStep * 0.1);
+      visualYHi = Math.min(visualMaxY, base + layerStep * 0.44);
+    }
+
+    const visualY = visualYLo + Math.random() * Math.max(0.5, visualYHi - visualYLo);
+
     return {
-      x: 2 + Math.random() * maxX,
-      y: 2 + Math.random() * maxY,
+      x: 4 + Math.random() * Math.max(2, maxX - 4),
+      y: visualBottomToCss(visualY, kind),
       rot: -55 + Math.random() * 110,
-      z: 1 + Math.floor(Math.random() * 12),
+      z: 1 + zone * 6 + Math.floor(Math.random() * 4),
     };
   }
 
-  function makeCoinEntry(kind) {
-    return { id: uid(), kind, ...randomPilePosition(kind) };
+  function applyZonePosition(entry, pileIndex) {
+    Object.assign(entry, randomPilePosition(entry.kind, pileIndex));
+  }
+
+  function syncPilePositionsToZones() {
+    (sheet.coinPile || []).forEach((entry, i) => applyZonePosition(entry, i));
+  }
+
+  function makeCoinEntry(kind, pileIndex) {
+    const index = Number.isFinite(pileIndex) ? pileIndex : (sheet.coinPile?.length || 0);
+    return { id: uid(), kind, ...randomPilePosition(kind, index) };
   }
 
   function countPileByKind() {
@@ -159,7 +227,7 @@ const CoinPouch = (() => {
 
     ['gold', 'silver', 'bronze'].forEach((kind) => {
       while (pileCounts[kind] < target[kind] && sheet.coinPile.length < MAX_VISIBLE_COINS) {
-        sheet.coinPile.push(makeCoinEntry(kind));
+        sheet.coinPile.push(makeCoinEntry(kind, sheet.coinPile.length));
         pileCounts[kind]++;
       }
     });
@@ -264,6 +332,7 @@ const CoinPouch = (() => {
     if (!coinsEl) return;
     bootstrapCoinPile();
     ensureCoinPile();
+    syncPilePositionsToZones();
 
     coinsEl.querySelectorAll('.coin-pile-coin').forEach((el) => el.remove());
     (sheet.coinPile || []).forEach((entry) => appendCoinToDom(entry, false));
@@ -276,6 +345,10 @@ const CoinPouch = (() => {
   function landXForEntry(entry) {
     const bellyW = bellyWidth();
     return entry.x - bellyW / 2 + coinSize(entry.kind) / 2;
+  }
+
+  function landYForEntry(entry, kind) {
+    return Math.max(12, bellyHeight() - entry.y - coinRenderedHeight(kind));
   }
 
   function playCoinDropTo(entry, onDone) {
@@ -292,6 +365,7 @@ const CoinPouch = (() => {
     const size = coinSize(kind);
     const startX = -18 + Math.random() * 36;
     const landX = landXForEntry(entry);
+    const landY = landYForEntry(entry, kind);
     const midX = (startX + landX) / 2 + (-10 + Math.random() * 20);
     const spin = -70 + Math.random() * 140;
 
@@ -304,6 +378,7 @@ const CoinPouch = (() => {
     coin.style.setProperty('--start-x', `${startX.toFixed(1)}px`);
     coin.style.setProperty('--mid-x', `${midX.toFixed(1)}px`);
     coin.style.setProperty('--land-x', `${landX.toFixed(1)}px`);
+    coin.style.setProperty('--land-y', `${landY.toFixed(1)}px`);
     coin.style.setProperty('--spin', `${spin.toFixed(1)}deg`);
     dropZone.appendChild(coin);
 
@@ -332,7 +407,8 @@ const CoinPouch = (() => {
 
   function addCoinToPile(kind, animate = true) {
     if (canAddVisibleCoin()) {
-      const entry = makeCoinEntry(kind);
+      const pileIndex = sheet.coinPile.length;
+      const entry = makeCoinEntry(kind, pileIndex);
       sheet.coinPile.push(entry);
       if (isOpen && animate) {
         playCoinDropTo(entry, () => appendCoinToDom(entry, true));

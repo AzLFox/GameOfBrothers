@@ -659,12 +659,32 @@ body {
     right: max(16px, env(safe-area-inset-right));
     bottom: max(16px, env(safe-area-inset-bottom));
     z-index: 90;
+    --dock-spellbook-stack: 104px;
+    gap: 6px;
   }
 
   .spellbook-btn {
     min-width: 44px;
     min-height: 44px;
     padding: 8px 10px 10px;
+  }
+
+  .coin-pouch {
+    --coin-pouch-open-size: min(188px, calc(100vw - 48px));
+    --coin-pouch-belly-inset-bottom: 7%;
+    --coin-pouch-floor-shift: 4px;
+  }
+
+  .coin-pouch.is-open .coin-pouch-closed {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   .coin-pouch-sheet {
@@ -677,6 +697,20 @@ body {
 
   .coin-sack-visual {
     width: 100%;
+  }
+
+  .coin-sack--illustrated .coin-sack-art {
+    width: 100%;
+    height: auto;
+  }
+
+  .coin-sack-equivalent {
+    min-height: calc(1.35em + 20px);
+  }
+
+  .coin-sack.is-catching .coin-sack-visual,
+  .coin-sack.is-catching .coin-sack-belly {
+    animation: none;
   }
 
   .coin-pouch-closed-art {
@@ -2086,19 +2120,20 @@ html.gob-tier-low .stat-tier-frame {
 
 .coin-pouch-closed {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 4px;
+  gap: 8px;
+  padding: 8px 12px 10px;
   border: none;
-  background: transparent;
+  background: radial-gradient(ellipse at center, rgba(40, 24, 12, 0.85) 0%, transparent 70%);
   cursor: pointer;
   border-radius: 12px;
   transition: transform 0.25s ease, filter 0.25s ease;
 }
 
 .coin-pouch-closed:hover {
-  transform: scale(1.06) translateY(-3px);
-  filter: drop-shadow(0 8px 20px rgba(201, 162, 77, 0.4));
+  transform: scale(1.08) translateY(-4px);
+  filter: drop-shadow(0 8px 24px rgba(201, 162, 77, 0.45));
 }
 
 .coin-pouch-closed:active {
@@ -2111,12 +2146,20 @@ html.gob-tier-low .stat-tier-frame {
   height: auto;
   aspect-ratio: 5 / 6;
   object-fit: contain;
-  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 12px rgba(201, 162, 77, 0.15));
-  transition: transform 0.35s ease, filter 0.25s ease;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.7));
+  transition: filter 0.25s;
 }
 
 .coin-pouch-closed:hover .coin-pouch-closed-art {
-  filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 18px rgba(201, 162, 77, 0.28));
+  filter: drop-shadow(0 6px 20px rgba(201, 162, 77, 0.35)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.7));
+}
+
+.coin-pouch-label {
+  font-family: "Cinzel", serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: var(--gold-light);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
 }
 
 .coin-pouch.is-open .coin-pouch-closed {
@@ -2134,7 +2177,7 @@ html.gob-tier-low .stat-tier-frame {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   opacity: 0;
   transform: translateY(12px) scale(0.88);
   transform-origin: right bottom;
@@ -2182,26 +2225,46 @@ html.gob-tier-low .stat-tier-frame {
 
 .coin-sack--illustrated {
   width: var(--coin-pouch-open-size);
+  --coin-pouch-belly-inset-x: 23.5%;
+  --coin-pouch-belly-inset-top: 31%;
+  --coin-pouch-belly-inset-bottom: 6.5%;
+  --coin-pouch-floor-shift: 6px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin-bottom: -4px;
+}
+
+.coin-sack--illustrated .coin-sack-visual {
+  width: var(--coin-pouch-open-size);
+  aspect-ratio: auto;
+  height: auto;
+}
+
+.coin-sack--illustrated .coin-sack-art {
+  position: relative;
+  inset: auto;
+  z-index: 3;
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .coin-sack--illustrated .coin-sack-belly {
   position: absolute;
   z-index: 1;
-  left: 26%;
-  right: 26%;
-  top: 36%;
-  bottom: 20%;
+  left: var(--coin-pouch-belly-inset-x);
+  right: var(--coin-pouch-belly-inset-x);
+  top: var(--coin-pouch-belly-inset-top);
+  bottom: var(--coin-pouch-belly-inset-bottom);
   height: auto;
   margin: 0;
   padding: 0;
   border: none;
-  border-radius: 50%;
+  border-radius: 50% / 48%;
   overflow: hidden;
   background:
-    radial-gradient(ellipse 100% 100% at 50% 55%, #2a1810 0%, #140a06 58%, #080402 100%);
+    radial-gradient(ellipse 112% 112% at 50% 62%, #2a1810 0%, #140a06 52%, #080402 100%);
   box-shadow: inset 0 4px 14px rgba(0, 0, 0, 0.55);
 }
 
@@ -2219,17 +2282,18 @@ html.gob-tier-low .stat-tier-frame {
 
 .coin-sack--illustrated .coin-sack-opening {
   left: 50%;
-  top: -28px;
-  width: 44%;
-  height: 56px;
-  margin-left: -22%;
+  top: -22px;
+  width: 42%;
+  height: 52px;
+  margin-left: -21%;
 }
 
 .coin-sack--illustrated .coin-sack-coins {
-  left: 3px;
-  right: 3px;
-  top: 4px;
-  bottom: 12px;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  transform: translateY(var(--coin-pouch-floor-shift));
 }
 
 .coin-sack--illustrated .coin-sack-empty {
@@ -2358,14 +2422,14 @@ html.gob-tier-low .stat-tier-frame {
   width: var(--coin-size, 28px);
   height: var(--coin-size, 28px);
   object-fit: contain;
-  object-position: center;
+  object-position: center bottom;
   filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45));
   transform: rotate(var(--rot, 0deg));
 }
 
-.coin-pile-coin--gold { --coin-size: 34px; }
-.coin-pile-coin--silver { --coin-size: 30px; }
-.coin-pile-coin--bronze { --coin-size: 26px; }
+.coin-pile-coin--gold { --coin-size: 44px; }
+.coin-pile-coin--silver { --coin-size: 40px; }
+.coin-pile-coin--bronze { --coin-size: 36px; }
 
 @media (min-width: 701px) {
   .coin-pile-coin--gold { --coin-size: 54px; }
@@ -2458,6 +2522,29 @@ html.gob-tier-low .stat-tier-frame {
   display: none;
 }
 
+@media (max-width: 700px) {
+  .coin-pouch.is-open .coin-pouch-sheet {
+    position: fixed;
+    right: max(16px, env(safe-area-inset-right));
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + var(--dock-spellbook-stack, 104px));
+    left: auto;
+    width: min(var(--coin-pouch-open-size), calc(100vw - 32px));
+    margin-bottom: 0;
+    z-index: 110;
+    max-height: min(70dvh, calc(100dvh - env(safe-area-inset-top) - var(--dock-spellbook-stack, 104px) - 48px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    transform: none;
+  }
+
+  .coin-sack-equivalent[hidden] {
+    display: block;
+    visibility: hidden;
+  }
+}
+
 .coin-sack-actions {
   display: flex;
   flex-direction: column;
@@ -2471,6 +2558,7 @@ html.gob-tier-low .stat-tier-frame {
   gap: 5px;
   width: 100%;
   padding: 8px 10px;
+  margin-top: 0;
   background: rgba(20, 12, 6, 0.78);
   border: 1px solid rgba(201, 162, 77, 0.35);
   border-radius: 8px;
@@ -2567,16 +2655,16 @@ html.gob-tier-low .stat-tier-frame {
   height: var(--coin-size, 26px);
   margin-left: calc(var(--coin-size, 26px) / -2);
   object-fit: contain;
-  object-position: center;
+  object-position: center bottom;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
   z-index: 8;
   animation: coin-drop-in 0.72s cubic-bezier(0.33, 1, 0.52, 1) forwards;
   pointer-events: none;
 }
 
-.coin-drop--gold { --coin-size: 34px; }
-.coin-drop--silver { --coin-size: 30px; }
-.coin-drop--bronze { --coin-size: 26px; }
+.coin-drop--gold { --coin-size: 44px; }
+.coin-drop--silver { --coin-size: 40px; }
+.coin-drop--bronze { --coin-size: 36px; }
 
 @keyframes coin-drop-in {
   0% {
@@ -2590,19 +2678,19 @@ html.gob-tier-low .stat-tier-frame {
     transform: translate(calc(var(--start-x, 0px) * 0.9), -58px) rotate(calc(var(--spin, 0deg) * 0.1)) scale(0.88);
   }
   50% {
-    transform: translate(var(--mid-x, 0px), 4px) rotate(calc(var(--spin, 0deg) * 0.5)) scale(1);
+    transform: translate(var(--mid-x, 0px), calc(var(--land-y, 62px) * 0.35)) rotate(calc(var(--spin, 0deg) * 0.5)) scale(1);
     opacity: 1;
   }
   82% {
-    transform: translate(var(--land-x, 0px), 62px) rotate(calc(var(--spin, 0deg) * 0.92)) scale(1);
+    transform: translate(var(--land-x, 0px), calc(var(--land-y, 62px) - 6px)) rotate(calc(var(--spin, 0deg) * 0.92)) scale(1);
     opacity: 1;
   }
   94% {
-    transform: translate(var(--land-x, 0px), 72px) rotate(var(--spin, 0deg)) scale(0.94);
+    transform: translate(var(--land-x, 0px), var(--land-y, 62px)) rotate(var(--spin, 0deg)) scale(0.94);
     opacity: 0.9;
   }
   100% {
-    transform: translate(var(--land-x, 0px), 78px) rotate(calc(var(--spin, 0deg) + 8deg)) scale(0.4);
+    transform: translate(var(--land-x, 0px), calc(var(--land-y, 62px) + 6px)) rotate(calc(var(--spin, 0deg) + 8deg)) scale(0.4);
     opacity: 0;
   }
 }
