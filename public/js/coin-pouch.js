@@ -104,10 +104,14 @@ const CoinPouch = (() => {
     return coinsEl?.clientWidth || 160;
   }
 
+  function bellyHeight() {
+    return coinsEl?.clientHeight || 100;
+  }
+
   function randomPilePosition(kind) {
     const size = coinSize(kind);
     const maxX = Math.max(4, bellyWidth() - size - 4);
-    const maxY = Math.max(4, 72 - size * 0.35);
+    const maxY = Math.max(4, bellyHeight() - size * 0.55);
     return {
       x: 2 + Math.random() * maxX,
       y: 2 + Math.random() * maxY,
@@ -179,26 +183,28 @@ const CoinPouch = (() => {
   }
 
   function updateTotals() {
-    if (!totalsEl || !emptyEl) return;
     const w = getWealth();
     const total = totalCoinCount();
-    if (total === 0) {
-      emptyEl.hidden = false;
-      totalsEl.hidden = true;
-      if (equivalentEl) {
-        equivalentEl.hidden = true;
-        equivalentEl.textContent = '';
-      }
-      return;
+
+    if (emptyEl) {
+      emptyEl.hidden = total !== 0;
     }
-    emptyEl.hidden = true;
-    totalsEl.hidden = false;
-    totalsEl.textContent = `${w.gold} з · ${w.silver} с · ${w.bronze} б`;
+    if (totalsEl) {
+      totalsEl.hidden = total === 0;
+      if (total > 0) {
+        totalsEl.textContent = `${w.gold} з · ${w.silver} с · ${w.bronze} б`;
+      }
+    }
 
     if (equivalentEl) {
-      const eq = equivalentBreakdown(totalEquivalentBronze(w));
-      equivalentEl.hidden = false;
-      equivalentEl.textContent = `Всего: ${eq.gold} з · ${eq.silver} с · ${eq.bronze} б`;
+      if (total === 0) {
+        equivalentEl.hidden = true;
+        equivalentEl.textContent = '';
+      } else {
+        const eq = equivalentBreakdown(totalEquivalentBronze(w));
+        equivalentEl.hidden = false;
+        equivalentEl.textContent = `Всего: ${eq.gold} з · ${eq.silver} с · ${eq.bronze} б`;
+      }
     }
   }
 
