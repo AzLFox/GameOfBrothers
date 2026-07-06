@@ -3687,6 +3687,8 @@ async function init(char) {
     groupDock.href = `/group?id=${encodeURIComponent(id)}`;
   }
 
+  initFloatDock();
+
   if (typeof CharMotion !== 'undefined') {
     CharMotion.bindBackLink();
     const runEnter = () => CharMotion.pageEnter();
@@ -3699,6 +3701,33 @@ async function init(char) {
   } else {
     document.body.classList.add('char-motion-ready');
   }
+}
+
+function initFloatDock() {
+  const dock = document.getElementById('char-float-dock');
+  const toggle = document.getElementById('char-dock-toggle');
+  if (!dock || !toggle) return;
+
+  const STORAGE_KEY = 'gob-char-dock-collapsed';
+
+  const apply = (collapsed) => {
+    dock.classList.toggle('is-collapsed', collapsed);
+    toggle.setAttribute('aria-expanded', String(!collapsed));
+    const label = collapsed ? 'Развернуть панель инструментов' : 'Свернуть панель инструментов';
+    toggle.title = label;
+    toggle.setAttribute('aria-label', label);
+  };
+
+  apply(localStorage.getItem(STORAGE_KEY) === '1');
+
+  toggle.addEventListener('click', () => {
+    const willCollapse = !dock.classList.contains('is-collapsed');
+    if (willCollapse) {
+      CoinPouch?.close?.();
+    }
+    apply(willCollapse);
+    localStorage.setItem(STORAGE_KEY, willCollapse ? '1' : '0');
+  });
 }
 
 if (!id) {

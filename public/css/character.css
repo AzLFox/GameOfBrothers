@@ -1031,6 +1031,16 @@ body.invite-letter-open {
     bottom: max(16px, env(safe-area-inset-bottom));
     z-index: 90;
     --dock-spellbook-stack: 104px;
+  }
+
+  .char-float-dock__toggle {
+    width: 80px;
+    height: 32px;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .char-float-dock__items {
     gap: 6px;
   }
 
@@ -3417,7 +3427,93 @@ html.gob-tier-low .stat-tier-frame {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 0;
+}
+
+.char-float-dock__toggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 28px;
+  margin-bottom: 6px;
+  padding: 0;
+  border: 2px solid rgba(201, 162, 77, 0.55);
+  border-radius: 10px 10px 4px 4px;
+  background:
+    linear-gradient(180deg, rgba(70, 48, 26, 0.96) 0%, rgba(40, 24, 12, 0.9) 100%);
+  box-shadow:
+    0 -2px 12px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 220, 140, 0.15);
+  cursor: pointer;
+  color: var(--gold-light);
+  transition:
+    background 0.2s,
+    box-shadow 0.2s,
+    transform 0.15s,
+    margin 0.28s ease,
+    border-radius 0.28s ease;
+}
+
+.char-float-dock__toggle:hover {
+  background:
+    linear-gradient(180deg, rgba(90, 60, 32, 0.98) 0%, rgba(50, 32, 18, 0.94) 100%);
+  box-shadow:
+    0 -2px 16px rgba(201, 162, 77, 0.22),
+    inset 0 1px 0 rgba(255, 220, 140, 0.22);
+}
+
+.char-float-dock__toggle:active {
+  transform: scale(0.96);
+}
+
+.char-float-dock__toggle-glyph {
+  display: block;
+  font-size: 0.95rem;
+  line-height: 1;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  transition: transform 0.28s ease;
+}
+
+.char-float-dock.is-collapsed .char-float-dock__toggle {
+  margin-bottom: 0;
+  border-radius: 10px;
+}
+
+.char-float-dock.is-collapsed .char-float-dock__toggle-glyph {
+  transform: rotate(180deg);
+}
+
+.char-float-dock__items {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 10px;
+  overflow: hidden;
+  max-height: 420px;
+  transform-origin: center bottom;
+  transition:
+    max-height 0.32s ease,
+    opacity 0.28s ease,
+    transform 0.28s ease,
+    visibility 0.28s;
+}
+
+.char-float-dock.is-collapsed .char-float-dock__items {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .char-float-dock__items,
+  .char-float-dock__toggle,
+  .char-float-dock__toggle-glyph {
+    transition: none;
+  }
 }
 
 /* ================= GROUP DOCK BUTTON ================= */

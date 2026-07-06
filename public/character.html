@@ -204,6 +204,11 @@
     <div id="combat-tooltip" class="combat-tooltip" hidden role="tooltip"></div>
 
     <div class="char-float-dock" id="char-float-dock">
+      <button type="button" class="char-float-dock__toggle" id="char-dock-toggle" aria-expanded="true" aria-controls="char-dock-items" title="Свернуть панель" aria-label="Свернуть панель инструментов">
+        <span class="char-float-dock__toggle-glyph" aria-hidden="true">▾</span>
+      </button>
+
+      <div class="char-float-dock__items" id="char-dock-items">
       <a href="/group" class="group-dock-btn" id="group-dock-btn" title="Группа" aria-label="Группа">
         <img class="group-dock-icon" src="/img/group-icon.svg" alt="" width="80" height="80" draggable="false">
         <span class="group-dock-label">Группа</span>
@@ -262,6 +267,7 @@
         <img class="spellbook-icon" src="/img/spellbook-icon.svg" alt="" width="80" height="80" draggable="false">
         <span class="spellbook-label">Заклинания</span>
       </button>
+      </div>
     </div>
 
     <dialog class="spellbook-modal" id="spellbook-modal">
