@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96">
+  <defs>
+    <linearGradient id="dove" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8f8ff"/>
+      <stop offset="55%" stop-color="#d8dce8"/>
+      <stop offset="100%" stop-color="#a8b0c0"/>
+    </linearGradient>
+    <linearGradient id="letter" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff8e8"/>
+      <stop offset="100%" stop-color="#e8d4b0"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f0d98a"/>
+      <stop offset="100%" stop-color="#8b6914"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-10%" width="140%" height="130%">
+      <feDropShadow dx="1" dy="3" stdDeviation="2.5" flood-color="#000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+    <ellipse cx="48" cy="72" rx="24" ry="6" fill="#000" opacity="0.18"/>
+
+    <path d="M18 46 C28 34, 42 30, 56 34 C64 36, 70 40, 74 46 C70 44, 64 42, 58 42 C50 42, 40 46, 34 52 C30 48, 24 46, 18 46 Z" fill="url(#dove)"/>
+    <path d="M56 34 C62 28, 72 24, 82 28 C78 30, 72 32, 66 34 C62 34, 58 34, 56 34 Z" fill="#eef0f8"/>
+    <path d="M34 52 C30 58, 28 66, 36 70 C40 64, 42 58, 40 52 Z" fill="#c8ced8"/>
+    <circle cx="62" cy="38" r="2.2" fill="#2a3040"/>
+
+    <rect x="44" y="22" width="24" height="16" rx="2" fill="url(#letter)" stroke="url(#gold)" stroke-width="1.5" transform="rotate(-8 56 30)"/>
+    <path d="M46 25 L56 31 L66 25" fill="none" stroke="#c9a24d" stroke-width="1.2" transform="rotate(-8 56 30)"/>
+    <circle cx="70" cy="24" r="4" fill="url(#gold)" opacity="0.9"/>
+  </g>
+</svg>

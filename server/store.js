@@ -226,6 +226,50 @@ function saveSentInvites(userId, invites) {
   writeJson(sentInvitesFile(userId), invites);
 }
 
+function messagesFile(userId) {
+  return path.join(accountDir(userId), 'messages.json');
+}
+
+function getUserMessages(userId) {
+  return readJson(messagesFile(userId), []);
+}
+
+function saveUserMessages(userId, messages) {
+  writeJson(messagesFile(userId), messages);
+}
+
+function gmSessionFile(userId) {
+  return path.join(accountDir(userId), 'gm-session.json');
+}
+
+function getGmSession(userId) {
+  return readJson(gmSessionFile(userId), { activeGroupId: '' });
+}
+
+function saveGmSession(userId, session) {
+  writeJson(gmSessionFile(userId), {
+    activeGroupId: String(session?.activeGroupId ?? '').trim(),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+function clearGmSessionIfActive(userId, groupId) {
+  if (!userId || !groupId) return;
+  const session = getGmSession(userId);
+  if (session.activeGroupId === groupId) {
+    saveGmSession(userId, { activeGroupId: '' });
+  }
+}
+
+function listAllPartyGroups() {
+  ensureDir(partiesDir());
+  if (!fs.existsSync(partiesDir())) return [];
+  return fs.readdirSync(partiesDir())
+    .filter((name) => name.endsWith('.json'))
+    .map((name) => readJson(path.join(partiesDir(), name), null))
+    .filter(Boolean);
+}
+
 function findUserByCharId(charId) {
   if (typeof charId !== 'string' || !charId.startsWith('u_')) return null;
   for (const user of getUsers()) {
@@ -313,6 +357,12 @@ module.exports = {
   saveUserInvites,
   getSentInvites,
   saveSentInvites,
+  getUserMessages,
+  saveUserMessages,
+  getGmSession,
+  saveGmSession,
+  clearGmSessionIfActive,
+  listAllPartyGroups,
   findUserByCharId,
   deleteUser,
 };

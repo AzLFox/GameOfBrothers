@@ -88,7 +88,7 @@ function getSessionUser(req) {
 
   const user = store.findUserById(session.userId);
   if (!user) return null;
-  return { id: user.id, username: user.username };
+  return publicUser(user);
 }
 
 function getSessionToken(req) {
@@ -120,7 +120,41 @@ function validatePassword(password) {
 }
 
 function publicUser(user) {
-  return { id: user.id, username: user.username };
+  return {
+    id: user.id,
+    username: user.username,
+    role: resolveUserRole(user),
+  };
+}
+
+function resolveUserRole(user) {
+  if (!user) return 'player';
+  if (user.role === 'gamemaster') return 'gamemaster';
+  const envList = String(process.env.GOB_GM_USERNAMES || '');
+  const gmNames = envList
+    .split(',')
+    .map((name) => name.trim().toLowerCase())
+    .filter(Boolean);
+  if (gmNames.includes(String(user.username || '').toLowerCase())) {
+    return 'gamemaster';
+  }
+  return 'player';
+}
+
+function isGameMasterUser(user) {
+  return resolveUserRole(user) === 'gamemaster';
+}
+
+function requireGameMaster(req, res, next) {
+  const sessionUser = getSessionUser(req);
+  if (!sessionUser) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (sessionUser.role !== 'gamemaster') {
+    return res.status(403).json({ error: 'Доступ только для GameMaster' });
+  }
+  req.user = sessionUser;
+  return next();
 }
 
 module.exports = {
@@ -132,9 +166,12 @@ module.exports = {
   getSessionUser,
   getSessionToken,
   requireAuth,
+  requireGameMaster,
   validateUsername,
   validatePassword,
   publicUser,
+  resolveUserRole,
+  isGameMasterUser,
   clearSessionCookie,
   parseCookies,
 };

@@ -368,6 +368,20 @@ function findItemClass(slotKey, classId) {
   return (slotClassList(slotKey) || []).find(c => c.id === classId) || null;
 }
 
+function resolveItemClassContext(group, key) {
+  const item = getItem(group, key);
+  if (!item?.classId) return null;
+  if (group === 'equipment' && slotSupportsClasses(key)) {
+    const cls = findItemClass(key, item.classId);
+    if (cls) return { slotKey: key, cls };
+  }
+  for (const slotKey of Object.keys(CATALOG.SLOT_CLASSES)) {
+    const cls = findItemClass(slotKey, item.classId);
+    if (cls) return { slotKey, cls };
+  }
+  return null;
+}
+
 // ----- слоты рук и двуручное оружие -----
 const HAND_SLOTS = ['leftHand', 'rightHand'];
 
@@ -1871,8 +1885,8 @@ function renderStats() {
       updateCombatValues();
       updateSlotWarnings();
       if (key === 'str' || key === 'end') updateSatietyBar();
-      if (selectedSlot?.group === 'equipment' && slotSupportsClasses(selectedSlot.key)) {
-        renderReqHint(selectedSlot.key);
+      if (selectedSlot && resolveItemClassContext(selectedSlot.group, selectedSlot.key)) {
+        renderReqHint(selectedSlot.group, selectedSlot.key);
       }
     });
     slot.appendChild(cell);
@@ -2228,13 +2242,510 @@ function appendIntClassBook(box) {
   box.appendChild(wrap);
 }
 
+function isItemEmpty(item) {
+  return !String(item?.name ?? '').trim() && !item?.classId;
+}
+
+function isMirrorHandSlot(slotKey) {
+  return isHandSlot(slotKey) && Boolean(sheet.equipment[slotKey]?.mirror);
+}
+
+function canEquipBackpackItemToSlot(backpackIndex, equipSlotKey) {
+  const item = sheet.backpack[backpackIndex];
+  if (isItemEmpty(item)) return false;
+  if (!slotSupportsClasses(equipSlotKey)) return false;
+  if (!item.classId) return false;
+  if (!findItemClass(equipSlotKey, item.classId)) return false;
+  if (isMirrorHandSlot(equipSlotKey)) return false;
+  return true;
+}
+
+function refreshOpenSlotEditor() {
+  if (!selectedSlot) return;
+  const { group, key } = selectedSlot;
+  const item = getItem(group, key);
+  document.getElementById('slot-name').value = item.name;
+  document.getElementById('slot-desc').value = item.desc;
+  renderClassSection(group, key);
+}
+
+function equipFromBackpack(backpackIndex, equipSlotKey) {
+  if (!canEquipBackpackItemToSlot(backpackIndex, equipSlotKey)) return false;
+
+  const backpackItem = sheet.backpack[backpackIndex];
+  const currentEquip = sheet.equipment[equipSlotKey];
+  const hasCurrentEquip = !isItemEmpty(currentEquip);
+
+  sheet.equipment[equipSlotKey] = cloneItem(backpackItem);
+  delete sheet.equipment[equipSlotKey].mirror;
+
+  if (hasCurrentEquip) {
+    sheet.backpack[backpackIndex] = cloneItem(currentEquip);
+    delete sheet.backpack[backpackIndex].mirror;
+  } else {
+    sheet.backpack[backpackIndex] = emptyItem();
+  }
+
+  reconcileHands(equipSlotKey);
+  scheduleSave();
+  updateSlotUI('backpack', backpackIndex);
+  updateSlotUI('equipment', equipSlotKey);
+  updateSlotWarnings();
+  updateCombatValues();
+  refreshOpenSlotEditor();
+  return true;
+}
+
+function moveEquipToBackpack(equipSlotKey, backpackIndex) {
+  if (isMirrorHandSlot(equipSlotKey)) return false;
+  const equipItem = sheet.equipment[equipSlotKey];
+  if (isItemEmpty(equipItem)) return false;
+
+  const backpackItem = sheet.backpack[backpackIndex];
+  if (!isItemEmpty(backpackItem)) return false;
+
+  sheet.backpack[backpackIndex] = cloneItem(equipItem);
+  delete sheet.backpack[backpackIndex].mirror;
+  sheet.equipment[equipSlotKey] = emptyItem();
+
+  reconcileHands(equipSlotKey);
+  scheduleSave();
+  updateSlotUI('backpack', backpackIndex);
+  updateSlotUI('equipment', equipSlotKey);
+  updateSlotWarnings();
+  updateCombatValues();
+  refreshOpenSlotEditor();
+  return true;
+}
+
+const CHAR_BACKPACK_DRAG_MIME = 'application/x-gob-char-backpack-index';
+const CHAR_EQUIP_DRAG_MIME = 'application/x-gob-char-equip-slot';
+let draggingBackpackIndex = null;
+let draggingEquipSlotKey = null;
+
+function clearEquipDropHighlights() {
+  document.querySelectorAll('.item-slot[data-group="equipment"]').forEach((btn) => {
+    btn.classList.remove('item-slot--drop-valid', 'item-slot--drop-invalid', 'is-dragover');
+  });
+}
+
+function clearBackpackDropHighlights() {
+  document.querySelectorAll('.item-slot[data-group="backpack"]').forEach((btn) => {
+    btn.classList.remove('item-slot--drop-valid', 'item-slot--drop-invalid', 'is-dragover');
+  });
+}
+
+function clearAllDragHighlights() {
+  clearEquipDropHighlights();
+  clearBackpackDropHighlights();
+}
+
+function highlightEquipDropTargets(backpackIndex) {
+  clearAllDragHighlights();
+  document.querySelectorAll('.item-slot[data-group="equipment"]').forEach((btn) => {
+    const slotKey = btn.dataset.slot;
+    if (!slotSupportsClasses(slotKey)) return;
+    const valid = canEquipBackpackItemToSlot(backpackIndex, slotKey);
+    btn.classList.toggle('item-slot--drop-valid', valid);
+    btn.classList.toggle('item-slot--drop-invalid', !valid);
+  });
+}
+
+function highlightBackpackDropTargets() {
+  clearAllDragHighlights();
+  document.querySelectorAll('.item-slot[data-group="backpack"]').forEach((btn) => {
+    const index = btn.dataset.slot;
+    const empty = isItemEmpty(sheet.backpack[index]);
+    btn.classList.toggle('item-slot--drop-valid', empty);
+    btn.classList.toggle('item-slot--drop-invalid', !empty);
+  });
+}
+
+function canDropItemOn(fromGroup, fromKey, toGroup, toKey) {
+  if (fromGroup === 'backpack' && toGroup === 'equipment') {
+    return canEquipBackpackItemToSlot(fromKey, toKey);
+  }
+  if (fromGroup === 'equipment' && toGroup === 'backpack') {
+    return !isMirrorHandSlot(fromKey) && isItemEmpty(sheet.backpack[toKey]);
+  }
+  return false;
+}
+
+function executeItemMove(fromGroup, fromKey, toGroup, toKey) {
+  if (fromGroup === 'backpack' && toGroup === 'equipment') {
+    return equipFromBackpack(fromKey, toKey);
+  }
+  if (fromGroup === 'equipment' && toGroup === 'backpack') {
+    return moveEquipToBackpack(fromKey, toKey);
+  }
+  return false;
+}
+
+function highlightMoveTargets(fromGroup, fromKey) {
+  if (fromGroup === 'backpack') highlightEquipDropTargets(fromKey);
+  else if (fromGroup === 'equipment') highlightBackpackDropTargets();
+}
+
+function slotCanBeDragSource(group, key) {
+  if (isItemEmpty(getItem(group, key))) return false;
+  if (group === 'equipment' && isMirrorHandSlot(key)) return false;
+  return true;
+}
+
+function slotIsHtmlDraggable(group, key) {
+  if (isTouchRuneMode()) return false;
+  return slotCanBeDragSource(group, key);
+}
+
+function getItemSlotAtPoint(x, y) {
+  const el = document.elementFromPoint(x, y)?.closest('.item-slot');
+  if (!el?.dataset.group) return null;
+  return { group: el.dataset.group, key: el.dataset.slot, el };
+}
+
+function isTouchItemMoveMode() {
+  return isTouchRuneMode();
+}
+
+let itemTouchDrag = null;
+let itemMovePick = null;
+let itemTouchSuppressedClick = false;
+let itemLongPressTimer = null;
+let itemLongPressPicked = false;
+let touchDragHoverEl = null;
+
+function clearItemLongPress() {
+  if (itemLongPressTimer) {
+    clearTimeout(itemLongPressTimer);
+    itemLongPressTimer = null;
+  }
+}
+
+function removeTouchItemGhost() {
+  document.getElementById('item-touch-ghost')?.remove();
+}
+
+function createTouchItemGhost(group, key, x, y) {
+  removeTouchItemGhost();
+  const item = getItem(group, key);
+  const ctx = resolveItemClassContext(group, key);
+  const ghost = document.createElement('div');
+  ghost.id = 'item-touch-ghost';
+  ghost.className = 'item-slot-touch-ghost';
+  ghost.textContent = item.name || ctx?.cls?.label || 'Предмет';
+  ghost.style.left = `${x}px`;
+  ghost.style.top = `${y}px`;
+  document.body.appendChild(ghost);
+}
+
+function moveTouchItemGhost(x, y) {
+  const ghost = document.getElementById('item-touch-ghost');
+  if (!ghost) return;
+  ghost.style.left = `${x}px`;
+  ghost.style.top = `${y}px`;
+}
+
+function updateTouchDragHover(x, y, fromGroup, fromKey) {
+  const target = getItemSlotAtPoint(x, y);
+  const next = target?.el ?? null;
+  if (touchDragHoverEl === next) return;
+  touchDragHoverEl?.classList.remove('is-dragover');
+  touchDragHoverEl = next;
+  if (!next) return;
+  if (canDropItemOn(fromGroup, fromKey, target.group, target.key)) {
+    next.classList.add('is-dragover');
+  }
+}
+
+function cleanupTouchDrag(sourceBtn) {
+  const btn = sourceBtn || itemTouchDrag?.btn;
+  btn?.classList.remove('is-dragging');
+  removeTouchItemGhost();
+  touchDragHoverEl?.classList.remove('is-dragover');
+  touchDragHoverEl = null;
+  clearAllDragHighlights();
+  document.documentElement.classList.remove('gob-item-touch-drag');
+  itemTouchDrag = null;
+}
+
+function clearItemMovePick() {
+  itemMovePick = null;
+  itemLongPressPicked = false;
+  document.querySelectorAll('.item-slot--pick-source').forEach((el) => {
+    el.classList.remove('item-slot--pick-source');
+  });
+  clearAllDragHighlights();
+  document.getElementById('item-move-hint')?.remove();
+}
+
+function showItemMoveHint(text) {
+  let hint = document.getElementById('item-move-hint');
+  if (!hint) {
+    hint = document.createElement('div');
+    hint.id = 'item-move-hint';
+    hint.className = 'item-move-hint';
+    document.body.appendChild(hint);
+  }
+  hint.textContent = text;
+  hint.hidden = false;
+}
+
+function startItemMovePick(group, key) {
+  if (!slotCanBeDragSource(group, key)) return;
+  clearItemMovePick();
+  itemMovePick = { group, key };
+  document.querySelector(`.item-slot[data-group="${group}"][data-slot="${key}"]`)
+    ?.classList.add('item-slot--pick-source');
+  highlightMoveTargets(group, key);
+  showItemMoveHint('Нажмите слот назначения');
+  navigator.vibrate?.(12);
+}
+
+function handleItemMovePickTap(group, key) {
+  if (!itemMovePick) return false;
+  const { group: fromGroup, key: fromKey } = itemMovePick;
+  if (fromGroup === group && String(fromKey) === String(key)) {
+    clearItemMovePick();
+    return true;
+  }
+  if (canDropItemOn(fromGroup, fromKey, group, key)) {
+    executeItemMove(fromGroup, fromKey, group, key);
+    clearItemMovePick();
+    itemTouchSuppressedClick = true;
+    return true;
+  }
+  navigator.vibrate?.([20, 40, 20]);
+  return true;
+}
+
+function handleItemSlotClick(group, key, label) {
+  if (itemTouchSuppressedClick) {
+    itemTouchSuppressedClick = false;
+    return;
+  }
+  if (itemMovePick) {
+    handleItemMovePickTap(group, key);
+    return;
+  }
+  selectSlot(group, key, label);
+}
+
+function bindTouchItemDrop(btn, group, slotKey) {
+  if (!isTouchItemMoveMode()) return;
+
+  btn.addEventListener('pointerup', (e) => {
+    if (!itemMovePick || itemTouchDrag?.active) return;
+    const { group: fromGroup, key: fromKey } = itemMovePick;
+
+    if (fromGroup === group && String(fromKey) === String(slotKey)) {
+      if (itemLongPressPicked) {
+        itemLongPressPicked = false;
+        itemTouchSuppressedClick = true;
+        return;
+      }
+      clearItemMovePick();
+      itemTouchSuppressedClick = true;
+      return;
+    }
+
+    if (!canDropItemOn(fromGroup, fromKey, group, slotKey)) {
+      navigator.vibrate?.([20, 40, 20]);
+      itemTouchSuppressedClick = true;
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    executeItemMove(fromGroup, fromKey, group, slotKey);
+    clearItemMovePick();
+    itemTouchSuppressedClick = true;
+  });
+}
+
+function bindTouchItemMove(btn, group, slotKey, label) {
+  if (!isTouchItemMoveMode()) return;
+
+  btn.addEventListener('pointerdown', (e) => {
+    if (!slotCanBeDragSource(group, slotKey)) return;
+
+    clearItemLongPress();
+    itemTouchDrag = {
+      group,
+      key: slotKey,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      active: false,
+      btn,
+    };
+    try {
+      btn.setPointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    itemLongPressTimer = window.setTimeout(() => {
+      itemLongPressTimer = null;
+      if (itemTouchDrag?.active) return;
+      itemLongPressPicked = true;
+      itemTouchSuppressedClick = true;
+      itemTouchDrag = null;
+      startItemMovePick(group, slotKey);
+    }, 480);
+  }, { passive: true });
+
+  btn.addEventListener('pointermove', (e) => {
+    if (!itemTouchDrag || e.pointerId !== itemTouchDrag.pointerId) return;
+    const dx = e.clientX - itemTouchDrag.startX;
+    const dy = e.clientY - itemTouchDrag.startY;
+    if (!itemTouchDrag.active) {
+      if (Math.hypot(dx, dy) < 10) return;
+      clearItemLongPress();
+      clearItemMovePick();
+      itemTouchDrag.active = true;
+      itemTouchSuppressedClick = true;
+      document.documentElement.classList.add('gob-item-touch-drag');
+      btn.classList.add('is-dragging');
+      createTouchItemGhost(group, slotKey, e.clientX, e.clientY);
+      highlightMoveTargets(group, slotKey);
+    }
+    moveTouchItemGhost(e.clientX, e.clientY);
+    updateTouchDragHover(e.clientX, e.clientY, group, slotKey);
+  });
+
+  const endTouchDrag = (e) => {
+    if (!itemTouchDrag || e.pointerId !== itemTouchDrag.pointerId) return;
+    clearItemLongPress();
+    try {
+      btn.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    if (itemTouchDrag.active) {
+      const target = getItemSlotAtPoint(e.clientX, e.clientY);
+      if (target && canDropItemOn(group, slotKey, target.group, target.key)) {
+        executeItemMove(group, slotKey, target.group, target.key);
+        itemTouchSuppressedClick = true;
+      }
+      cleanupTouchDrag(btn);
+      return;
+    }
+    itemTouchDrag = null;
+  };
+
+  btn.addEventListener('pointerup', endTouchDrag);
+  btn.addEventListener('pointercancel', endTouchDrag);
+}
+
+function bindBackpackSlotDrag(btn, slotKey) {
+  btn.addEventListener('dragstart', (e) => {
+    const item = sheet.backpack[slotKey];
+    if (isItemEmpty(item)) {
+      e.preventDefault();
+      return;
+    }
+    draggingBackpackIndex = slotKey;
+    draggingEquipSlotKey = null;
+    e.dataTransfer.setData(CHAR_BACKPACK_DRAG_MIME, String(slotKey));
+    e.dataTransfer.effectAllowed = 'move';
+    btn.classList.add('is-dragging');
+    highlightEquipDropTargets(slotKey);
+  });
+
+  btn.addEventListener('dragend', () => {
+    btn.classList.remove('is-dragging');
+    draggingBackpackIndex = null;
+    clearAllDragHighlights();
+  });
+}
+
+function bindBackpackSlotDrop(btn, backpackIndex) {
+  btn.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes(CHAR_EQUIP_DRAG_MIME)) return;
+    if (draggingEquipSlotKey == null || isMirrorHandSlot(draggingEquipSlotKey)) return;
+    if (!isItemEmpty(sheet.backpack[backpackIndex])) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    btn.classList.add('is-dragover');
+  });
+
+  btn.addEventListener('dragleave', (e) => {
+    if (!btn.contains(e.relatedTarget)) btn.classList.remove('is-dragover');
+  });
+
+  btn.addEventListener('drop', (e) => {
+    if (!e.dataTransfer.types.includes(CHAR_EQUIP_DRAG_MIME)) return;
+    e.preventDefault();
+    btn.classList.remove('is-dragover');
+    const equipSlotKey = draggingEquipSlotKey;
+    if (equipSlotKey == null) return;
+    moveEquipToBackpack(equipSlotKey, backpackIndex);
+    draggingEquipSlotKey = null;
+    clearAllDragHighlights();
+  });
+}
+
+function bindEquipmentSlotDrag(btn, slotKey) {
+  btn.addEventListener('dragstart', (e) => {
+    const item = sheet.equipment[slotKey];
+    if (isItemEmpty(item) || isMirrorHandSlot(slotKey)) {
+      e.preventDefault();
+      return;
+    }
+    draggingEquipSlotKey = slotKey;
+    draggingBackpackIndex = null;
+    e.dataTransfer.setData(CHAR_EQUIP_DRAG_MIME, String(slotKey));
+    e.dataTransfer.effectAllowed = 'move';
+    btn.classList.add('is-dragging');
+    highlightBackpackDropTargets();
+  });
+
+  btn.addEventListener('dragend', () => {
+    btn.classList.remove('is-dragging');
+    draggingEquipSlotKey = null;
+    clearAllDragHighlights();
+  });
+}
+
+function bindEquipmentSlotDrop(btn, slotKey) {
+  if (!slotSupportsClasses(slotKey)) return;
+
+  btn.addEventListener('dragover', (e) => {
+    if (!e.dataTransfer.types.includes(CHAR_BACKPACK_DRAG_MIME)) return;
+    const backpackIndex = draggingBackpackIndex;
+    if (backpackIndex == null) return;
+    if (!canEquipBackpackItemToSlot(backpackIndex, slotKey)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    btn.classList.add('is-dragover');
+  });
+
+  btn.addEventListener('dragleave', (e) => {
+    if (!btn.contains(e.relatedTarget)) btn.classList.remove('is-dragover');
+  });
+
+  btn.addEventListener('drop', (e) => {
+    if (!e.dataTransfer.types.includes(CHAR_BACKPACK_DRAG_MIME)) return;
+    e.preventDefault();
+    btn.classList.remove('is-dragover');
+    const backpackIndex = draggingBackpackIndex;
+    if (backpackIndex == null) return;
+    equipFromBackpack(backpackIndex, slotKey);
+    draggingBackpackIndex = null;
+    clearAllDragHighlights();
+  });
+}
+
 function paintSlotButton(btn, slotDef, slotKey, group) {
   const item = group === 'backpack' ? sheet.backpack[slotKey] : sheet.equipment[slotKey];
-  const cls = group === 'equipment' ? findItemClass(slotKey, item.classId) : null;
+  const ctx = resolveItemClassContext(group, slotKey);
+  const cls = ctx?.cls ?? null;
+  const tierSlotKey = ctx?.slotKey ?? slotKey;
   const fam = cls ? familyDef(cls.family) : null;
 
   btn.classList.toggle('has-item', Boolean(item.name || cls));
-  btn.classList.toggle('item-slot--warning', Boolean(cls && !meetsTierReq(slotKey, item)));
+  btn.classList.toggle('item-slot--warning', Boolean(cls && !meetsTierReq(tierSlotKey, item)));
   btn.classList.toggle('item-slot--two-handed', Boolean(cls && cls.hands === 2));
 
   const previewText = item.name || (cls ? cls.label : '');
@@ -2261,13 +2772,26 @@ function createSlotButton(slotDef, slotKey, group) {
   btn.dataset.group = group;
   btn.dataset.slot = slotKey;
   paintSlotButton(btn, slotDef, slotKey, group);
-  btn.addEventListener('click', () => selectSlot(group, slotKey, slotDef.label));
+  btn.addEventListener('click', () => handleItemSlotClick(group, slotKey, slotDef.label));
+  bindTouchItemMove(btn, group, slotKey, slotDef.label);
+  bindTouchItemDrop(btn, group, slotKey);
+  if (group === 'backpack') {
+    btn.draggable = slotIsHtmlDraggable(group, slotKey);
+    bindBackpackSlotDrag(btn, slotKey);
+    bindBackpackSlotDrop(btn, slotKey);
+  } else {
+    btn.draggable = slotIsHtmlDraggable(group, slotKey);
+    bindEquipmentSlotDrag(btn, slotKey);
+    bindEquipmentSlotDrop(btn, slotKey);
+  }
   return btn;
 }
 
 function renderEquipment() {
   const grid = document.getElementById('equipment-grid');
   grid.innerHTML = '';
+  clearItemMovePick();
+  cleanupTouchDrag();
 
   EQUIPMENT_SLOTS.forEach(s => grid.appendChild(createSlotButton(s, s.key, 'equipment')));
   EXTRA_SLOTS.forEach(s => grid.appendChild(createSlotButton(s, s.key, 'equipment')));
@@ -2276,6 +2800,8 @@ function renderEquipment() {
 function renderBackpack() {
   const container = document.getElementById('backpack-slots');
   container.innerHTML = '';
+  clearItemMovePick();
+  cleanupTouchDrag();
   for (let i = 0; i < BACKPACK_COUNT; i++) {
     container.appendChild(createSlotButton(
       { label: `Слот ${i + 1}`, icon: '📦' },
@@ -2865,6 +3391,11 @@ function updateSlotUI(group, key) {
     ? { label: `Слот ${Number(key) + 1}`, icon: '📦' }
     : equipSlotDef(key);
   paintSlotButton(btn, slotDef, key, group);
+  if (group === 'backpack') {
+    btn.draggable = slotIsHtmlDraggable(group, key);
+  } else {
+    btn.draggable = slotIsHtmlDraggable(group, key);
+  }
 }
 
 // при изменении характеристик пересматриваем индикацию требований тира
@@ -2906,15 +3437,34 @@ function selectSlot(group, key, label) {
 // ===== Редактор слота: класс / тир / модификаторы =====
 function renderClassSection(group, key) {
   const section = document.getElementById('slot-class-section');
-  if (group !== 'equipment' || !slotSupportsClasses(key)) {
+  const ctx = resolveItemClassContext(group, key);
+  const equipmentClassSlot = group === 'equipment' && slotSupportsClasses(key);
+  const backpackWithClass = group === 'backpack' && ctx;
+
+  if (!equipmentClassSlot && !backpackWithClass) {
     section.hidden = true;
     return;
   }
   section.hidden = false;
-  renderClassPicker(key);
-  renderTierPicker(key);
-  renderModFields(key);
-  renderReqHint(key);
+  if (equipmentClassSlot) renderClassPicker(key);
+  else renderBackpackClassInfo(ctx);
+  renderTierPicker(group, key);
+  renderModFields(group, key);
+  renderReqHint(group, key);
+}
+
+function renderBackpackClassInfo(ctx) {
+  const picker = document.getElementById('slot-class-picker');
+  picker.innerHTML = '';
+  const fam = familyDef(ctx.cls.family);
+  const row = document.createElement('div');
+  row.className = 'slot-class-readonly';
+  const icon = fam?.icon ? `${fam.icon} ` : '';
+  row.textContent = `${icon}${ctx.cls.label}`;
+  if (fam) {
+    row.title = `Семейство: ${fam.label}${ctx.cls.hands ? ` · ${ctx.cls.hands}р` : ''}`;
+  }
+  picker.appendChild(row);
 }
 
 function renderClassPicker(slotKey) {
@@ -2947,9 +3497,9 @@ function renderClassPicker(slotKey) {
   picker.appendChild(select);
 }
 
-function renderTierPicker(slotKey) {
+function renderTierPicker(group, key) {
   const picker = document.getElementById('slot-tier-picker');
-  const item = sheet.equipment[slotKey];
+  const item = getItem(group, key);
   picker.innerHTML = '';
   [1, 2, 3, 4].forEach((tier) => {
     const btn = document.createElement('button');
@@ -2957,17 +3507,18 @@ function renderTierPicker(slotKey) {
     btn.className = `slot-tier-btn${item.tier === tier ? ' selected' : ''}`;
     btn.textContent = `Т${tier}`;
     btn.disabled = !item.classId;
-    btn.addEventListener('click', () => setItemTier(slotKey, tier));
+    btn.addEventListener('click', () => setSlotItemTier(group, key, tier));
     picker.appendChild(btn);
   });
 }
 
-function renderModFields(slotKey) {
+function renderModFields(group, key) {
   const host = document.getElementById('slot-mods');
-  const item = sheet.equipment[slotKey];
+  const item = getItem(group, key);
+  const ctx = resolveItemClassContext(group, key);
   host.innerHTML = '';
-  const cls = findItemClass(slotKey, item.classId);
-  if (!cls) return;
+  if (!ctx) return;
+  const { cls } = ctx;
 
   cls.mods.forEach((modKey) => {
     const def = CATALOG.MODIFIERS[modKey];
@@ -2993,10 +3544,12 @@ function renderModFields(slotKey) {
       if (def.type === 'flag') item.mods[modKey] = input.checked;
       else if (def.type === 'dice') item.mods[modKey] = input.value;
       else item.mods[modKey] = parseInt(input.value, 10) || 0;
-      reconcileHands(slotKey);
+      if (group === 'equipment') {
+        reconcileHands(key);
+        updateCombatValues();
+      }
       scheduleSave();
-      updateSlotUI('equipment', slotKey);
-      updateCombatValues();
+      updateSlotUI(group, key);
     });
   });
 
@@ -3006,25 +3559,28 @@ function renderModFields(slotKey) {
   reset.textContent = 'Сбросить к тиру';
   reset.addEventListener('click', () => {
     item.mods = classDefaults(cls, item.tier);
-    reconcileHands(slotKey);
+    if (group === 'equipment') {
+      reconcileHands(key);
+      updateCombatValues();
+    }
     scheduleSave();
-    renderModFields(slotKey);
-    updateSlotUI('equipment', slotKey);
-    updateCombatValues();
+    renderModFields(group, key);
+    updateSlotUI(group, key);
   });
   host.appendChild(reset);
 }
 
-function renderReqHint(slotKey) {
+function renderReqHint(group, key) {
   const hint = document.getElementById('slot-req-hint');
-  const item = sheet.equipment[slotKey];
-  const cls = findItemClass(slotKey, item.classId);
-  if (!cls) { hint.hidden = true; return; }
+  const item = getItem(group, key);
+  const ctx = resolveItemClassContext(group, key);
+  if (!ctx) { hint.hidden = true; return; }
+  const { slotKey, cls } = ctx;
   const fam = familyDef(cls.family);
   const need = tierThreshold(item.tier);
   const have = sheet.stats[fam.stat] || 0;
   hint.hidden = false;
-  hint.classList.toggle('slot-req-hint--warn', have < need);
+  hint.classList.toggle('slot-req-hint--warn', !meetsTierReq(slotKey, item));
   hint.textContent = `Требуется ${statLabel(fam.stat)} ≥ ${need} (есть ${have})`;
 }
 
@@ -3062,15 +3618,21 @@ function setItemClass(slotKey, classId) {
 }
 
 function setItemTier(slotKey, tier) {
-  const item = sheet.equipment[slotKey];
+  setSlotItemTier('equipment', slotKey, tier);
+}
+
+function setSlotItemTier(group, key, tier) {
+  const item = getItem(group, key);
   if (!item.classId || item.tier === tier) return;
+  const ctx = resolveItemClassContext(group, key);
+  if (!ctx) return;
   item.tier = tier;
-  item.mods = classDefaults(findItemClass(slotKey, item.classId), tier);
-  reconcileHands(slotKey);
+  item.mods = classDefaults(ctx.cls, tier);
+  if (group === 'equipment') reconcileHands(key);
   scheduleSave();
-  renderClassSection('equipment', slotKey);
-  updateSlotUI('equipment', slotKey);
-  updateCombatValues();
+  renderClassSection(group, key);
+  updateSlotUI(group, key);
+  if (group === 'equipment') updateCombatValues();
 }
 
 function closeSlotEditor() {
@@ -4188,6 +4750,14 @@ async function init(char) {
   if (typeof GobInvites !== 'undefined') {
     GobInvites.bind(char.id);
   }
+
+  window.addEventListener('gob-sheet-refresh', async () => {
+    if (!char?.isUser || !catalogChar) return;
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    sheet = await loadSheetAsync(catalogChar);
+    renderBackpack();
+  });
 
   const groupDock = document.getElementById('group-dock-btn');
   if (groupDock && id) {

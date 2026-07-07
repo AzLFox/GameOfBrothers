@@ -113,12 +113,13 @@ const GobGroup = (() => {
           const data = await res.json();
           return normalizeGroup(data);
         }
+        if (res.status === 404) return null;
       } catch {
         /* fall through */
       }
     }
     const local = loadLocalGroups(charId).find((g) => g.id === groupId);
-    return local ? { ...normalizeGroup(local), isOwner: true } : defaultGroup();
+    return local ? { ...normalizeGroup(local), isOwner: true } : null;
   }
 
   async function createGroup(name, leaderCharId) {
@@ -189,6 +190,7 @@ const GobGroup = (() => {
     }
 
     let group = await loadGroup(groupId, leaderCharId);
+    if (!group) return { ok: false, error: 'missing' };
     group = await ensureLeaderInGroup(group, leaderCharId);
     if (group.members.some((m) => m.charId === entry.charId)) {
       return { ok: false, error: 'exists' };
@@ -254,6 +256,14 @@ const GobGroup = (() => {
         );
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
+          if (data.deleted) {
+            return {
+              ok: true,
+              deleted: true,
+              groupId,
+              removedSelf: charId === viewerCharId,
+            };
+          }
           return { ok: true, group: normalizeGroup(data), removedSelf: charId === viewerCharId };
         }
         if (res.status !== 404) {
@@ -272,8 +282,12 @@ const GobGroup = (() => {
       ...group,
       members: group.members.filter((m) => m.charId !== charId),
     };
-    if (!next.members.length) groups.splice(idx, 1);
-    else groups[idx] = next;
+    if (!next.members.length) {
+      groups.splice(idx, 1);
+      saveLocalGroups(viewerCharId, groups);
+      return { ok: true, deleted: true, groupId, removedSelf: charId === viewerCharId };
+    }
+    groups[idx] = next;
     saveLocalGroups(viewerCharId, groups);
     return { ok: true, group: next, removedSelf: charId === viewerCharId };
   }

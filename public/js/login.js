@@ -65,8 +65,12 @@ document.addEventListener('DOMContentLoaded', () => {
     submitBtn.disabled = true;
 
     try {
-      await GobAuth.login(usernameInput.value.trim(), passwordInput.value);
-      GobMotion.navigateTo(GobAuth.getReturnUrl());
+      const user = await GobAuth.login(usernameInput.value.trim(), passwordInput.value);
+      let dest = GobAuth.getReturnUrl();
+      if (user?.role === 'gamemaster' && dest === '/') {
+        dest = '/gm';
+      }
+      GobMotion.navigateTo(dest);
     } catch (err) {
       errorEl.textContent = err.message || 'Не удалось войти';
       errorEl.hidden = false;
