@@ -185,6 +185,14 @@
         </div>
         <div class="quests-list" id="quests-list" aria-live="polite"></div>
         <p class="quests-empty" id="quests-empty">Нет активных заданий</p>
+        <section class="quests-turned" id="quests-turned" hidden>
+          <button type="button" class="quests-turned__toggle" id="quests-turned-toggle" aria-expanded="false" aria-controls="quests-turned-list">
+            <span class="quests-turned__arrow" aria-hidden="true">▸</span>
+            <span class="quests-turned__title" id="quests-turned-title">Сданные задания (0)</span>
+          </button>
+          <div class="quests-list quests-list--turned" id="quests-turned-list" hidden></div>
+          <p class="quests-empty quests-empty--turned" id="quests-turned-empty" hidden>Нет сданных заданий</p>
+        </section>
       </section>
 
       <section class="lore-panel panel">

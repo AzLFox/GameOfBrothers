@@ -1151,6 +1151,7 @@ function migrateQuests(data) {
         conditions: typeof q.conditions === 'string' ? q.conditions : '',
         status,
         order,
+        collapsed: Boolean(q.collapsed),
       };
     });
 }
@@ -2041,6 +2042,7 @@ function bindEffects() {
 }
 
 let questEdit = null;
+let turnedQuestsExpanded = false;
 
 const QUEST_STATUS_RANK = { completed: 0, active: 1, turned_in: 2 };
 
@@ -2087,6 +2089,7 @@ function renderQuestCard(quest) {
   const card = document.createElement('article');
   card.className = 'quest-card';
   card.dataset.id = quest.id;
+  if (quest.collapsed) card.classList.add('is-collapsed');
   if (quest.status === 'completed') card.classList.add('quest-card--completed');
   if (quest.status === 'turned_in') card.classList.add('quest-card--turned-in');
 
@@ -2119,6 +2122,18 @@ function renderQuestCard(quest) {
   titleWrap.append(scrollMark, title);
   header.appendChild(titleWrap);
 
+  const detailsToggle = document.createElement('button');
+  detailsToggle.type = 'button';
+  detailsToggle.className = 'quest-card__details-toggle';
+  detailsToggle.setAttribute('aria-label', 'Свернуть/развернуть детали');
+  detailsToggle.setAttribute('aria-expanded', String(!quest.collapsed));
+  detailsToggle.innerHTML = '<span aria-hidden="true">▾</span>';
+  detailsToggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleQuestCollapsed(quest.id);
+  });
+  header.appendChild(detailsToggle);
+
   if (quest.status === 'completed') {
     const badge = document.createElement('span');
     badge.className = 'quest-card__badge quest-card__badge--turn-in';
@@ -2127,6 +2142,9 @@ function renderQuestCard(quest) {
   }
 
   inner.append(accent, glow, header);
+
+  const details = document.createElement('div');
+  details.className = 'quest-card__details';
 
   if (quest.location.trim()) {
     const origin = document.createElement('div');
@@ -2149,7 +2167,7 @@ function renderQuestCard(quest) {
 
     body.append(lbl, place);
     origin.append(pin, body);
-    inner.appendChild(origin);
+    details.appendChild(origin);
   }
 
   const meta = document.createElement('div');
@@ -2176,7 +2194,7 @@ function renderQuestCard(quest) {
     meta.appendChild(reward);
   }
 
-  if (meta.childElementCount) inner.appendChild(meta);
+  if (meta.childElementCount) details.appendChild(meta);
 
   const actions = document.createElement('footer');
   actions.className = 'quest-card__actions';
@@ -2207,7 +2225,8 @@ function renderQuestCard(quest) {
     actions.append(mkBtn('Забыть', 'quest-action-btn--forget', () => forgetQuest(quest.id)));
   }
 
-  inner.appendChild(actions);
+  details.appendChild(actions);
+  inner.appendChild(details);
   card.appendChild(inner);
 
   card.addEventListener('click', (e) => {
@@ -2221,13 +2240,44 @@ function renderQuestCard(quest) {
 function renderQuests() {
   const list = document.getElementById('quests-list');
   const empty = document.getElementById('quests-empty');
+  const turnedWrap = document.getElementById('quests-turned');
+  const turnedList = document.getElementById('quests-turned-list');
+  const turnedTitle = document.getElementById('quests-turned-title');
+  const turnedToggle = document.getElementById('quests-turned-toggle');
+  const turnedEmpty = document.getElementById('quests-turned-empty');
   if (!list) return;
 
   list.innerHTML = '';
-  const quests = sortedQuests();
-  quests.forEach((q) => list.appendChild(renderQuestCard(q)));
+  if (turnedList) turnedList.innerHTML = '';
 
-  if (empty) empty.hidden = quests.length > 0;
+  const quests = sortedQuests();
+  const activeQuests = quests.filter((q) => q.status !== 'turned_in');
+  const turnedQuests = quests.filter((q) => q.status === 'turned_in');
+
+  activeQuests.forEach((q) => list.appendChild(renderQuestCard(q)));
+  turnedQuests.forEach((q) => turnedList?.appendChild(renderQuestCard(q)));
+
+  if (empty) empty.hidden = activeQuests.length > 0;
+  if (turnedWrap) turnedWrap.hidden = turnedQuests.length === 0;
+  if (turnedTitle) turnedTitle.textContent = `Сданные задания (${turnedQuests.length})`;
+  if (turnedToggle) turnedToggle.setAttribute('aria-expanded', String(turnedQuestsExpanded));
+  if (turnedList) turnedList.hidden = !turnedQuestsExpanded;
+  if (turnedEmpty) turnedEmpty.hidden = turnedQuests.length > 0 || !turnedQuestsExpanded;
+}
+
+function toggleQuestCollapsed(id) {
+  const idx = (sheet.quests ?? []).findIndex((q) => q.id === id);
+  if (idx < 0) return;
+  const current = sheet.quests[idx];
+  sheet.quests[idx] = { ...current, collapsed: !current.collapsed };
+  scheduleSave();
+  renderQuests();
+}
+
+function toggleTurnedQuests(expanded) {
+  turnedQuestsExpanded = expanded;
+  localStorage.setItem('gob-quests-turned-expanded', expanded ? '1' : '0');
+  renderQuests();
 }
 
 function updateQuest(id, patch) {
@@ -2330,6 +2380,7 @@ function saveQuestFromModal() {
     conditions,
     status,
     order: existing?.order ?? Date.now(),
+    collapsed: existing?.collapsed ?? false,
   };
 
   const list = [...(sheet.quests ?? [])];
@@ -2350,6 +2401,9 @@ function bindQuests() {
   const form = document.getElementById('quest-form');
   const closeBtn = document.getElementById('quest-modal-close');
   const cancelBtn = document.getElementById('quest-cancel');
+  const turnedToggle = document.getElementById('quests-turned-toggle');
+
+  turnedQuestsExpanded = localStorage.getItem('gob-quests-turned-expanded') === '1';
 
   form?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -2358,6 +2412,7 @@ function bindQuests() {
 
   closeBtn?.addEventListener('click', closeQuestModal);
   cancelBtn?.addEventListener('click', closeQuestModal);
+  turnedToggle?.addEventListener('click', () => toggleTurnedQuests(!turnedQuestsExpanded));
   modal?.addEventListener('click', (e) => {
     if (e.target === modal) closeQuestModal();
   });

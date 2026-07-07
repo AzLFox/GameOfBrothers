@@ -2744,6 +2744,14 @@ html.gob-tier-low .stat-tier-frame {
   gap: 14px;
 }
 
+.quests-list[hidden] {
+  display: none;
+}
+
+.quests-list--turned {
+  margin-top: 10px;
+}
+
 .quests-empty {
   margin: 0;
   padding: 20px 12px;
@@ -2756,6 +2764,43 @@ html.gob-tier-low .stat-tier-frame {
 
 .quests-empty[hidden] {
   display: none;
+}
+
+.quests-turned {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(122, 90, 40, 0.28);
+}
+
+.quests-turned__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(122, 90, 40, 0.35);
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(122, 90, 40, 0.1), rgba(122, 90, 40, 0.04));
+  color: var(--ink);
+  font-family: "Cinzel", serif;
+  font-size: 0.7rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.quests-turned__arrow {
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: transform 0.18s ease;
+}
+
+.quests-turned__toggle[aria-expanded="true"] .quests-turned__arrow {
+  transform: rotate(90deg);
+}
+
+.quests-empty--turned {
+  margin-top: 8px;
 }
 
 .quest-card {
@@ -2887,6 +2932,35 @@ html.gob-tier-low .stat-tier-frame {
   gap: 8px 10px;
   margin-bottom: 12px;
   padding-right: 4px;
+}
+
+.quest-card__details-toggle {
+  margin-left: auto;
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(122, 90, 40, 0.35);
+  border-radius: 50%;
+  background: rgba(255, 252, 245, 0.55);
+  color: var(--gold-dark);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.quest-card__details-toggle span {
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+.quest-card.is-collapsed .quest-card__details-toggle span {
+  transform: rotate(-90deg);
+}
+
+.quest-card__details {
+  display: block;
+}
+
+.quest-card.is-collapsed .quest-card__details {
+  display: none;
 }
 
 .quest-card__title-wrap {
