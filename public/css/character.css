@@ -3490,7 +3490,7 @@ html.gob-tier-low .stat-tier-frame {
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  overflow: hidden;
+  overflow: visible;
   max-height: 420px;
   transform-origin: center bottom;
   transition:
@@ -3501,6 +3501,7 @@ html.gob-tier-low .stat-tier-frame {
 }
 
 .char-float-dock.is-collapsed .char-float-dock__items {
+  overflow: hidden;
   max-height: 0;
   opacity: 0;
   transform: translateY(8px) scale(0.96);
