@@ -483,9 +483,7 @@ showCarouselSkeleton();
 
 function refreshCarousel() {
   showCarouselSkeleton();
-  const loader = typeof loadCarouselCharacters === 'function'
-    ? loadCarouselCharacters()
-    : loadAllCharacters().then((list) => ({ type: 'characters', list }));
+  const loader = loadCarouselCharacters();
   return loader
     .then((result) => {
       if (result?.type === 'guest-placeholders') {

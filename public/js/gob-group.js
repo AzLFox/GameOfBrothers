@@ -45,6 +45,7 @@ const GobGroup = (() => {
           revealed: m.revealed === true,
         })),
       createdAt: data?.createdAt || '',
+      isOwner: data?.isOwner === true,
     };
   }
 
@@ -108,13 +109,16 @@ const GobGroup = (() => {
       try {
         const query = charId ? `?charId=${encodeURIComponent(charId)}` : '';
         const res = await apiFetch(`/api/me/groups/${encodeURIComponent(groupId)}${query}`);
-        if (res.ok) return normalizeGroup(await res.json());
+        if (res.ok) {
+          const data = await res.json();
+          return normalizeGroup(data);
+        }
       } catch {
         /* fall through */
       }
     }
     const local = loadLocalGroups(charId).find((g) => g.id === groupId);
-    return local ? normalizeGroup(local) : defaultGroup();
+    return local ? { ...normalizeGroup(local), isOwner: true } : defaultGroup();
   }
 
   async function createGroup(name, leaderCharId) {
@@ -145,7 +149,7 @@ const GobGroup = (() => {
     if (!char?.id) return null;
     const portrait = typeof GobCharacters !== 'undefined' && GobCharacters.getPortraitUrl
       ? GobCharacters.getPortraitUrl(char)
-      : (char.portrait || `/characters/${char.id}.jpg`);
+      : (char.portrait || '/img/char-placeholder.png');
     const displayName = typeof GobCharacters !== 'undefined' && GobCharacters.getDisplayName
       ? GobCharacters.getDisplayName(char)
       : (char.name || 'Без имени');
@@ -157,7 +161,7 @@ const GobGroup = (() => {
       accountId: account?.id ? String(account.id) : '',
       accountName: account?.username ? String(account.username) : '',
       addedAt: new Date().toISOString(),
-      revealed: !String(char.id).startsWith('u_'),
+      revealed: false,
     };
   }
 
@@ -202,10 +206,6 @@ const GobGroup = (() => {
     if (!groupId || !char?.id) return { ok: false, error: 'invalid' };
     if (fromCharId && char.id === fromCharId) {
       return { ok: false, error: 'self' };
-    }
-
-    if (!String(char.id).startsWith('u_')) {
-      return addMember(groupId, char, account, fromCharId);
     }
 
     if (!(await ensureAuthState())) {

@@ -295,6 +295,57 @@ const EXTRA_SLOTS = [
   { key: 'pet', label: 'Питомец', icon: '🐾' },
 ];
 
+const RACE_PRESETS = [
+  'Люди',
+  'Орки',
+  'Эльфы',
+  'Гномы',
+  'Наги',
+  'Дриады',
+  'Звери',
+  'Насекомые',
+  'Демоны',
+];
+
+const FACTION_PRESETS = [
+  'Разбойники',
+  'Стражники',
+  'Странники',
+  'Святые',
+  'Нежить',
+  'Механизмы',
+  'Вампиры',
+];
+
+function fillIdentityDatalist(listId, options) {
+  const list = document.getElementById(listId);
+  if (!list) return;
+  list.innerHTML = options
+    .map((value) => `<option value="${escapeHtml(value)}"></option>`)
+    .join('');
+}
+
+function isIdentityNativeMode() {
+  return typeof GobMobile !== 'undefined' && GobMobile.isMobile();
+}
+
+function parseLegacyIdentity(description) {
+  const text = String(description ?? '');
+  const raceMatch = text.match(/Раса:\s*([^|]+)/i);
+  const factionMatch = text.match(/Группировка:\s*([^|]+)/i);
+  return {
+    race: raceMatch ? raceMatch[1].trim() : '',
+    faction: factionMatch ? factionMatch[1].trim() : '',
+  };
+}
+
+function migrateIdentity(data) {
+  const race = typeof data.race === 'string' ? data.race.trim() : '';
+  const faction = typeof data.faction === 'string' ? data.faction.trim() : '';
+  if (race || faction) return { race, faction };
+  return parseLegacyIdentity(data.description);
+}
+
 // ===== Каталог снаряжения (классы внутри слотов + модификаторы) =====
 const CATALOG = window.ItemCatalog || {
   TIER_REQ: {}, FAMILIES: {}, MODIFIERS: {}, REDUCTION_MODS: [], PLAIN_MODS: [], SLOT_CLASSES: {},
@@ -1174,6 +1225,8 @@ function defaultSheet(char) {
   return {
     name: char.name || '',
     description: char.description || '',
+    race: '',
+    faction: '',
     lore: char.lore || '',
     buffs: [],
     debuffs: [],
@@ -1198,6 +1251,7 @@ function defaultSheet(char) {
     backpack: Array.from({ length: BACKPACK_COUNT }, () => emptyItem()),
     wealth: { gold: 0, silver: 0, bronze: 0 },
     coinPile: [],
+    satiety: 0,
   };
 }
 
@@ -1304,9 +1358,12 @@ function loadSheet(char) {
     if (!saved) return base;
     const data = JSON.parse(saved);
     const stats = { ...base.stats, ...data.stats };
+    const identity = migrateIdentity(data);
     return {
       ...base,
       ...data,
+      race: identity.race,
+      faction: identity.faction,
       stats,
       combat: migrateCombat(data, stats),
       statClass: migrateStatClass(data, base),
@@ -1351,9 +1408,12 @@ async function loadSheetAsync(char) {
   if (!data) return base;
 
   const stats = { ...base.stats, ...data.stats };
+  const identity = migrateIdentity(data);
   return {
     ...base,
     ...data,
+    race: identity.race,
+    faction: identity.faction,
     stats,
     combat: migrateCombat(data, stats),
     statClass: migrateStatClass(data, base),
@@ -1430,6 +1490,364 @@ function bindField(el, path, onChange) {
   el.addEventListener('input', () => set(el.value));
 }
 
+function bindIdentityCombo(input, listEl, datalistId, options, path) {
+  const root = input.closest('.identity-combo');
+  const toggle = root?.querySelector('.identity-combo__toggle');
+  let highlight = -1;
+  let suppressBlurClose = false;
+
+  const get = () => {
+    const parts = path.split('.');
+    let v = sheet;
+    for (const p of parts) v = v[p];
+    return v ?? '';
+  };
+
+  const set = (val) => {
+    const parts = path.split('.');
+    let obj = sheet;
+    for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+    obj[parts[parts.length - 1]] = val;
+    scheduleSave();
+  };
+
+  function filtered(query) {
+    const q = String(query ?? '').trim().toLowerCase();
+    if (!q) return [...options];
+    return options.filter((item) => item.toLowerCase().includes(q));
+  }
+
+  function updateHighlight() {
+    listEl.querySelectorAll('.identity-combo__option').forEach((el, i) => {
+      el.classList.toggle('is-highlighted', i === highlight);
+      if (i === highlight) el.scrollIntoView({ block: 'nearest' });
+    });
+  }
+
+  function closeList() {
+    listEl.hidden = true;
+    root?.classList.remove('is-open');
+    if (!isIdentityNativeMode()) {
+      input.setAttribute('aria-expanded', 'false');
+    }
+    highlight = -1;
+  }
+
+  function openList() {
+    if (isIdentityNativeMode()) return;
+    if (listEl.hidden) {
+      listEl.hidden = false;
+      root?.classList.add('is-open');
+      input.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  function renderList(items) {
+    if (isIdentityNativeMode()) return;
+
+    const current = String(input.value ?? '').trim();
+    listEl.innerHTML = '';
+
+    if (!items.length) {
+      const empty = document.createElement('li');
+      empty.className = 'identity-combo__empty';
+      empty.textContent = 'Нет совпадений — можно ввести своё';
+      listEl.appendChild(empty);
+      openList();
+      highlight = -1;
+      return;
+    }
+
+    items.forEach((item) => {
+      const li = document.createElement('li');
+      li.className = 'identity-combo__option';
+      li.role = 'option';
+      li.textContent = item;
+      if (item === current) li.classList.add('is-selected');
+      li.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        suppressBlurClose = true;
+      });
+      li.addEventListener('click', () => {
+        input.value = item;
+        set(item);
+        closeList();
+        suppressBlurClose = false;
+      });
+      listEl.appendChild(li);
+    });
+
+    openList();
+    highlight = -1;
+  }
+
+  function refreshList() {
+    if (isIdentityNativeMode()) return;
+    renderList(filtered(input.value));
+  }
+
+  function syncInputMode() {
+    if (isIdentityNativeMode()) {
+      fillIdentityDatalist(datalistId, options);
+      input.setAttribute('list', datalistId);
+      input.removeAttribute('role');
+      input.removeAttribute('aria-expanded');
+      input.removeAttribute('aria-controls');
+      input.removeAttribute('aria-autocomplete');
+      closeList();
+      return;
+    }
+
+    input.removeAttribute('list');
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-expanded', 'false');
+    if (listEl.id) input.setAttribute('aria-controls', listEl.id);
+    input.setAttribute('aria-autocomplete', 'list');
+  }
+
+  input.value = get();
+  syncInputMode();
+
+  input.addEventListener('input', () => {
+    set(input.value);
+    refreshList();
+  });
+
+  input.addEventListener('focus', refreshList);
+
+  input.addEventListener('blur', () => {
+    if (isIdentityNativeMode()) return;
+    if (suppressBlurClose) {
+      suppressBlurClose = false;
+      return;
+    }
+    setTimeout(closeList, 120);
+  });
+
+  input.addEventListener('keydown', (e) => {
+    if (isIdentityNativeMode()) return;
+
+    const items = listEl.querySelectorAll('.identity-combo__option');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (listEl.hidden) refreshList();
+      if (!items.length) return;
+      highlight = Math.min(highlight + 1, items.length - 1);
+      updateHighlight();
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (listEl.hidden) refreshList();
+      if (!items.length) return;
+      highlight = Math.max(highlight - 1, 0);
+      updateHighlight();
+      return;
+    }
+    if (e.key === 'Enter' && !listEl.hidden && highlight >= 0 && items[highlight]) {
+      e.preventDefault();
+      const value = items[highlight].textContent;
+      input.value = value;
+      set(value);
+      closeList();
+      return;
+    }
+    if (e.key === 'Escape') {
+      closeList();
+    }
+  });
+
+  toggle?.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    suppressBlurClose = true;
+  });
+
+  toggle?.addEventListener('click', () => {
+    if (isIdentityNativeMode()) return;
+    if (listEl.hidden) {
+      input.focus();
+      refreshList();
+    } else {
+      closeList();
+    }
+    suppressBlurClose = false;
+  });
+
+  document.addEventListener('mousedown', (e) => {
+    if (isIdentityNativeMode()) return;
+    if (!root?.contains(e.target)) closeList();
+  });
+
+  window.addEventListener('gobmobilechange', syncInputMode);
+}
+
+function satietyCap() {
+  return (parseInt(sheet.stats?.str, 10) || 0) + (parseInt(sheet.stats?.end, 10) || 0);
+}
+
+function parseSatietyInput(raw) {
+  const text = String(raw ?? '').trim();
+  if (!text || text === '-') return 0;
+  const n = parseInt(text, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatSatietyValue(value) {
+  if (value > 0) return `+${value}`;
+  return String(value);
+}
+
+function satietyDigestMessage(value) {
+  const damage = Math.abs(value);
+  return `В скором времени ты начнёшь переваривать самого себя и получишь урон = ${damage}.`;
+}
+
+function renderSatietyTicks(cap) {
+  const host = document.getElementById('satiety-ticks');
+  if (!host) return;
+
+  const scaleCap = Math.max(cap, 1);
+  const ticks = [];
+  for (let i = 0; i <= cap; i += 1) {
+    const tick = document.createElement('span');
+    tick.className = `satiety-bar__tick${i === cap ? ' satiety-bar__tick--cap' : ''}`;
+    tick.style.left = `${(i / scaleCap) * 100}%`;
+    ticks.push(tick);
+  }
+
+  host.replaceChildren(...ticks);
+}
+
+function setSatietyValue(next) {
+  sheet.satiety = parseInt(next, 10) || 0;
+  scheduleSave();
+  updateSatietyBar();
+}
+
+function updateSatietyBar() {
+  const block = document.getElementById('satiety-block');
+  const input = document.getElementById('satiety-value');
+  const capEl = document.getElementById('satiety-cap');
+  const fill = document.getElementById('satiety-fill');
+  const overflowWrap = document.getElementById('satiety-overflow-wrap');
+  const overflowEl = document.getElementById('satiety-overflow');
+  const warningWrap = document.getElementById('satiety-warning-wrap');
+  const warningEl = document.getElementById('satiety-warning');
+  const hintEl = document.getElementById('satiety-hint');
+  const barWrap = document.getElementById('satiety-bar-wrap');
+  if (!block || !input || !capEl || !fill) return;
+
+  const cap = satietyCap();
+  const value = parseInt(sheet.satiety, 10) || 0;
+  const scaleCap = Math.max(cap, 1);
+  const magnitude = value > 0 ? value : value < 0 ? -value : 0;
+
+  if (document.activeElement !== input) {
+    input.value = formatSatietyValue(value);
+  }
+  capEl.textContent = String(cap);
+  renderSatietyTicks(cap);
+
+  const fillPct = (Math.min(magnitude, cap) / scaleCap) * 100;
+  fill.style.width = `${fillPct}%`;
+  fill.classList.toggle('satiety-bar__fill--pos', value > 0);
+  fill.classList.toggle('satiety-bar__fill--neg', value < 0);
+
+  const overPos = value > cap ? value - cap : 0;
+  const overNeg = value < -cap ? Math.abs(value + cap) : 0;
+  const isOverfed = overPos > 0;
+  const isStarved = overNeg > 0;
+  const isNegative = value < 0;
+
+  block.classList.toggle('is-overfed', isOverfed);
+  block.classList.toggle('is-starved', isStarved);
+  block.classList.toggle('is-starving', isNegative);
+
+  if (warningWrap && warningEl) {
+    if (isNegative) {
+      warningWrap.hidden = false;
+      const message = satietyDigestMessage(value);
+      warningEl.title = message;
+      warningEl.setAttribute('aria-label', message);
+    } else {
+      warningWrap.hidden = true;
+      warningEl.title = '';
+      warningEl.setAttribute('aria-label', 'Опасность истощения');
+    }
+  }
+
+  if (overflowWrap && overflowEl) {
+    if (isOverfed) {
+      overflowWrap.hidden = false;
+      overflowEl.textContent = `+${overPos}`;
+      overflowEl.title = 'Превышение сытости';
+    } else if (isStarved) {
+      overflowWrap.hidden = false;
+      overflowEl.textContent = `−${overNeg}`;
+      overflowEl.title = 'Превышение истощения';
+    } else {
+      overflowWrap.hidden = true;
+      overflowEl.textContent = '0';
+    }
+  }
+
+  if (hintEl) {
+    const hints = [];
+    if (isNegative) hints.push(satietyDigestMessage(value));
+    if (isOverfed) hints.push('Ты объелся');
+    if (isStarved) hints.push('Ужасно истощён');
+    if (hints.length) {
+      hintEl.hidden = false;
+      hintEl.textContent = hints.join(' ');
+    } else {
+      hintEl.hidden = true;
+      hintEl.textContent = '';
+    }
+  }
+
+  if (barWrap) {
+    const parts = [`Сытость: ${formatSatietyValue(value)}`, `Кап: ${cap}`];
+    if (isNegative) parts.push(satietyDigestMessage(value));
+    if (isOverfed) parts.push('Ты объелся');
+    if (isStarved) parts.push('Ужасно истощён');
+    barWrap.title = parts.join(' · ');
+  }
+}
+
+let satietyBound = false;
+
+function bindSatiety() {
+  if (satietyBound) return;
+  const input = document.getElementById('satiety-value');
+  const minusBtn = document.getElementById('satiety-minus');
+  const plusBtn = document.getElementById('satiety-plus');
+  if (!input) return;
+  satietyBound = true;
+
+  minusBtn?.addEventListener('click', () => {
+    setSatietyValue((parseInt(sheet.satiety, 10) || 0) - 1);
+  });
+
+  plusBtn?.addEventListener('click', () => {
+    setSatietyValue((parseInt(sheet.satiety, 10) || 0) + 1);
+  });
+
+  input.addEventListener('input', () => {
+    const cleaned = input.value.replace(/[^\d-]/g, '');
+    if (cleaned !== input.value) input.value = cleaned;
+    sheet.satiety = parseSatietyInput(input.value);
+    scheduleSave();
+    updateSatietyBar();
+  });
+
+  input.addEventListener('blur', () => {
+    sheet.satiety = parseSatietyInput(input.value);
+    input.value = formatSatietyValue(sheet.satiety);
+    scheduleSave();
+    updateSatietyBar();
+  });
+}
+
 function renderStats() {
   const grid = document.getElementById('stats-grid');
   grid.innerHTML = '';
@@ -1452,6 +1870,7 @@ function renderStats() {
       applyStatCritical(key);
       updateCombatValues();
       updateSlotWarnings();
+      if (key === 'str' || key === 'end') updateSatietyBar();
       if (selectedSlot?.group === 'equipment' && slotSupportsClasses(selectedSlot.key)) {
         renderReqHint(selectedSlot.key);
       }
@@ -1462,6 +1881,7 @@ function renderStats() {
     bindCombatHint(cell, () => statTooltipHtml(key));
     grid.appendChild(slot);
   });
+  updateSatietyBar();
 }
 
 function updateStatTierFrame(cell, tier) {
@@ -2013,6 +2433,13 @@ function saveEffectFromModal() {
   closeEffectModal();
 }
 
+function bindDialogBackdropDismiss(dialog, onClose) {
+  if (!dialog) return;
+  dialog.addEventListener('mousedown', (e) => {
+    if (e.target === dialog) onClose();
+  });
+}
+
 function bindEffects() {
   document.getElementById('btn-add-buff')?.addEventListener('click', () => openEffectModal('buff'));
   document.getElementById('btn-add-debuff')?.addEventListener('click', () => openEffectModal('debuff'));
@@ -2030,9 +2457,7 @@ function bindEffects() {
 
   closeBtn?.addEventListener('click', closeEffectModal);
   cancelBtn?.addEventListener('click', closeEffectModal);
-  modal?.addEventListener('click', (e) => {
-    if (e.target === modal) closeEffectModal();
-  });
+  bindDialogBackdropDismiss(modal, closeEffectModal);
 
   removeBtn?.addEventListener('click', () => {
     if (!effectEdit?.id) return;
@@ -2222,7 +2647,10 @@ function renderQuestCard(quest) {
       mkBtn('Отменить', 'quest-action-btn--cancel', () => cancelQuestComplete(quest.id)),
     );
   } else if (quest.status === 'turned_in') {
-    actions.append(mkBtn('Забыть', 'quest-action-btn--forget', () => forgetQuest(quest.id)));
+    actions.append(
+      mkBtn('Вернуть', 'quest-action-btn--cancel', () => revertTurnInQuest(quest.id)),
+      mkBtn('Забыть', 'quest-action-btn--forget', () => forgetQuest(quest.id)),
+    );
   }
 
   details.appendChild(actions);
@@ -2306,6 +2734,12 @@ function turnInQuest(id) {
   updateQuest(id, { status: 'turned_in' });
 }
 
+function revertTurnInQuest(id) {
+  const q = findQuest(id);
+  if (!q || q.status !== 'turned_in') return;
+  updateQuest(id, { status: 'completed' });
+}
+
 function forgetQuest(id) {
   const q = findQuest(id);
   if (!q || q.status === 'completed') return;
@@ -2320,23 +2754,23 @@ function openQuestModal(id = null) {
   const statusRow = document.getElementById('quest-status-row');
   const completedCheck = document.getElementById('quest-completed-check');
 
-  questEdit = id;
+  const editId = id || null;
+  questEdit = editId;
 
-  const existing = id ? findQuest(id) : null;
+  const existing = editId ? findQuest(editId) : null;
+  const isNew = !existing;
 
-  title.textContent = existing ? 'Редактировать задание' : 'Новое задание';
+  title.textContent = isNew ? 'Новое задание' : 'Редактировать задание';
   document.getElementById('quest-from').value = existing?.from ?? '';
   document.getElementById('quest-summary').value = existing?.summary ?? '';
   document.getElementById('quest-location').value = existing?.location ?? '';
   document.getElementById('quest-reward').value = existing?.reward ?? '';
   document.getElementById('quest-conditions').value = existing?.conditions ?? '';
 
-  const canToggleComplete = existing && existing.status !== 'turned_in';
+  const canToggleComplete = !isNew && existing.status !== 'turned_in';
   statusRow.hidden = !canToggleComplete;
-  if (canToggleComplete) {
-    completedCheck.checked = existing.status === 'completed';
-    completedCheck.disabled = false;
-  }
+  completedCheck.checked = canToggleComplete && existing.status === 'completed';
+  completedCheck.disabled = !canToggleComplete;
 
   modal.showModal();
   requestAnimationFrame(() => document.getElementById('quest-summary').focus());
@@ -2363,11 +2797,14 @@ function saveQuestFromModal() {
   const completedCheck = document.getElementById('quest-completed-check');
   const statusRow = document.getElementById('quest-status-row');
   const existing = questEdit ? findQuest(questEdit) : null;
+  const isNew = !existing;
 
   let status = existing?.status ?? 'active';
-  if (existing?.status === 'turned_in') {
+  if (isNew) {
+    status = 'active';
+  } else if (existing.status === 'turned_in') {
     status = 'turned_in';
-  } else if (existing && statusRow && !statusRow.hidden) {
+  } else if (statusRow && !statusRow.hidden) {
     status = completedCheck.checked ? 'completed' : 'active';
   }
 
@@ -2413,9 +2850,7 @@ function bindQuests() {
   closeBtn?.addEventListener('click', closeQuestModal);
   cancelBtn?.addEventListener('click', closeQuestModal);
   turnedToggle?.addEventListener('click', () => toggleTurnedQuests(!turnedQuestsExpanded));
-  modal?.addEventListener('click', (e) => {
-    if (e.target === modal) closeQuestModal();
-  });
+  bindDialogBackdropDismiss(modal, closeQuestModal);
 }
 
 function getItem(group, key) {
@@ -3346,6 +3781,8 @@ function exportToSharedFormat() {
     source: 'GameOfBrothers',
     name: s.name ?? '',
     description: s.description ?? '',
+    race: s.race ?? '',
+    faction: s.faction ?? '',
     lore: s.lore ?? '',
     buffs: (s.buffs ?? []).map((e) => ({ ...e })),
     debuffs: (s.debuffs ?? []).map((e) => ({ ...e })),
@@ -3374,6 +3811,7 @@ function exportToSharedFormat() {
       ? CoinPouch.totalEquivalentBronze(s.wealth)
       : Math.max(0, Math.floor(s.wealthBronze ?? 0)),
     coinPile: (s.coinPile ?? []).map((c) => ({ ...c })),
+    satiety: toInt(s.satiety, 0),
   };
 }
 
@@ -3433,11 +3871,15 @@ function importFromSharedFormat(jsonString) {
     rawBackpack[i] ? normalizeItem(cloneItem(rawBackpack[i])) : emptyItem()
   ));
 
+  const identity = migrateIdentity(raw);
+
   return {
     ok: true,
     sheet: {
       name: strVal(raw.name) || 'Импортированный персонаж',
       description: strVal(raw.description),
+      race: identity.race,
+      faction: identity.faction,
       lore: strVal(raw.lore),
       ...migrateEffects(raw),
       quests: migrateQuests(raw),
@@ -3454,6 +3896,7 @@ function importFromSharedFormat(jsonString) {
       coinPile: typeof CoinPouch !== 'undefined'
         ? CoinPouch.migrateCoinPile(raw)
         : (Array.isArray(raw.coinPile) ? raw.coinPile : []),
+      satiety: toInt(raw.satiety, 0),
     },
   };
 }
@@ -3465,6 +3908,8 @@ function importFromSharedFormat(jsonString) {
 function renderSheet() {
   document.getElementById('char-name').value = sheet.name ?? '';
   document.getElementById('char-desc').value = sheet.description ?? '';
+  document.getElementById('char-race').value = sheet.race ?? '';
+  document.getElementById('char-faction').value = sheet.faction ?? '';
   document.getElementById('char-lore').value = sheet.lore ?? '';
   document.title = `GoB — ${sheet.name || 'Персонаж'}`;
 
@@ -3496,12 +3941,6 @@ function portraitErrorMessage(err) {
 
 function initUserCharacterTools(char) {
   const portraitTools = document.getElementById('portrait-tools');
-
-  if (!char.isUser) {
-    portraitTools?.setAttribute('hidden', '');
-    return;
-  }
-
   portraitTools?.removeAttribute('hidden');
   bindPortraitTools(char);
   bindDeleteCharacter(char);
@@ -3707,9 +4146,7 @@ async function init(char) {
     }
   }
 
-  document.getElementById('char-img').src = typeof getPortraitUrl === 'function'
-    ? getPortraitUrl(char)
-    : `/characters/${char.id}.jpg`;
+  document.getElementById('char-img').src = getPortraitUrl(char);
   document.getElementById('char-img').alt = sheet.name || char.name || 'Без имени';
   document.title = `GoB — ${sheet.name || char.name || 'Без имени'}`;
 
@@ -3718,9 +4155,24 @@ async function init(char) {
     document.getElementById('char-img').alt = sheet.name || 'Без имени';
   });
   bindField(document.getElementById('char-desc'), 'description');
+  bindIdentityCombo(
+    document.getElementById('char-race'),
+    document.getElementById('char-race-list'),
+    'race-presets',
+    RACE_PRESETS,
+    'race',
+  );
+  bindIdentityCombo(
+    document.getElementById('char-faction'),
+    document.getElementById('char-faction-list'),
+    'faction-presets',
+    FACTION_PRESETS,
+    'faction',
+  );
   bindField(document.getElementById('char-lore'), 'lore');
 
   renderStats();
+  bindSatiety();
   renderCombat();
   renderEquipment();
   renderBackpack();

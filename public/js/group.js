@@ -37,7 +37,7 @@ function isIdentityHidden(member) {
 }
 
 function shouldHideInviteChar(char, account) {
-  if (account?.isSelf || account?.kind === 'builtin') return false;
+  if (account?.isSelf) return false;
   return isUserHero(char?.id);
 }
 
@@ -63,6 +63,14 @@ function rosterKey(group) {
 
 let rosterRenderToken = 0;
 let groupViewRefreshToken = 0;
+let lastGroupsListKey = '';
+
+function groupsListKey(groups) {
+  return (groups || [])
+    .map((g) => `${g.id}:${g.memberCount ?? 0}:${g.name ?? ''}`)
+    .sort()
+    .join('|');
+}
 
 function groupUrl(nextGroupId = activeGroupId) {
   const query = new URLSearchParams();
@@ -72,21 +80,40 @@ function groupUrl(nextGroupId = activeGroupId) {
   return text ? `/group?${text}` : '/group';
 }
 
-function navigateToGroup(nextGroupId) {
-  const url = groupUrl(nextGroupId);
-  if (location.pathname + location.search !== url) {
-    location.href = url;
-    return;
+async function navigateToGroup(nextGroupId, { replace = false } = {}) {
+  const next = nextGroupId || '';
+  const url = groupUrl(next);
+  const current = location.pathname + location.search;
+
+  if (next !== activeGroupId) {
+    lastRosterKey = '';
+    if (!next) lastGroupsListKey = '';
   }
-  activeGroupId = nextGroupId;
+
+  activeGroupId = next;
   updateViewMode();
+  selectedAccount = null;
+  setInviteStep('accounts');
+
+  if (current !== url) {
+    const state = { groupId: next };
+    if (replace) history.replaceState(state, '', url);
+    else history.pushState(state, '', url);
+  }
+
+  if (activeGroupId) {
+    await refreshGroupView({ force: true });
+    await renderAccounts();
+  } else {
+    await renderGroupsList({ force: true });
+  }
 }
 
 function portraitFor(char) {
   if (typeof GobCharacters !== 'undefined' && GobCharacters.getPortraitUrl) {
     return GobCharacters.getPortraitUrl(char);
   }
-  return char?.portrait || `/characters/${char.id}.jpg`;
+  return char?.portrait || '/img/char-placeholder.png';
 }
 
 function nameFor(char) {
@@ -136,7 +163,7 @@ function updateViewMode() {
   document.getElementById('group-invite-panel').hidden = !hasGroup;
 }
 
-async function rosterMemberCard(member) {
+async function rosterMemberCard(member, { isOwner = false } = {}) {
   const card = document.createElement('article');
   const isSelf = isOwnRosterMember(member);
   const hidden = isIdentityHidden(member);
@@ -167,6 +194,13 @@ async function rosterMemberCard(member) {
   });
 
   const showReveal = isSelf && isUserHero(member.charId) && member.revealed !== true;
+  const showLeave = isSelf;
+  const showKick = !isSelf && isOwner;
+  const actionButtons = [
+    showReveal ? '<button type="button" class="group-hero-card__reveal">Раскрыть личность</button>' : '',
+    showLeave ? '<button type="button" class="group-hero-card__kick">Съебаться</button>' : '',
+    showKick ? '<button type="button" class="group-hero-card__kick">Турнуть</button>' : '',
+  ].filter(Boolean).join('');
 
   card.innerHTML = `
     <div class="group-hero-card__frame">
@@ -179,10 +213,7 @@ async function rosterMemberCard(member) {
           <button type="button" class="group-hero-card__collapse" aria-label="Свернуть">×</button>
           <h3 class="group-hero-card__name${hidden ? ' group-hero-card__name--hidden' : ''}"></h3>
           <p class="group-hero-card__desc${hidden ? ' group-hero-card__desc--hidden' : ''}"></p>
-          <div class="group-hero-card__actions">
-            ${showReveal ? '<button type="button" class="group-hero-card__reveal">Раскрыть личность</button>' : ''}
-            <button type="button" class="group-hero-card__kick">${isSelf ? 'Съебаться' : 'Турнуть'}</button>
-          </div>
+          ${actionButtons ? `<div class="group-hero-card__actions">${actionButtons}</div>` : ''}
         </div>
       </div>
     </div>
@@ -232,7 +263,7 @@ async function rosterMemberCard(member) {
     await refreshGroupView({ force: true });
   });
 
-  card.querySelector('.group-hero-card__kick').addEventListener('click', async (e) => {
+  card.querySelector('.group-hero-card__kick')?.addEventListener('click', async (e) => {
     e.stopPropagation();
     const kickBtn = e.currentTarget;
     kickBtn.disabled = true;
@@ -367,9 +398,7 @@ function accountCard(account) {
 
   const meta = document.createElement('p');
   meta.className = 'group-account-meta';
-  if (account.kind === 'builtin') {
-    meta.textContent = 'Встроенные герои';
-  } else if (account.isSelf) {
+  if (account.isSelf) {
     meta.textContent = 'Ваш аккаунт';
   } else {
     meta.textContent = 'Аккаунт игрока';
@@ -397,18 +426,26 @@ function groupListCard(summary) {
   return card;
 }
 
-async function renderGroupsList() {
+async function renderGroupsList({ force = false } = {}) {
   const list = document.getElementById('group-list');
   const empty = document.getElementById('group-list-empty');
-  list.innerHTML = '';
 
   if (!leaderCharId) {
+    if (!force && lastGroupsListKey === 'no-leader') return;
+    lastGroupsListKey = 'no-leader';
+    list.innerHTML = '';
     empty.hidden = false;
     empty.textContent = 'Откройте страницу с листа персонажа, чтобы управлять группами.';
     return;
   }
 
   const groups = await GobGroup.loadGroupsForChar(leaderCharId);
+  const key = groupsListKey(groups);
+  if (!force && key === lastGroupsListKey) return;
+  lastGroupsListKey = key;
+
+  list.innerHTML = '';
+
   if (!groups.length) {
     empty.hidden = false;
     empty.textContent = 'Вы ещё не состоите ни в одной группе — создайте новую ниже.';
@@ -499,7 +536,7 @@ async function refreshGroupView({ force = false } = {}) {
   const refreshToken = ++groupViewRefreshToken;
 
   if (!activeGroupId) {
-    await renderGroupsList();
+    await renderGroupsList({ force });
     return false;
   }
 
@@ -535,7 +572,9 @@ async function renderRoster(refreshToken = groupViewRefreshToken) {
 
   capacity.textContent = `${group.members.length} / ${max}`;
 
-  const cards = await Promise.all(group.members.map((m) => rosterMemberCard(m)));
+  const cards = await Promise.all(
+    group.members.map((m) => rosterMemberCard(m, { isOwner: group.isOwner === true })),
+  );
   if (refreshToken !== groupViewRefreshToken || renderToken !== rosterRenderToken) return;
 
   roster.innerHTML = '';
@@ -597,25 +636,56 @@ async function init() {
 
   updateViewMode();
   setInviteStep('accounts');
+  history.replaceState({ groupId: activeGroupId }, '', groupUrl(activeGroupId));
 
   if (activeGroupId) {
     const group = await GobGroup.loadGroup(activeGroupId, leaderCharId);
     if (!group.id) {
-      navigateToGroup('');
+      await navigateToGroup('', { replace: true });
       return;
     }
     await refreshGroupView({ force: true });
     await renderAccounts();
   } else {
-    await renderGroupsList();
+    await renderGroupsList({ force: true });
   }
 
-  setInterval(() => { refreshGroupView(); }, 4000);
-  window.addEventListener('focus', () => { refreshGroupView(); });
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) refreshGroupView();
+  window.addEventListener('popstate', () => {
+    const params = new URLSearchParams(location.search);
+    const next = params.get('group') || '';
+    if (next === activeGroupId) return;
+
+    activeGroupId = next;
+    updateViewMode();
+    selectedAccount = null;
+    setInviteStep('accounts');
+
+    if (activeGroupId) {
+      lastRosterKey = '';
+      refreshGroupView({ force: true });
+      renderAccounts();
+    } else {
+      renderGroupsList();
+    }
   });
-  window.addEventListener('gob-group-changed', () => { refreshGroupView({ force: true }); });
+
+  setInterval(() => {
+    if (document.hidden || !activeGroupId) return;
+    refreshGroupView();
+  }, 4000);
+  window.addEventListener('focus', () => {
+    if (activeGroupId) refreshGroupView();
+    else renderGroupsList();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (activeGroupId) refreshGroupView();
+    else renderGroupsList();
+  });
+  window.addEventListener('gob-group-changed', () => {
+    lastGroupsListKey = '';
+    refreshGroupView({ force: true });
+  });
 }
 
 if (typeof GobGroup === 'undefined') {

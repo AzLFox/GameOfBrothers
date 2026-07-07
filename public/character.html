@@ -29,9 +29,6 @@
         <button type="button" id="btn-invites" class="btn-invites" hidden title="Письма и приглашения" aria-label="Письма и приглашения">
           <img src="/img/ui/dove-letter.png" alt="" width="32" height="32" draggable="false">
         </button>
-        <button type="button" id="btn-transfer" class="btn-transfer" title="Экспорт / Импорт">
-          Перенос ↕
-        </button>
       </div>
       <span class="save-hint" id="save-hint" aria-live="polite"></span>
     </header>
@@ -135,12 +132,65 @@
           <input type="text" class="field-input field-input--name" id="char-name" autocomplete="off" spellcheck="false">
           <label class="field-label" for="char-desc">Описание</label>
           <textarea class="field-input field-input--desc" id="char-desc" rows="4" spellcheck="false"></textarea>
+          <label class="field-label" for="char-race">Раса</label>
+          <div class="identity-combo" id="char-race-combo">
+            <div class="identity-combo__control">
+              <input type="text" class="field-input identity-combo__input" id="char-race" autocomplete="off" spellcheck="false" placeholder="Выберите или введите" role="combobox" aria-expanded="false" aria-controls="char-race-list" aria-autocomplete="list">
+              <button type="button" class="identity-combo__toggle" aria-label="Открыть список рас" tabindex="-1">
+                <span class="identity-combo__chevron" aria-hidden="true"></span>
+              </button>
+            </div>
+            <ul class="identity-combo__list" id="char-race-list" role="listbox" hidden></ul>
+          </div>
+          <label class="field-label" for="char-faction">Группировка</label>
+          <div class="identity-combo" id="char-faction-combo">
+            <div class="identity-combo__control">
+              <input type="text" class="field-input identity-combo__input" id="char-faction" autocomplete="off" spellcheck="false" placeholder="Выберите или введите" role="combobox" aria-expanded="false" aria-controls="char-faction-list" aria-autocomplete="list">
+              <button type="button" class="identity-combo__toggle" aria-label="Открыть список группировок" tabindex="-1">
+                <span class="identity-combo__chevron" aria-hidden="true"></span>
+              </button>
+            </div>
+            <ul class="identity-combo__list" id="char-faction-list" role="listbox" hidden></ul>
+          </div>
+          <datalist id="race-presets"></datalist>
+          <datalist id="faction-presets"></datalist>
+          <div class="char-identity-actions">
+            <button type="button" id="btn-transfer" class="btn-transfer" title="Экспорт / Импорт">
+              Перенос ↕
+            </button>
+          </div>
         </div>
       </aside>
 
       <section class="stats-panel panel">
         <h2 class="panel-title">Характеристики</h2>
         <div class="stats-grid" id="stats-grid"></div>
+        <div class="satiety-block" id="satiety-block">
+          <div class="satiety-head">
+            <span class="satiety-label">Сытость</span>
+            <div class="satiety-controls">
+              <button type="button" class="satiety-step-btn" id="satiety-minus" aria-label="Уменьшить сытость">−</button>
+              <input type="text" inputmode="numeric" pattern="-?[0-9]*" maxlength="5" class="satiety-input" id="satiety-value" aria-label="Текущая сытость">
+              <button type="button" class="satiety-step-btn" id="satiety-plus" aria-label="Увеличить сытость">+</button>
+              <span class="satiety-cap-label" aria-hidden="true">/<span id="satiety-cap">0</span></span>
+              <span class="satiety-warning-wrap" id="satiety-warning-wrap" hidden>
+                <span class="satiety-warning-icon" id="satiety-warning" role="img" aria-label="Опасность истощения">!</span>
+              </span>
+              <span class="satiety-overflow-wrap" id="satiety-overflow-wrap" hidden>
+                <span class="satiety-overflow" id="satiety-overflow" title="Превышение капа">0</span>
+              </span>
+            </div>
+          </div>
+          <div class="satiety-bar-wrap" id="satiety-bar-wrap">
+            <div class="satiety-bar" id="satiety-bar" aria-hidden="true">
+              <div class="satiety-bar__track">
+                <div class="satiety-bar__fill" id="satiety-fill"></div>
+                <div class="satiety-bar__ticks" id="satiety-ticks"></div>
+              </div>
+            </div>
+          </div>
+          <p class="satiety-hint" id="satiety-hint" hidden></p>
+        </div>
       </section>
 
       <section class="combat-panel panel">

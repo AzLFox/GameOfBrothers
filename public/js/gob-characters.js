@@ -1,5 +1,5 @@
 /**
- * GoB character catalog — builtin heroes + user cards (API when authed, localStorage fallback).
+ * GoB character catalog — user cards (API when authed, localStorage fallback).
  *
  * Limits: portrait file max 2 MB; after canvas compress target ≤ ~300 KB in storage;
  * JPEG max side 800 px, quality ~0.82; recommended upload 600×800 (3∶4).
@@ -126,23 +126,8 @@ const GobCharacters = (() => {
     return true;
   }
 
-  async function loadBuiltinCharacters() {
-    try {
-      const res = await fetch('/api/characters');
-      if (res.ok) return await res.json();
-    } catch {
-      /* ignore */
-    }
-    return [];
-  }
-
   async function loadAllCharacters() {
-    const builtin = await loadBuiltinCharacters();
-    if (await ensureAuthState()) {
-      const user = await refreshApiUserChars();
-      return [...builtin, ...user];
-    }
-    return builtin;
+    return loadUserCharactersAsync();
   }
 
   async function loadCarouselCharacters() {
@@ -157,28 +142,22 @@ const GobCharacters = (() => {
   }
 
   async function findCharacterById(id) {
-    if (!id) return null;
+    if (!id || !id.startsWith('u_')) return null;
 
-    if (id.startsWith('u_')) {
-      if (!(await ensureAuthState())) {
-        if (typeof GobAuth !== 'undefined') {
-          GobAuth.redirectIfGuest(`/character?id=${encodeURIComponent(id)}`);
-        }
-        return null;
+    if (!(await ensureAuthState())) {
+      if (typeof GobAuth !== 'undefined') {
+        GobAuth.redirectIfGuest(`/character?id=${encodeURIComponent(id)}`);
       }
-      const user = await refreshApiUserChars();
-      return user.find((c) => c.id === id) || null;
+      return null;
     }
-
-    const list = await loadBuiltinCharacters();
-    return list.find((c) => c.id === id) || null;
+    const user = await refreshApiUserChars();
+    return user.find((c) => c.id === id) || null;
   }
 
   function getPortraitUrl(char) {
     if (!char) return PLACEHOLDER_PORTRAIT;
     if (char.portrait) return char.portrait;
-    if (char.isUser) return PLACEHOLDER_PORTRAIT;
-    return `/characters/${char.id}.jpg`;
+    return PLACEHOLDER_PORTRAIT;
   }
 
   function getCarouselLabel(char) {
@@ -210,6 +189,8 @@ const GobCharacters = (() => {
     return {
       name: card.name || '',
       description: card.description || '',
+      race: '',
+      faction: '',
       lore: '',
       spells: [],
       stats: { ...emptyStats },

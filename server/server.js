@@ -46,10 +46,6 @@ function findOwnedCharacter(userId, charId) {
   return chars.find((c) => c.id === charId) || null;
 }
 
-app.get('/api/characters', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/data/characters.json'));
-});
-
 app.post('/api/auth/register', (req, res) => {
   const username = String(req.body?.username ?? '').trim();
   const password = String(req.body?.password ?? '');
@@ -278,7 +274,6 @@ function newGroupId() {
 }
 
 function memberEntryFromChar(char, user) {
-  const isUser = String(char.id).startsWith('u_');
   return {
     charId: char.id,
     name: String(char.name ?? '').trim(),
@@ -287,7 +282,7 @@ function memberEntryFromChar(char, user) {
     accountId: user.id,
     accountName: user.username,
     addedAt: new Date().toISOString(),
-    revealed: !isUser,
+    revealed: false,
   };
 }
 
@@ -380,18 +375,6 @@ function validateGroupName(name) {
   return null;
 }
 
-const BUILTIN_ACCOUNT_ID = 'builtin';
-const BUILTIN_CHARACTERS_FILE = path.join(__dirname, '../public/data/characters.json');
-
-function loadBuiltinCharacters() {
-  try {
-    const list = JSON.parse(fs.readFileSync(BUILTIN_CHARACTERS_FILE, 'utf8'));
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
-}
-
 function publicCharacterCard(char, { isUser = false } = {}) {
   return {
     id: char.id,
@@ -404,11 +387,7 @@ function publicCharacterCard(char, { isUser = false } = {}) {
 
 app.get('/api/group/accounts', (req, res) => {
   const sessionUser = auth.getSessionUser(req);
-  const accounts = [{
-    id: BUILTIN_ACCOUNT_ID,
-    username: 'Классические герои',
-    kind: 'builtin',
-  }];
+  const accounts = [];
 
   if (sessionUser) {
     store.getUsers().forEach((u) => {
@@ -426,11 +405,6 @@ app.get('/api/group/accounts', (req, res) => {
 
 app.get('/api/group/accounts/:accountId/characters', (req, res) => {
   const { accountId } = req.params;
-
-  if (accountId === BUILTIN_ACCOUNT_ID) {
-    const chars = loadBuiltinCharacters().map((c) => publicCharacterCard(c, { isUser: false }));
-    return res.json(chars);
-  }
 
   if (!auth.getSessionUser(req)) {
     return res.status(401).json({ error: 'Войдите, чтобы смотреть героев аккаунтов' });
@@ -497,7 +471,10 @@ app.get('/api/me/groups/:groupId', auth.requireAuth, (req, res) => {
   if (!canAccessParty(group, req.user.id, charId)) {
     return res.status(403).json({ error: 'Нет доступа к группе' });
   }
-  return res.json(hydratePartyGroup(group));
+  return res.json({
+    ...hydratePartyGroup(group),
+    isOwner: group.ownerUserId === req.user.id,
+  });
 });
 
 app.delete('/api/me/groups/:groupId/members/:charId', auth.requireAuth, (req, res) => {
