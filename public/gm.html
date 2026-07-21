@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2a1c14">
+  <title>Gates of Beyond · Стол мастера</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/gob-tokens.css">
+  <link rel="stylesheet" href="css/gm.css">
+  <link rel="stylesheet" href="css/gob-polish.css">
+  <script src="js/gob-transition-guard.js"></script>
+  <script src="js/gob-mobile.js"></script>
+</head>
+<body class="gm-page">
+  <div class="gm-ambient" aria-hidden="true"></div>
+
+  <header class="gm-header">
+    <a href="/" class="gm-back" id="gm-back-home">← К миру</a>
+    <div class="gm-header__titles">
+      <p class="gm-eyebrow">GameMaster</p>
+      <h1 class="gm-title" id="gm-page-title">Стол мастера</h1>
+    </div>
+    <div class="gm-header__user">
+      <span class="gm-username" id="gm-username"></span>
+      <button type="button" class="gm-logout-btn" id="gm-logout">Выйти</button>
+    </div>
+  </header>
+
+  <main class="gm-shell">
+    <section class="gm-panel gm-panel--picker" id="gm-picker-panel">
+      <h2 class="gm-panel__title">Выберите группу</h2>
+      <p class="gm-panel__hint">Отряд, за который вы сейчас ведёте игру.</p>
+      <div class="gm-group-list" id="gm-group-list"></div>
+      <p class="gm-empty" id="gm-group-empty" hidden>Нет созданных групп. Игроки могут создать отряд на листе персонажа.</p>
+      <p class="gm-error" id="gm-picker-error" hidden></p>
+    </section>
+
+    <div class="gm-desk" id="gm-desk" hidden>
+      <section class="gm-panel gm-panel--table" id="gm-table-panel">
+        <div class="gm-table-toolbar">
+          <button type="button" class="gm-toolbar-btn" id="gm-change-group">← Другая группа</button>
+          <h2 class="gm-table-name" id="gm-active-group-name">Группа</h2>
+          <span class="gm-table-meta" id="gm-active-group-meta"></span>
+        </div>
+
+        <div class="gm-table-scene">
+          <div class="gm-room" aria-hidden="true">
+            <div class="gm-room__floor"></div>
+            <div class="gm-room__glow gm-room__glow--left"></div>
+            <div class="gm-room__glow gm-room__glow--right"></div>
+          </div>
+          <div class="gm-table-stage">
+            <div class="gm-table-shadow" aria-hidden="true"></div>
+            <div class="gm-table-frame" aria-hidden="true">
+              <div class="gm-table-rim"></div>
+              <div class="gm-table-surface">
+                <div class="gm-table-felt"></div>
+                <div class="gm-table-glow"></div>
+                <div class="gm-table-center" aria-hidden="true"></div>
+              </div>
+            </div>
+            <div class="gm-table-seats" id="gm-table-seats" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <aside class="gm-compose panel" id="gm-compose">
+          <div class="gm-compose__tabs" role="tablist">
+            <button type="button" class="gm-compose__tab is-active" data-tab="message" role="tab">Слова</button>
+            <button type="button" class="gm-compose__tab" data-tab="item" role="tab">Предмет</button>
+          </div>
+
+          <div class="gm-compose__panel" id="gm-compose-message" role="tabpanel">
+            <h3 class="gm-compose__title">Сообщение герою</h3>
+            <p class="gm-compose__target" id="gm-compose-target">Выберите героя за столом</p>
+            <textarea class="gm-compose__input" id="gm-compose-body" rows="5" maxlength="2000" placeholder="Слова мастера…" disabled></textarea>
+            <div class="gm-compose__actions">
+              <button type="button" class="gm-compose__send" id="gm-compose-send" disabled>Отправить</button>
+            </div>
+            <p class="gm-compose__ok hidden" id="gm-compose-ok">Сообщение отправлено.</p>
+            <p class="gm-compose__error hidden" id="gm-compose-error"></p>
+          </div>
+
+          <div class="gm-compose__panel" id="gm-compose-item" role="tabpanel" hidden>
+            <h3 class="gm-compose__title">Подарок герою</h3>
+            <p class="gm-compose__target" id="gm-item-target">Выберите героя за столом</p>
+            <div class="gm-item-dropzone" id="gm-item-dropzone">
+              <p class="gm-item-dropzone__hint">Перетащите предмет из каталога справа</p>
+              <label class="gm-compose__label" for="gm-item-name">Название</label>
+              <input class="gm-compose__field" id="gm-item-name" type="text" maxlength="120" placeholder="Зелье лечения" disabled>
+              <label class="gm-compose__label" for="gm-item-desc">Описание</label>
+              <textarea class="gm-compose__input gm-compose__input--short" id="gm-item-desc" rows="3" maxlength="2000" placeholder="Краткое описание…" disabled></textarea>
+              <p class="gm-item-class-preview hidden" id="gm-item-class-preview" hidden></p>
+            </div>
+            <label class="gm-compose__label" for="gm-item-note">Сопроводительная записка</label>
+            <textarea class="gm-compose__input gm-compose__input--short" id="gm-item-note" rows="2" maxlength="500" placeholder="Необязательно" disabled></textarea>
+            <div class="gm-compose__actions">
+              <button type="button" class="gm-compose__send" id="gm-item-send" disabled>Отправить предмет</button>
+            </div>
+            <p class="gm-compose__ok hidden" id="gm-item-ok">Предмет отправлен.</p>
+            <p class="gm-compose__error hidden" id="gm-item-error"></p>
+          </div>
+        </aside>
+      </section>
+
+      <aside class="gm-catalog-dock" id="gm-catalog-dock" aria-label="Каталог предметов">
+        <button
+          type="button"
+          class="gm-catalog-dock__toggle"
+          id="gm-catalog-toggle"
+          aria-expanded="true"
+          aria-controls="gm-catalog-panel"
+          title="Свернуть каталог"
+        >
+          <span class="gm-catalog-dock__toggle-icon" aria-hidden="true">›</span>
+          <span class="gm-catalog-dock__toggle-label">Каталог</span>
+        </button>
+        <div class="gm-catalog panel" id="gm-catalog-panel">
+          <h3 class="gm-catalog__title">Каталог предметов</h3>
+          <p class="gm-catalog__hint">Перетащите предмет в форму отправки или в папку</p>
+          <div class="gm-catalog__toolbar">
+            <button type="button" class="gm-catalog__create" id="gm-catalog-create">+ Предмет</button>
+            <button type="button" class="gm-catalog__create gm-catalog__create--folder" id="gm-catalog-create-folder">+ Папка</button>
+          </div>
+          <div class="gm-catalog__tree" id="gm-catalog-list"></div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <div class="gm-item-modal hidden" id="gm-item-modal" role="dialog" aria-modal="true" aria-labelledby="gm-item-modal-title" hidden>
+    <div class="gm-item-modal__backdrop" id="gm-item-modal-backdrop"></div>
+    <div class="gm-item-modal__panel panel">
+      <h3 class="gm-item-modal__title" id="gm-item-modal-title">Новый предмет</h3>
+      <label class="gm-compose__label" for="gm-create-name">Название</label>
+      <input class="gm-compose__field" id="gm-create-name" type="text" maxlength="120" placeholder="Название предмета" autocomplete="off">
+      <label class="gm-compose__label" for="gm-create-desc">Описание</label>
+      <textarea class="gm-compose__input gm-compose__input--short" id="gm-create-desc" rows="3" maxlength="2000" placeholder="Краткое описание…"></textarea>
+      <label class="gm-compose__label" for="gm-create-class">Класс</label>
+      <select class="gm-create-class-select" id="gm-create-class" aria-label="Класс предмета">
+        <option value="">— Без класса</option>
+      </select>
+      <div class="gm-create-class-section hidden" id="gm-create-class-section" hidden>
+        <span class="gm-compose__label">Тир</span>
+        <div class="gm-create-tier-picker" id="gm-create-tier-picker"></div>
+        <div class="gm-create-mods" id="gm-create-mods"></div>
+      </div>
+      <label class="gm-compose__label" for="gm-create-folder">Папка</label>
+      <select class="gm-create-class-select" id="gm-create-folder" aria-label="Папка каталога"></select>
+      <div class="gm-item-modal__actions">
+        <button type="button" class="gm-item-modal__cancel" id="gm-item-modal-cancel">Отмена</button>
+        <button type="button" class="gm-item-modal__save" id="gm-item-modal-save">Добавить в каталог</button>
+      </div>
+      <p class="gm-compose__error hidden" id="gm-item-modal-error"></p>
+    </div>
+  </div>
+
+  <div class="gm-item-modal hidden" id="gm-folder-modal" role="dialog" aria-modal="true" aria-labelledby="gm-folder-modal-title" hidden>
+    <div class="gm-item-modal__backdrop" id="gm-folder-modal-backdrop"></div>
+    <div class="gm-item-modal__panel panel">
+      <h3 class="gm-item-modal__title" id="gm-folder-modal-title">Новая папка</h3>
+      <label class="gm-compose__label" for="gm-folder-name">Название</label>
+      <input class="gm-compose__field" id="gm-folder-name" type="text" maxlength="80" placeholder="Название папки" autocomplete="off">
+      <label class="gm-compose__label" for="gm-folder-parent">Родительская папка</label>
+      <select class="gm-create-class-select" id="gm-folder-parent" aria-label="Родительская папка"></select>
+      <div class="gm-item-modal__actions">
+        <button type="button" class="gm-item-modal__cancel" id="gm-folder-modal-cancel">Отмена</button>
+        <button type="button" class="gm-item-modal__save" id="gm-folder-modal-save">Создать</button>
+      </div>
+      <p class="gm-compose__error hidden" id="gm-folder-modal-error"></p>
+    </div>
+  </div>
+
+  <div id="gob-page-wipe" class="gob-page-wipe" aria-hidden="true" hidden>
+    <div class="gob-page-wipe__void"></div>
+    <div class="gob-page-wipe__mist"></div>
+  </div>
+
+  <script src="js/gob-motion.js" defer></script>
+  <script src="js/gob-auth.js" defer></script>
+  <script src="js/gob-gm.js" defer></script>
+  <script src="js/item-catalog.js" defer></script>
+  <script src="js/gm-item-presets.js" defer></script>
+  <script src="js/gm-catalog-store.js" defer></script>
+  <script src="js/gm.js" defer></script>
+</body>
+</html>

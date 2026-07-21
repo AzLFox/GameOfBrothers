@@ -168,6 +168,10 @@ const GobAuth = (() => {
     return !!currentUser;
   }
 
+  function isGameMaster() {
+    return currentUser?.role === 'gamemaster';
+  }
+
   function redirectIfGuest(returnUrl) {
     if (currentUser) return false;
     const dest = `/login?return=${encodeURIComponent(returnUrl || location.pathname + location.search)}`;
@@ -181,6 +185,7 @@ const GobAuth = (() => {
     const usernameEl = document.getElementById('authUsername');
     const logoutBtn = document.getElementById('authLogout');
     const deleteBtn = document.getElementById('authDeleteAccount');
+    const gmLink = document.getElementById('authGmLink');
     if (!guestEl || !userEl) return;
 
     if (currentUser) {
@@ -189,11 +194,13 @@ const GobAuth = (() => {
       if (usernameEl) usernameEl.textContent = currentUser.username;
       if (logoutBtn) logoutBtn.hidden = false;
       if (deleteBtn) deleteBtn.hidden = false;
+      if (gmLink) gmLink.hidden = !isGameMaster();
     } else {
       guestEl.hidden = false;
       userEl.hidden = true;
       if (logoutBtn) logoutBtn.hidden = true;
       if (deleteBtn) deleteBtn.hidden = true;
+      if (gmLink) gmLink.hidden = true;
     }
 
     if (logoutBtn && !logoutBtn.dataset.bound) {
@@ -268,6 +275,7 @@ const GobAuth = (() => {
     deleteAccount,
     getCurrentUser,
     isLoggedIn,
+    isGameMaster,
     redirectIfGuest,
     getReturnUrl,
     initAuthHeader,

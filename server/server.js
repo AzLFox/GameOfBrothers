@@ -37,6 +37,57 @@ function defaultSheetForCard(card) {
   };
 }
 
+const BACKPACK_SLOTS = 6;
+
+function normalizeBackpackItem(raw) {
+  const name = String(raw?.name ?? '').trim();
+  const desc = String(raw?.desc ?? raw?.description ?? '').trim();
+  const item = { name, desc };
+  if (raw?.classId) {
+    item.classId = String(raw.classId).trim();
+    const tier = Number(raw.tier);
+    item.tier = Number.isFinite(tier) ? Math.min(4, Math.max(1, tier)) : 1;
+    item.mods = raw.mods && typeof raw.mods === 'object' ? { ...raw.mods } : {};
+  }
+  return item;
+}
+
+function isBackpackSlotEmpty(slot) {
+  if (!slot || typeof slot !== 'object') return true;
+  return !String(slot.name ?? '').trim() && !slot.classId;
+}
+
+function findFirstFreeBackpackSlot(backpack) {
+  if (!Array.isArray(backpack)) return -1;
+  return backpack.findIndex(isBackpackSlotEmpty);
+}
+
+function ensureBackpack(sheet) {
+  const empty = { name: '', desc: '' };
+  if (!sheet || typeof sheet !== 'object') return;
+  if (!Array.isArray(sheet.backpack)) {
+    sheet.backpack = Array.from({ length: BACKPACK_SLOTS }, () => ({ ...empty }));
+    return;
+  }
+  while (sheet.backpack.length < BACKPACK_SLOTS) {
+    sheet.backpack.push({ ...empty });
+  }
+  if (sheet.backpack.length > BACKPACK_SLOTS) {
+    sheet.backpack = sheet.backpack.slice(0, BACKPACK_SLOTS);
+  }
+}
+
+function isItemGiftMessage(message) {
+  return message?.type === 'item_gift' || !!String(message?.item?.name ?? '').trim();
+}
+
+function isPendingMailMessage(message) {
+  if (isItemGiftMessage(message)) {
+    return message.status === 'unread';
+  }
+  return true;
+}
+
 function isUserCharId(id) {
   return typeof id === 'string' && id.startsWith('u_');
 }
@@ -68,6 +119,7 @@ app.post('/api/auth/register', (req, res) => {
     username,
     passwordHash,
     salt,
+    role: 'player',
     createdAt: new Date().toISOString(),
   });
 
@@ -351,20 +403,49 @@ function hydratePartyGroup(group) {
 
 function removePartyMember(group, charId) {
   const member = group.members.find((m) => m.charId === charId);
-  if (!member) return null;
+  if (!member) return { deleted: false, group: null };
   const next = normalizePartyGroup({
     ...group,
     members: group.members.filter((m) => m.charId !== charId),
   });
-  store.savePartyGroup(next);
   store.removeCharFromGroup(member.accountId, charId, group.id);
-  return next;
+
+  if (!next.members.length) {
+    store.deletePartyGroup(group.id);
+    store.clearGmSessionIfActive(group.gmUserId, group.id);
+    return { deleted: true, groupId: group.id };
+  }
+
+  store.savePartyGroup(next);
+  return { deleted: false, group: next };
 }
 
 const MAX_GROUP_MEMBERS = 6;
 
 function newInviteId() {
   return `inv_${crypto.randomUUID()}`;
+}
+
+function newMessageId() {
+  return `msg_${crypto.randomUUID()}`;
+}
+
+function gmGroupSummary(group, gmUserId) {
+  return {
+    id: group.id,
+    name: group.name || 'Без названия',
+    memberCount: (group.members || []).length,
+    ownerUserId: group.ownerUserId,
+    gmUserId: group.gmUserId || '',
+    isActiveGm: group.gmUserId === gmUserId,
+    createdAt: group.createdAt,
+  };
+}
+
+function canGmAccessGroup(group, userId) {
+  if (!group) return false;
+  if (!group.gmUserId || group.gmUserId === userId) return true;
+  return false;
 }
 
 function validateGroupName(name) {
@@ -494,8 +575,11 @@ app.delete('/api/me/groups/:groupId/members/:charId', auth.requireAuth, (req, re
     return res.status(403).json({ error: 'Нельзя убрать этого героя' });
   }
 
-  const next = removePartyMember(group, targetCharId);
-  return res.json(hydratePartyGroup(next));
+  const result = removePartyMember(group, targetCharId);
+  if (result.deleted) {
+    return res.json({ deleted: true, id: result.groupId });
+  }
+  return res.json(hydratePartyGroup(result.group));
 });
 
 app.post('/api/me/groups/:groupId/members/:charId/reveal', auth.requireAuth, (req, res) => {
@@ -689,6 +773,275 @@ app.post('/api/me/invites/:id/decline', auth.requireAuth, (req, res) => {
   return res.json({ ok: true });
 });
 
+app.get('/api/gm/session', auth.requireGameMaster, (req, res) => {
+  const session = store.getGmSession(req.user.id);
+  const activeGroupId = String(session.activeGroupId || '').trim();
+  if (!activeGroupId) {
+    return res.json({ activeGroupId: '', group: null });
+  }
+  const group = store.getPartyGroup(activeGroupId);
+  if (!group || !canGmAccessGroup(group, req.user.id)) {
+    store.saveGmSession(req.user.id, { activeGroupId: '' });
+    return res.json({ activeGroupId: '', group: null });
+  }
+  return res.json({
+    activeGroupId,
+    group: {
+      ...hydratePartyGroup(group),
+      isOwner: false,
+    },
+  });
+});
+
+app.put('/api/gm/session', auth.requireGameMaster, (req, res) => {
+  const activeGroupId = String(req.body?.activeGroupId ?? '').trim();
+  if (!activeGroupId) {
+    store.saveGmSession(req.user.id, { activeGroupId: '' });
+    return res.json({ activeGroupId: '', group: null });
+  }
+
+  const group = store.getPartyGroup(activeGroupId);
+  if (!group) {
+    return res.status(404).json({ error: 'Группа не найдена' });
+  }
+  if (!canGmAccessGroup(group, req.user.id)) {
+    return res.status(403).json({ error: 'Группа ведётся другим мастером' });
+  }
+
+  const next = normalizePartyGroup({
+    ...group,
+    gmUserId: req.user.id,
+    gmAssignedAt: group.gmAssignedAt || new Date().toISOString(),
+  });
+  store.savePartyGroup(next);
+  store.saveGmSession(req.user.id, { activeGroupId });
+
+  return res.json({
+    activeGroupId,
+    group: {
+      ...hydratePartyGroup(next),
+      isOwner: false,
+    },
+  });
+});
+
+app.get('/api/gm/groups', auth.requireGameMaster, (req, res) => {
+  const groups = store.listAllPartyGroups()
+    .map((group) => gmGroupSummary(group, req.user.id))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  return res.json(groups);
+});
+
+app.get('/api/gm/groups/:groupId', auth.requireGameMaster, (req, res) => {
+  const { groupId } = req.params;
+  const group = store.getPartyGroup(groupId);
+  if (!group) {
+    return res.status(404).json({ error: 'Группа не найдена' });
+  }
+  if (!canGmAccessGroup(group, req.user.id)) {
+    return res.status(403).json({ error: 'Группа ведётся другим мастером' });
+  }
+  return res.json({
+    ...hydratePartyGroup(group),
+    isOwner: false,
+  });
+});
+
+app.post('/api/gm/groups/:groupId/messages', auth.requireGameMaster, (req, res) => {
+  const { groupId } = req.params;
+  const toCharId = String(req.body?.toCharId ?? '').trim();
+  const type = String(req.body?.type ?? 'text').trim();
+  const body = String(req.body?.body ?? '').trim();
+
+  if (!isUserCharId(toCharId)) {
+    return res.status(400).json({ error: 'Некорректный персонаж' });
+  }
+
+  const group = store.getPartyGroup(groupId);
+  if (!group) {
+    return res.status(404).json({ error: 'Группа не найдена' });
+  }
+  if (!canGmAccessGroup(group, req.user.id)) {
+    return res.status(403).json({ error: 'Группа ведётся другим мастером' });
+  }
+  if (!charInParty(group, toCharId)) {
+    return res.status(404).json({ error: 'Герой не в этой группе' });
+  }
+
+  const targetOwner = store.findUserByCharId(toCharId);
+  if (!targetOwner) {
+    return res.status(404).json({ error: 'Владелец персонажа не найден' });
+  }
+
+  const member = group.members.find((m) => m.charId === toCharId);
+  const base = {
+    id: newMessageId(),
+    groupId,
+    groupName: group.name || 'Группа',
+    fromUserId: req.user.id,
+    fromUsername: req.user.username,
+    fromRole: 'gamemaster',
+    toCharId,
+    toCharName: String(member?.name ?? '').trim(),
+    status: 'unread',
+    createdAt: new Date().toISOString(),
+  };
+
+  let message;
+  if (type === 'item_gift') {
+    const item = normalizeBackpackItem(req.body?.item ?? {});
+    if (!item.name) {
+      return res.status(400).json({ error: 'Укажите название предмета' });
+    }
+    if (item.name.length > 120) {
+      return res.status(400).json({ error: 'Название предмета слишком длинное' });
+    }
+    if (item.desc.length > 2000) {
+      return res.status(400).json({ error: 'Описание предмета слишком длинное' });
+    }
+    message = {
+      ...base,
+      type: 'item_gift',
+      body: body || `Мастер передаёт вам: ${item.name}`,
+      item,
+    };
+  } else {
+    if (!body) {
+      return res.status(400).json({ error: 'Введите текст сообщения' });
+    }
+    if (body.length > 2000) {
+      return res.status(400).json({ error: 'Сообщение слишком длинное (макс. 2000)' });
+    }
+    message = {
+      ...base,
+      type: 'text',
+      body,
+    };
+  }
+
+  const inbox = store.getUserMessages(targetOwner.id);
+  inbox.push(message);
+  store.saveUserMessages(targetOwner.id, inbox);
+
+  return res.status(201).json(message);
+});
+
+app.get('/api/me/messages', auth.requireAuth, (req, res) => {
+  const charId = String(req.query.charId ?? '').trim();
+  if (!charId || !isUserCharId(charId) || !findOwnedCharacter(req.user.id, charId)) {
+    return res.status(400).json({ error: 'Некорректный персонаж' });
+  }
+  const messages = store.getUserMessages(req.user.id)
+    .filter((m) => m.toCharId === charId)
+    .filter(isPendingMailMessage)
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  return res.json(messages);
+});
+
+app.post('/api/me/messages/:id/accept', auth.requireAuth, (req, res) => {
+  const { id } = req.params;
+  const charId = String(req.body?.charId ?? req.query?.charId ?? '').trim();
+  const messages = store.getUserMessages(req.user.id);
+  const idx = messages.findIndex((m) => m.id === id);
+  if (idx < 0) {
+    return res.status(404).json({ error: 'Сообщение не найдено' });
+  }
+
+  const message = messages[idx];
+  if (!isItemGiftMessage(message)) {
+    return res.status(400).json({ error: 'Это не посылка с предметом' });
+  }
+  if (message.status !== 'unread') {
+    return res.status(409).json({ error: 'Посылка уже обработана' });
+  }
+  if (charId && message.toCharId !== charId) {
+    return res.status(403).json({ error: 'Это сообщение другому герою' });
+  }
+  if (!findOwnedCharacter(req.user.id, message.toCharId)) {
+    return res.status(403).json({ error: 'Нет доступа' });
+  }
+
+  const char = findOwnedCharacter(req.user.id, message.toCharId);
+  let sheet = store.getUserSheet(req.user.id, message.toCharId);
+  if (!sheet) {
+    sheet = defaultSheetForCard(char);
+  }
+  ensureBackpack(sheet);
+
+  const slotIdx = findFirstFreeBackpackSlot(sheet.backpack);
+  if (slotIdx < 0) {
+    return res.status(409).json({ error: 'Рюкзак полон — освободите слот' });
+  }
+
+  sheet.backpack[slotIdx] = normalizeBackpackItem(message.item);
+  store.saveUserSheet(req.user.id, message.toCharId, sheet);
+
+  messages[idx].status = 'accepted';
+  messages[idx].acceptedAt = new Date().toISOString();
+  messages[idx].backpackSlot = slotIdx;
+  store.saveUserMessages(req.user.id, messages);
+
+  return res.json({
+    ok: true,
+    slot: slotIdx,
+    item: sheet.backpack[slotIdx],
+    message: messages[idx],
+  });
+});
+
+app.post('/api/me/messages/:id/decline', auth.requireAuth, (req, res) => {
+  const { id } = req.params;
+  const charId = String(req.body?.charId ?? req.query?.charId ?? '').trim();
+  const messages = store.getUserMessages(req.user.id);
+  const idx = messages.findIndex((m) => m.id === id);
+  if (idx < 0) {
+    return res.status(404).json({ error: 'Сообщение не найдено' });
+  }
+
+  const message = messages[idx];
+  if (!isItemGiftMessage(message)) {
+    return res.status(400).json({ error: 'Это не посылка с предметом' });
+  }
+  if (message.status !== 'unread') {
+    return res.status(409).json({ error: 'Посылка уже обработана' });
+  }
+  if (charId && message.toCharId !== charId) {
+    return res.status(403).json({ error: 'Это сообщение другому герою' });
+  }
+  if (!findOwnedCharacter(req.user.id, message.toCharId)) {
+    return res.status(403).json({ error: 'Нет доступа' });
+  }
+
+  messages[idx].status = 'declined';
+  messages[idx].declinedAt = new Date().toISOString();
+  store.saveUserMessages(req.user.id, messages);
+
+  return res.json({ ok: true, message: messages[idx] });
+});
+
+app.post('/api/me/messages/:id/read', auth.requireAuth, (req, res) => {
+  const { id } = req.params;
+  const charId = String(req.body?.charId ?? req.query?.charId ?? '').trim();
+  const messages = store.getUserMessages(req.user.id);
+  const idx = messages.findIndex((m) => m.id === id);
+  if (idx < 0) {
+    return res.status(404).json({ error: 'Сообщение не найдено' });
+  }
+  if (charId && messages[idx].toCharId !== charId) {
+    return res.status(403).json({ error: 'Это сообщение другому герою' });
+  }
+  if (!findOwnedCharacter(req.user.id, messages[idx].toCharId)) {
+    return res.status(403).json({ error: 'Нет доступа' });
+  }
+  if (isItemGiftMessage(messages[idx])) {
+    return res.status(400).json({ error: 'Примите или отклоните посылку' });
+  }
+  messages[idx].status = 'read';
+  messages[idx].readAt = new Date().toISOString();
+  store.saveUserMessages(req.user.id, messages);
+  return res.json({ ok: true, message: messages[idx] });
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
@@ -711,6 +1064,10 @@ app.get('/register', (req, res) => {
 
 app.get('/group', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/group.html'));
+});
+
+app.get('/gm', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/gm.html'));
 });
 
 app.listen(PORT, () => {

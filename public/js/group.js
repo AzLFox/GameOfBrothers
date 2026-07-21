@@ -269,7 +269,7 @@ async function rosterMemberCard(member, { isOwner = false } = {}) {
     kickBtn.disabled = true;
     const result = await GobGroup.removeMember(activeGroupId, member.charId, leaderCharId);
     window.dispatchEvent(new CustomEvent('gob-group-changed'));
-    if (result.removedSelf) {
+    if (result.removedSelf || result.deleted) {
       navigateToGroup('');
       return;
     }
@@ -543,6 +543,11 @@ async function refreshGroupView({ force = false } = {}) {
   const group = await GobGroup.loadGroup(activeGroupId, leaderCharId);
   if (refreshToken !== groupViewRefreshToken) return false;
 
+  if (!group) {
+    navigateToGroup('');
+    return false;
+  }
+
   const key = rosterKey(group);
   if (!force && key === lastRosterKey) return false;
   lastRosterKey = key;
@@ -640,7 +645,7 @@ async function init() {
 
   if (activeGroupId) {
     const group = await GobGroup.loadGroup(activeGroupId, leaderCharId);
-    if (!group.id) {
+    if (!group) {
       await navigateToGroup('', { replace: true });
       return;
     }
