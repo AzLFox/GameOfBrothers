@@ -39,6 +39,55 @@ function defaultSheetForCard(card) {
 
 const BACKPACK_SLOTS = 6;
 
+/** charId -> Set<{ res, clientId }>: открытые SSE-подписки на изменения листа. */
+const sheetSubscribers = new Map();
+
+function subscribeToSheet(charId, entry) {
+  if (!sheetSubscribers.has(charId)) sheetSubscribers.set(charId, new Set());
+  sheetSubscribers.get(charId).add(entry);
+}
+
+function unsubscribeFromSheet(charId, entry) {
+  const set = sheetSubscribers.get(charId);
+  if (!set) return;
+  set.delete(entry);
+  if (!set.size) sheetSubscribers.delete(charId);
+}
+
+/** Разослать всем открытым листам этого героя, кроме самого автора правки. */
+function broadcastSheetUpdate(charId, payload, exceptClientId) {
+  const set = sheetSubscribers.get(charId);
+  if (!set) return;
+  const data = `data: ${JSON.stringify(payload)}\n\n`;
+  for (const entry of set) {
+    if (exceptClientId && entry.clientId === exceptClientId) continue;
+    try {
+      entry.res.write(data);
+    } catch {
+      /* мёртвое соединение подчистит close-хендлер */
+    }
+  }
+}
+
+/**
+ * Лист хранится одним блобом, поэтому правки мастера и игрока могут затирать
+ * друг друга. rev инкрементится сервером и проверяется при записи.
+ */
+function sheetRev(sheet) {
+  const rev = Number(sheet?.rev);
+  return Number.isFinite(rev) && rev > 0 ? rev : 0;
+}
+
+function writeSheetWithRev(ownerUserId, charId, incoming, actorRole) {
+  const current = store.getUserSheet(ownerUserId, charId);
+  const next = { ...incoming };
+  next.rev = sheetRev(current) + 1;
+  next.updatedAt = new Date().toISOString();
+  next.updatedBy = actorRole;
+  store.saveUserSheet(ownerUserId, charId, next);
+  return next;
+}
+
 function normalizeBackpackItem(raw) {
   const name = String(raw?.name ?? '').trim();
   const desc = String(raw?.desc ?? raw?.description ?? '').trim();
@@ -95,6 +144,34 @@ function isUserCharId(id) {
 function findOwnedCharacter(userId, charId) {
   const chars = store.getUserCharacters(userId);
   return chars.find((c) => c.id === charId) || null;
+}
+
+/**
+ * Кто и на каком основании может читать/писать лист персонажа.
+ * Владелец — всегда; мастер — для героев своей активной группы.
+ * Возвращает { ownerUserId, char, role } либо null.
+ */
+function resolveCharAccess(user, charId) {
+  if (!user || !isUserCharId(charId)) return null;
+
+  const own = findOwnedCharacter(user.id, charId);
+  if (own) return { ownerUserId: user.id, char: own, role: 'owner' };
+
+  if (!auth.isGameMasterUser(user)) return null;
+
+  const activeGroupId = String(store.getGmSession(user.id).activeGroupId || '').trim();
+  if (!activeGroupId) return null;
+
+  const group = store.getPartyGroup(activeGroupId);
+  if (!group || !canGmAccessGroup(group, user.id) || !charInParty(group, charId)) return null;
+
+  const owner = store.findUserByCharId(charId);
+  if (!owner) return null;
+
+  const char = findOwnedCharacter(owner.id, charId);
+  if (!char) return null;
+
+  return { ownerUserId: owner.id, char, role: 'gm' };
 }
 
 app.post('/api/auth/register', (req, res) => {
@@ -234,33 +311,92 @@ app.delete('/api/me/characters/:id', auth.requireAuth, (req, res) => {
   return res.json({ ok: true });
 });
 
+app.get('/api/me/characters/:charId', auth.requireAuth, (req, res) => {
+  const access = resolveCharAccess(req.user, req.params.charId);
+  if (!access) {
+    return res.status(404).json({ error: 'Character not found' });
+  }
+  return res.json({ ...access.char, accessRole: access.role });
+});
+
 app.get('/api/me/sheets/:charId', auth.requireAuth, (req, res) => {
   const { charId } = req.params;
-  if (!isUserCharId(charId)) {
-    return res.status(400).json({ error: 'Invalid character id' });
-  }
-  if (!findOwnedCharacter(req.user.id, charId)) {
+  const access = resolveCharAccess(req.user, charId);
+  if (!access) {
     return res.status(404).json({ error: 'Character not found' });
   }
 
-  const sheet = store.getUserSheet(req.user.id, charId);
+  const sheet = store.getUserSheet(access.ownerUserId, charId);
   if (!sheet) {
     return res.status(404).json({ error: 'Sheet not found' });
   }
-  return res.json(sheet);
+  return res.json({ ...sheet, rev: sheetRev(sheet), accessRole: access.role });
 });
 
 app.put('/api/me/sheets/:charId', auth.requireAuth, (req, res) => {
   const { charId } = req.params;
-  if (!isUserCharId(charId)) {
-    return res.status(400).json({ error: 'Invalid character id' });
-  }
-  if (!findOwnedCharacter(req.user.id, charId)) {
+  const access = resolveCharAccess(req.user, charId);
+  if (!access) {
     return res.status(404).json({ error: 'Character not found' });
   }
 
-  store.saveUserSheet(req.user.id, charId, req.body);
-  return res.json({ ok: true });
+  const current = store.getUserSheet(access.ownerUserId, charId);
+  const clientRev = Number(req.body?.rev);
+  // rev присылают не все клиенты; проверяем только когда он указан.
+  if (current && Number.isFinite(clientRev) && clientRev !== sheetRev(current)) {
+    return res.status(409).json({
+      error: 'Лист изменён другим участником',
+      sheet: { ...current, rev: sheetRev(current), accessRole: access.role },
+    });
+  }
+
+  const incoming = { ...req.body };
+  delete incoming.accessRole;
+  const saved = writeSheetWithRev(access.ownerUserId, charId, incoming, access.role);
+
+  broadcastSheetUpdate(
+    charId,
+    { type: 'sheet', rev: saved.rev, updatedBy: access.role, at: saved.updatedAt },
+    String(req.get('X-Sheet-Client') || '').trim(),
+  );
+
+  return res.json({ ok: true, rev: saved.rev });
+});
+
+app.get('/api/me/sheets/:charId/events', auth.requireAuth, (req, res) => {
+  const { charId } = req.params;
+  const access = resolveCharAccess(req.user, charId);
+  if (!access) {
+    return res.status(404).json({ error: 'Character not found' });
+  }
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders?.();
+
+  const entry = { res, clientId: String(req.query.clientId || '').trim() };
+  subscribeToSheet(charId, entry);
+
+  const sheet = store.getUserSheet(access.ownerUserId, charId);
+  res.write(`data: ${JSON.stringify({ type: 'hello', rev: sheetRev(sheet) })}\n\n`);
+
+  // Комментарий-пинг держит соединение живым через прокси.
+  const ping = setInterval(() => {
+    try {
+      res.write(': ping\n\n');
+    } catch {
+      /* ignore */
+    }
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(ping);
+    unsubscribeFromSheet(charId, entry);
+  });
 });
 
 app.post('/api/me/characters/import', auth.requireAuth, (req, res) => {
@@ -974,7 +1110,13 @@ app.post('/api/me/messages/:id/accept', auth.requireAuth, (req, res) => {
   }
 
   sheet.backpack[slotIdx] = normalizeBackpackItem(message.item);
-  store.saveUserSheet(req.user.id, message.toCharId, sheet);
+  const savedSheet = writeSheetWithRev(req.user.id, message.toCharId, sheet, 'owner');
+  broadcastSheetUpdate(message.toCharId, {
+    type: 'sheet',
+    rev: savedSheet.rev,
+    updatedBy: 'owner',
+    at: savedSheet.updatedAt,
+  });
 
   messages[idx].status = 'accepted';
   messages[idx].acceptedAt = new Date().toISOString();
