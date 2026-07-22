@@ -6,6 +6,7 @@ node_modules/
 Thumbs.db
 .playwright-mcp/
 .cursor/
+.mcp.json
 assets/
 server/data/sessions.json
 server/data/users.json
