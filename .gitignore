@@ -10,3 +10,4 @@ assets/
 server/data/sessions.json
 server/data/users.json
 server/data/accounts/
+server/data/parties/
