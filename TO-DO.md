@@ -7,30 +7,40 @@
 
 ## 🐞 Баги
 
-### 1. Захват группы мастером не сохраняется — защита `canGmAccessGroup` не работает
-`normalizePartyGroup()` не переносит поля `gmUserId` / `gmAssignedAt` в возвращаемый объект,
-поэтому `PUT /api/gm/session`, который делает `normalizePartyGroup({ ...group, gmUserId })`,
-на самом деле сохраняет группу **без** `gmUserId`.
+### 1. Нет взаимного исключения: два мастера могут вести одну группу одновременно
+Замысел: любой ГМ может взять любую свободную группу, но **не одновременно** с другим —
+блокировкой служит `gmUserId` + проверка `canGmAccessGroup`.
+Фактически блокировка не сохраняется: `normalizePartyGroup()` не переносит `gmUserId`/`gmAssignedAt`
+в возвращаемый объект, а `savePartyGroup()` пишет объект целиком (`writeJson`, без мерджа), поэтому
+`PUT /api/gm/session`, делающий `normalizePartyGroup({ ...group, gmUserId })`, сохраняет группу
+**без** `gmUserId`. Подтверждено на рантайм-данных: в `server/data/parties/grp_*.json` ключа
+`gmUserId` нет вообще.
 Следствия:
-- `canGmAccessGroup()` всегда возвращает `true` (условие `!group.gmUserId`), т.е. проверка
-  «Группа ведётся другим мастером» — фактически no-op: **любой** мастер может открыть и вести
-  любую группу.
-- В сводке групп (`gmGroupSummary`) `gmUserId` и `isActiveGm` всегда пустые/`false`.
+- `canGmAccessGroup()` всегда возвращает `true` (условие `!group.gmUserId`), ошибка
+  «Группа ведётся другим мастером» недостижима — ограничение «не одновременно» не работает.
+- В сводке групп (`gmGroupSummary`) `gmUserId` пуст, `isActiveGm` всегда `false`.
 - Файлы: [server/server.js:301](server/server.js#L301) (`normalizePartyGroup`),
   [server/server.js:445](server/server.js#L445) (`canGmAccessGroup`),
-  [server/server.js:811](server/server.js#L811) (`PUT /api/gm/session`).
-- Фикс: сохранять `gmUserId`/`gmAssignedAt` в `normalizePartyGroup` (или писать их отдельно
-  через `savePartyGroup` в обход нормализации).
+  [server/server.js:811](server/server.js#L811) (`PUT /api/gm/session`),
+  [server/store.js:132](server/store.js#L132) (`savePartyGroup`).
+- Фикс: сохранять `gmUserId`/`gmAssignedAt` в `normalizePartyGroup` (или писать их в обход
+  нормализации) — **обязательно вместе с п. 2**, иначе получится обратная крайность.
 
 ---
 
 ## 🧩 Функциональные пробелы
 
-### 2. Нельзя «освободить»/переназначить группу от мастера
-После назначения `gmUserId` очищается только при удалении группы (когда вышел последний участник,
-`clearGmSessionIfActive` — [server/server.js:415](server/server.js#L415)). Нет эндпоинта/кнопки,
-чтобы мастер отпустил группу или чтобы её передали другому мастеру. Сейчас неактуально из‑за бага №1,
-но станет актуальным после его починки.
+### 2. Нет освобождения группы — чинить строго вместе с п. 1
+`gmUserId` очищается только при удалении группы (когда вышел последний участник,
+`clearGmSessionIfActive` — [server/server.js:415](server/server.js#L415)). Ни смена группы кнопкой
+«← Другая группа», ни `PUT /api/gm/session` с пустым `activeGroupId` блокировку не снимают —
+они пишут только `gm-session.json` мастера.
+Поэтому «просто починить п. 1», начав сохранять `gmUserId`, даст обратную крайность: группа
+навсегда залипнет за первым открывшим её мастером, что противоречит замыслу «любой ГМ может взять
+любую свободную группу».
+Нужно вместе с п. 1:
+- снимать блокировку при выходе со стола / смене группы / логауте;
+- TTL (lease) на блокировку — на случай оборванной сессии, иначе группа останется занятой навсегда.
 
 ### 3. Нет способа выдать роль GameMaster из приложения
 Роль берётся только из env `GOB_GM_USERNAMES` ([server/auth.js:133](server/auth.js#L133)) либо
