@@ -1420,7 +1420,10 @@ async function loadSheetAsync(char) {
   }
 
   if (!data) return base;
+  return migrateSheetData(data, base);
+}
 
+function migrateSheetData(data, base) {
   const stats = { ...base.stats, ...data.stats };
   const identity = migrateIdentity(data);
   return {
@@ -1449,7 +1452,33 @@ async function loadSheetAsync(char) {
   };
 }
 
+/**
+ * Принять версию листа с сервера (правка мастера или другой вкладки)
+ * и перерисовать лист, не затирая её локальной копией.
+ */
+function adoptRemoteSheet(data) {
+  if (!data || typeof data !== 'object') return;
+  clearTimeout(saveTimer);
+  const next = migrateSheetData(data, defaultSheet(catalogChar));
+  next.rev = data.rev;
+  sheet = next;
+  renderSheet();
+  window.dispatchEvent(new CustomEvent('gob-sheet-refresh'));
+}
+
+/** Живое обновление листа: сервер шлёт rev при каждой чужой правке. */
+function initSheetSync() {
+  if (!catalogChar?.isUser || typeof watchUserSheet !== 'function') return;
+  watchUserSheet(id, async (payload) => {
+    if (Number(payload?.rev) <= Number(sheet?.rev ?? 0)) return;
+    const fresh = typeof loadUserSheet === 'function' ? await loadUserSheet(id) : null;
+    if (fresh) adoptRemoteSheet(fresh);
+  });
+}
+
 function syncUserCardCatalog() {
+  // Чужой герой (мы за него как мастер) — в свой каталог его не пишем.
+  if (catalogChar?.isForeign) return;
   if (!catalogChar?.isUser || typeof updateUserCharacterMeta !== 'function') return;
   updateUserCharacterMeta(catalogChar.id, {
     name: sheet.name ?? '',
@@ -1468,12 +1497,21 @@ function scheduleSave() {
     const hint = document.getElementById('save-hint');
     if (catalogChar?.isUser && typeof saveUserSheet === 'function') {
       const result = await saveUserSheet(id, sheet);
+      if (result?.conflict && result.sheet) {
+        // Лист успели изменить (мастер или другая вкладка) — берём версию сервера.
+        adoptRemoteSheet(result.sheet);
+        hint.textContent = 'Лист обновлён мастером';
+        hint.classList.add('visible');
+        setTimeout(() => hint.classList.remove('visible'), 3000);
+        return;
+      }
       if (!result?.ok) {
         hint.textContent = result?.error ? `Ошибка: ${result.error}` : 'Не удалось сохранить';
         hint.classList.add('visible');
         setTimeout(() => hint.classList.remove('visible'), 3000);
         return;
       }
+      if (result.rev !== undefined) sheet.rev = result.rev;
     } else {
       localStorage.setItem(storageKey(), JSON.stringify(sheet));
     }
@@ -4697,7 +4735,7 @@ async function init(char) {
   catalogChar = char;
   sheet = await loadSheetAsync(char);
 
-  if (char.isUser && typeof updateUserCharacterMeta === 'function') {
+  if (char.isUser && !char.isForeign && typeof updateUserCharacterMeta === 'function') {
     const sheetName = String(sheet.name ?? '').trim();
     const sheetDesc = String(sheet.description ?? '').trim();
     const catalogName = String(char.name ?? '').trim();
@@ -4747,7 +4785,8 @@ async function init(char) {
   CoinPouch?.init?.(sheet, scheduleSave);
   initUserCharacterTools(char);
   initTransfer();
-  if (typeof GobInvites !== 'undefined') {
+  initSheetSync();
+  if (typeof GobInvites !== 'undefined' && !char.isForeign) {
     GobInvites.bind(char.id);
   }
 

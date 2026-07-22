@@ -15,6 +15,16 @@ const GobCharacters = (() => {
   let isAuthed = false;
   let apiUserChars = null;
 
+  let clientId = '';
+
+  /** Идентификатор вкладки: сервер не шлёт нам эхо наших же правок. */
+  function sheetClientId() {
+    if (!clientId) {
+      clientId = (crypto?.randomUUID?.() || `c${Date.now()}${Math.random()}`).slice(0, 36);
+    }
+    return clientId;
+  }
+
   function sheetStorageKey(id) {
     return `gob_character_${id}`;
   }
@@ -151,7 +161,20 @@ const GobCharacters = (() => {
       return null;
     }
     const user = await refreshApiUserChars();
-    return user.find((c) => c.id === id) || null;
+    const own = user.find((c) => c.id === id);
+    if (own) return own;
+
+    // Не свой герой — возможно, мы мастер его группы: сервер решит, можно ли.
+    try {
+      const res = await apiFetch(`/api/me/characters/${encodeURIComponent(id)}`);
+      if (res.ok) {
+        const card = await res.json();
+        return { ...card, isUser: true, isForeign: true };
+      }
+    } catch {
+      /* ignore */
+    }
+    return null;
   }
 
   function getPortraitUrl(char) {
@@ -373,13 +396,20 @@ const GobCharacters = (() => {
       try {
         const res = await apiFetch(`/api/me/sheets/${encodeURIComponent(charId)}`, {
           method: 'PUT',
+          headers: { 'X-Sheet-Client': sheetClientId() },
           body: JSON.stringify(sheetData),
         });
+        if (res.status === 409) {
+          // Лист успели изменить (обычно мастер) — отдаём свежую версию наверх.
+          const payload = await res.json().catch(() => ({}));
+          return { ok: false, conflict: true, sheet: payload.sheet || null, error: payload.error };
+        }
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
           return { ok: false, error: err.error || `HTTP ${res.status}` };
         }
-        return { ok: true };
+        const data = await res.json().catch(() => ({}));
+        return { ok: true, rev: data.rev };
       } catch (e) {
         return { ok: false, error: e.message || 'network error' };
       }
@@ -387,6 +417,28 @@ const GobCharacters = (() => {
 
     localStorage.setItem(sheetStorageKey(charId), JSON.stringify(sheetData));
     return { ok: true };
+  }
+
+  /** Свой лист можно слушать через SSE: сервер шлёт rev при каждой чужой правке. */
+  function watchUserSheet(charId, onUpdate) {
+    if (typeof EventSource === 'undefined') return () => {};
+    const url = `/api/me/sheets/${encodeURIComponent(charId)}/events`
+      + `?clientId=${encodeURIComponent(sheetClientId())}`;
+    let source;
+    try {
+      source = new EventSource(url, { withCredentials: true });
+    } catch {
+      return () => {};
+    }
+    source.addEventListener('message', (e) => {
+      try {
+        const payload = JSON.parse(e.data);
+        if (payload?.type === 'sheet') onUpdate(payload);
+      } catch {
+        /* ignore */
+      }
+    });
+    return () => source.close();
   }
 
   return {
@@ -412,6 +464,7 @@ const GobCharacters = (() => {
     createCharacter,
     loadUserSheet,
     saveUserSheet,
+    watchUserSheet,
     invalidateAuthCache,
     ensureAuthState,
   };
