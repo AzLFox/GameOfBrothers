@@ -479,6 +479,26 @@
   box-shadow: 0 4px 16px rgba(80, 50, 20, 0.1);
 }
 
+.gm-compose__sheet-link {
+  display: block;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(201, 162, 77, 0.45);
+  border-radius: 8px;
+  background: rgba(201, 162, 77, 0.08);
+  color: #e8c97a;
+  font-family: 'Cinzel', serif;
+  font-size: 0.85rem;
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.gm-compose__sheet-link:hover {
+  background: rgba(201, 162, 77, 0.18);
+  border-color: rgba(201, 162, 77, 0.75);
+}
+
 .gm-compose__tabs {
   display: flex;
   gap: 8px;

@@ -173,6 +173,15 @@ function updateComposePanel({ clearFeedback = false } = {}) {
   if (targetEl) targetEl.textContent = memberLabel;
   if (itemTargetEl) itemTargetEl.textContent = memberLabel;
 
+  // Мастер открывает лист героя своей группы и правит его как владелец.
+  const sheetLink = document.getElementById('gm-open-sheet');
+  if (sheetLink) {
+    sheetLink.hidden = !hasMember;
+    if (hasMember) {
+      sheetLink.href = `/character?id=${encodeURIComponent(member.charId)}`;
+    }
+  }
+
   if (!hasMember) {
     if (bodyEl) {
       bodyEl.value = '';
