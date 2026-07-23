@@ -1212,6 +1212,12 @@ app.get('/gm', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/gm.html'));
 });
 
-app.listen(PORT, () => {
-  console.log('Server running: http://localhost:', PORT);
-});
+// Слушаем порт только при прямом запуске (node server/server.js).
+// При require из тестов приложение поднимается на случайном порту самим тестом.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log('Server running: http://localhost:', PORT);
+  });
+}
+
+module.exports = app;

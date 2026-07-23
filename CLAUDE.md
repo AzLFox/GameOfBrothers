@@ -15,7 +15,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Выдать роль GameMaster:** перед запуском задать env `GOB_GM_USERNAMES` (список username через
   запятую) — иначе роль только правкой поля `role` в JSON пользователя (`/api/gm/*` под
   `requireGameMaster`).
-- **Тесты/линтер:** не настроены. `npm test` — заглушка (`exit 1`), тест-фреймворка нет.
+- **Тесты:** `npm test` → `node --test "tests/*.test.js"` (встроенный раннер Node, без внешних
+  зависимостей). Покрыт бэкенд: [tests/auth.test.js](tests/auth.test.js),
+  [tests/store.test.js](tests/store.test.js) (юнит), [tests/server.test.js](tests/server.test.js)
+  (интеграционные — поднимают Express на случайном порту, включая SSE-синхронизацию и rev-локи).
+  Данные изолированы во временной папке через `GOB_DATA_DIR` — реальные `server/data/` не трогаются.
+  Подробности — [tests/README.md](tests/README.md). Фронтенд (`public/js`) не покрыт: завязан на
+  DOM/`window`, нужен jsdom. Линтер не настроен.
 - **Тулинг ассетов** (нужен редко): `npm run generate:stat-frames`, `npm run import:steam-frame`;
   прочие разовые генераторы — `scripts/*.mjs` (обработка монет, дерева, стат-рамок).
 

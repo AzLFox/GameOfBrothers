@@ -1,7 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const DATA_DIR = path.join(__dirname, 'data');
+// Каталог данных можно переопределить через GOB_DATA_DIR — это нужно тестам,
+// чтобы писать во временную папку и не трогать реальные server/data/.
+const DATA_DIR = process.env.GOB_DATA_DIR
+  ? path.resolve(process.env.GOB_DATA_DIR)
+  : path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 
