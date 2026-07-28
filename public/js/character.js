@@ -1421,6 +1421,40 @@ function bindDamageIntake() {
   modal?.addEventListener('cancel', (e) => { e.preventDefault(); closeDamageWizard(); });
 }
 
+// Списывает единицу бабла через системный кастом-источник строки «Баблы»,
+// чтобы развёртка осталась консистентной (декремент виден и сохраняется).
+function spendBubbleUnit() {
+  const rowId = 'combat-row-bubble';
+  if (!sheet.combatCustom || typeof sheet.combatCustom !== 'object') sheet.combatCustom = {};
+  if (!Array.isArray(sheet.combatCustom[rowId])) sheet.combatCustom[rowId] = [];
+  const list = sheet.combatCustom[rowId];
+  let entry = list.find((s) => s && s.sys === 'bubbleSpend');
+  if (!entry) {
+    entry = { id: uid(), label: 'Пробитие бабла', value: 0, sys: 'bubbleSpend' };
+    list.push(entry);
+  }
+  entry.value = (parseInt(entry.value, 10) || 0) - 1;
+}
+
+// Финал визарда: списать итоговый урон с HP, применить эффекты бабла, сохранить.
+function applyDamageIntake() {
+  const w = damageWizard;
+  if (!w) return;
+  const result = w.result || computeDamageIntake(damageIntakeInput());
+  const hp = parseInt(sheet.combat.hp, 10) || 0;
+  sheet.combat.hp = Math.max(0, hp - result.finalDamage);
+
+  if (w.bubble && w.bubble.active) {
+    if (w.bubble.fell) sheet.combat.bubbleActive = false;
+    else spendBubbleUnit();
+  }
+
+  syncCombatInputs();
+  scheduleSave();
+  updateCombatValues();
+  closeDamageWizard();
+}
+
 function renderCombat() {
   const grid = document.getElementById('combat-grid');
   grid.innerHTML = `
