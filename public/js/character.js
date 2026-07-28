@@ -386,6 +386,8 @@ function resolveItemClassContext(group, key) {
 const HAND_SLOTS = ['leftHand', 'rightHand'];
 // подпись руки для боевых строк по-предметно (напр. «Щит в левой руке»)
 const HAND_ROW_LABEL = { leftHand: 'в левой руке', rightHand: 'в правой руке' };
+// именительная подпись руки для предупреждений редактора (напр. «левая рука занята»)
+const HAND_NAME = { leftHand: 'левая рука', rightHand: 'правая рука' };
 
 function isHandSlot(slotKey) {
   return HAND_SLOTS.includes(slotKey);
@@ -398,6 +400,16 @@ function otherHand(slotKey) {
 function isTwoHanded(slotKey, item) {
   const cls = findItemClass(slotKey, item?.classId);
   return Boolean(cls && cls.hands === 2);
+}
+
+// Вторая рука занята самостоятельным предметом → двуручное оружие в этот слот брать нельзя
+// (иначе reconcileHands молча затрёт соседний предмет — см. BUGS.md B5).
+// Редактируемый слот-зеркало не в счёт: вторая рука — владелец той же двуручной связки.
+function otherHandBlocksTwoHanded(slotKey) {
+  if (!isHandSlot(slotKey)) return false;
+  if (sheet.equipment[slotKey]?.mirror) return false;
+  const otherItem = sheet.equipment[otherHand(slotKey)];
+  return !isItemEmpty(otherItem) && !otherItem.mirror;
 }
 
 function familyDef(family) {
@@ -2362,6 +2374,8 @@ function canEquipBackpackItemToSlot(backpackIndex, equipSlotKey) {
   if (!item.classId) return false;
   if (!findItemClass(equipSlotKey, item.classId)) return false;
   if (isMirrorHandSlot(equipSlotKey)) return false;
+  // двуручное оружие нельзя надеть, если вторая рука занята — иначе затрёт её предмет (B5)
+  if (isTwoHanded(equipSlotKey, item) && otherHandBlocksTwoHanded(equipSlotKey)) return false;
   return true;
 }
 
@@ -3587,6 +3601,10 @@ function renderClassPicker(slotKey) {
   if (!item.classId) none.selected = true;
   select.appendChild(none);
 
+  // вторая рука занята — двуручное оружие сюда брать нельзя (иначе затрёт её предмет, B5)
+  const blockTwoHanded = otherHandBlocksTwoHanded(slotKey);
+  let hasBlockedTwoHanded = false;
+
   (slotClassList(slotKey) || []).forEach((cls) => {
     const fam = familyDef(cls.family);
     const opt = document.createElement('option');
@@ -3594,12 +3612,24 @@ function renderClassPicker(slotKey) {
     const icon = fam?.icon ? `${fam.icon} ` : '';
     opt.textContent = `${icon}${cls.label}`;
     opt.title = fam ? `Семейство: ${fam.label}${cls.hands ? ` · ${cls.hands}р` : ''}` : cls.label;
+    if (blockTwoHanded && cls.hands === 2) {
+      opt.disabled = true;
+      opt.title = `Недоступно: ${HAND_NAME[otherHand(slotKey)]} занята`;
+      hasBlockedTwoHanded = true;
+    }
     if (item.classId === cls.id) opt.selected = true;
     select.appendChild(opt);
   });
 
   select.addEventListener('change', () => setItemClass(slotKey, select.value || null));
   picker.appendChild(select);
+
+  if (hasBlockedTwoHanded) {
+    const note = document.createElement('p');
+    note.className = 'slot-class-note';
+    note.textContent = `Двуручное оружие недоступно: ${HAND_NAME[otherHand(slotKey)]} занята.`;
+    picker.appendChild(note);
+  }
 }
 
 function renderTierPicker(group, key) {
