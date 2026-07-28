@@ -26,6 +26,7 @@
 - [b2-gm-account-label-roadmap.md](b2-gm-account-label-roadmap.md) — фикс бага B2: аккаунт ГМ подписывать «Аккаунт мастера».
 - [b4-shield-active-guard-roadmap.md](b4-shield-active-guard-roadmap.md) — фикс бага B4: щит — активная проверка (`shieldGuard`), не пассивная защита.
 - [b5-two-handed-hand-guard-roadmap.md](b5-two-handed-hand-guard-roadmap.md) — фикс бага B5: двуручное оружие нельзя надеть, если вторая рука занята (не затирать предмет).
+- [damage-intake-roadmap.md](damage-intake-roadmap.md) — фича «получить пизды»: авторасчёт входящего урона (урон → уворот → щиты → бабл → броня → HP).
 
 > **Новые фичи планируем роадмапом.** Для каждой крупной возможности заводим
 > `docs/<slug>-roadmap.md` в едином формате (шапка → Принципы → Фазы с промптом и
