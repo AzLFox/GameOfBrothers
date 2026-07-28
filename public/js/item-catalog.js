@@ -32,6 +32,9 @@
     hit:            { label: 'Попадание',        type: 'flat', combat: 'hit'   },
     // ОТДЕЛЬНАЯ строка появляется только при надевании снаряжения
     armor:          { label: 'Защита',           type: 'flat', combat: 'row'   },
+    // щит — не пассивная броня: собственная строка «Щит», значение применяется
+    // активной проверкой при получении урона (см. BUGS.md B4), не суммируется в «Защиту»
+    shieldGuard:    { label: 'Щит',              type: 'flat', combat: 'row'   },
     evasion:        { label: 'Уворот',           type: 'flat', combat: 'row'   },
     bubble:         { label: 'Баблы',            type: 'flat', combat: 'row'   },
     enemyCritDown:  { label: 'Крит врага',       type: 'flat', combat: 'row'   },
@@ -87,8 +90,8 @@
       mods: ['heal', 'effectDuration'],
       tiers: { 1: { heal: '1D4' }, 2: { heal: '1D6' }, 3: { heal: '1D8' }, 4: { heal: '1D10', effectDuration: 1 } } },
     { id: 'shield', label: 'Щит', family: 'shield', hands: 1,
-      mods: ['armor'],
-      tiers: { 1: { armor: 3 }, 2: { armor: 6 }, 3: { armor: 9 }, 4: { armor: 12 } } },
+      mods: ['shieldGuard'],
+      tiers: { 1: { shieldGuard: 3 }, 2: { shieldGuard: 6 }, 3: { shieldGuard: 9 }, 4: { shieldGuard: 12 } } },
     { id: 'arrows', label: 'Стрелы', family: 'swDex', hands: 1,
       mods: ['damageDice'],
       tiers: { 1: { damageDice: '1D4' }, 2: { damageDice: '1D6' }, 3: { damageDice: '1D8' }, 4: { damageDice: '1D10' } } },

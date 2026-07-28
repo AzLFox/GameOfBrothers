@@ -23,6 +23,8 @@
 - [create-hero-roadmap.md](create-hero-roadmap.md) — план по созданию героя.
 - [visual-roadmap.md](visual-roadmap.md) — визуальный роадмап (десктоп).
 - [mobile-visual-roadmap.md](mobile-visual-roadmap.md) — визуальный роадмап (мобильный).
+- [b2-gm-account-label-roadmap.md](b2-gm-account-label-roadmap.md) — фикс бага B2: аккаунт ГМ подписывать «Аккаунт мастера».
+- [b4-shield-active-guard-roadmap.md](b4-shield-active-guard-roadmap.md) — фикс бага B4: щит — активная проверка (`shieldGuard`), не пассивная защита.
 
 > **Новые фичи планируем роадмапом.** Для каждой крупной возможности заводим
 > `docs/<slug>-roadmap.md` в едином формате (шапка → Принципы → Фазы с промптом и
