@@ -6486,6 +6486,15 @@ body.char-motion-ready .quests-panel {
   font-weight: 600;
 }
 
+/* запрет двуручного оружия, пока вторая рука занята (см. BUGS.md B5) */
+.slot-class-note {
+  margin: 4px 0 6px;
+  font-family: "Crimson Pro", Georgia, serif;
+  font-size: 0.82rem;
+  color: #8b1010;
+  font-weight: 600;
+}
+
 .slot-mods {
   display: flex;
   flex-direction: column;
