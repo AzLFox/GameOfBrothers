@@ -5,7 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > Документация и коммиты в этом проекте ведутся на русском. Вся документация лежит в `docs/`.
 > **Перед работой открой [docs/INDEX.md](docs/INDEX.md)** — карта всех документов: баги
 > ([docs/BUGS.md](docs/BUGS.md)), предложения по развитию ([docs/TO-DO.md](docs/TO-DO.md)),
-> кандидаты на удаление ([docs/TO-DEL.md](docs/TO-DEL.md)), спецификации и роадмапы.
+> темы на подумать ([docs/TO-BS.md](docs/TO-BS.md)), кандидаты на удаление
+> ([docs/TO-DEL.md](docs/TO-DEL.md)), спецификации и роадмапы.
 
 ## Команды
 
