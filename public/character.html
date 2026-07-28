@@ -196,6 +196,7 @@
       <section class="combat-panel panel">
         <h2 class="panel-title">Боевые показатели</h2>
         <div class="combat-grid" id="combat-grid"></div>
+        <button type="button" class="damage-intake-btn" id="btn-damage-intake" title="Авторасчёт входящего урона">Получить пизды</button>
       </section>
 
       <section class="effects-panel panel">
@@ -469,6 +470,17 @@
           <button type="submit" class="effect-btn effect-btn--save" id="quest-save">Сохранить</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog class="damage-modal" id="damage-modal">
+      <div class="damage-modal__panel panel">
+        <header class="damage-modal__header">
+          <h2 class="panel-title" id="damage-modal-title">Получить пизды</h2>
+          <button type="button" class="damage-modal__close" id="damage-modal-close" aria-label="Закрыть">×</button>
+        </header>
+        <div class="damage-modal__step" id="damage-step"></div>
+        <div class="damage-modal__actions" id="damage-actions"></div>
+      </div>
     </dialog>
 
     <dialog class="brumgilde-modal" id="brumgilde-modal">
