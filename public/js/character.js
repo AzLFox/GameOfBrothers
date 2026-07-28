@@ -384,6 +384,8 @@ function resolveItemClassContext(group, key) {
 
 // ----- слоты рук и двуручное оружие -----
 const HAND_SLOTS = ['leftHand', 'rightHand'];
+// подпись руки для боевых строк по-предметно (напр. «Щит в левой руке»)
+const HAND_ROW_LABEL = { leftHand: 'в левой руке', rightHand: 'в правой руке' };
 
 function isHandSlot(slotKey) {
   return HAND_SLOTS.includes(slotKey);
@@ -914,6 +916,8 @@ function renderExtraCombatRows(mods) {
   host.innerHTML = '';
   Object.entries(CATALOG.MODIFIERS).forEach(([key, def]) => {
     if (def.combat !== 'row') return;
+    // щит — не агрегат: своя строка на каждый надетый щит (по рукам)
+    if (key === 'shieldGuard') { renderShieldRows(host); return; }
     if (!extraRowVisible(key)) return;
     const val = mods[key] || 0;
     if (key === 'bubble') {
@@ -935,10 +939,39 @@ function renderExtraCombatRows(mods) {
   refreshExpandedRow();
 }
 
+// значение щита в конкретной руке (собственный мод + пользовательские источники строки)
+function shieldRowValue(slotKey) {
+  const item = sheet.equipment?.[slotKey];
+  const base = (item && !item.mirror && item.classId === 'shield')
+    ? (parseInt(item.mods?.shieldGuard, 10) || 0)
+    : 0;
+  return base + customSourcesSum(`combat-row-shieldGuard-${slotKey}`);
+}
+
+// По строке на каждый надетый щит — «Щит в левой/правой руке». Щитов может быть
+// два (как урон у оружия), каждый — отдельная проверка; агрегата нет (см. BUGS.md B4).
+function renderShieldRows(host) {
+  const def = CATALOG.MODIFIERS.shieldGuard;
+  HAND_SLOTS.forEach((slotKey) => {
+    const item = sheet.equipment?.[slotKey];
+    if (!item || item.mirror || item.classId !== 'shield') return;
+    const row = document.createElement('div');
+    row.className = 'combat-row combat-row--equip';
+    row.id = `combat-row-shieldGuard-${slotKey}`;
+    row.innerHTML = `
+      <span class="combat-label">${def.label} ${HAND_ROW_LABEL[slotKey]}</span>
+      <span class="combat-derived">${formatModValue('shieldGuard', shieldRowValue(slotKey))}</span>
+    `;
+    host.appendChild(row);
+    setupCombatRowExpand(row);
+  });
+}
+
 // обновляет только числа-итоги строк-агрегатов, не пересобирая их (сохраняет фокус)
 function updateExtraRowTotals(mods) {
   Object.entries(CATALOG.MODIFIERS).forEach(([key, def]) => {
     if (def.combat !== 'row') return;
+    if (key === 'shieldGuard') { updateShieldRowTotals(); return; }
     const row = document.getElementById(`combat-row-${key}`);
     if (!row) return;
     const val = mods[key] || 0;
@@ -951,6 +984,16 @@ function updateExtraRowTotals(mods) {
     }
     const derived = row.querySelector(':scope > .combat-derived');
     if (derived) derived.textContent = formatModValue(key, val);
+  });
+}
+
+// обновляет итоги по-предметных строк щитов на месте (не пересобирая DOM)
+function updateShieldRowTotals() {
+  HAND_SLOTS.forEach((slotKey) => {
+    const row = document.getElementById(`combat-row-shieldGuard-${slotKey}`);
+    if (!row) return;
+    const derived = row.querySelector(':scope > .combat-derived');
+    if (derived) derived.textContent = formatModValue('shieldGuard', shieldRowValue(slotKey));
   });
 }
 
@@ -1338,6 +1381,26 @@ function spellIconHtml(spell) {
   return `<img class="spell-icon-img${legendaryClass}" src="${iconSrc(spec, iconId)}" alt="" draggable="false">`;
 }
 
+// B4: щит больше не пассивная броня — переносим старый мод `armor` щита в его
+// собственный мод `shieldGuard` (активная проверка). Остальные предметы (в т.ч.
+// латные наручи на `armor`) не трогаем. Мутирует и возвращает переданный предмет.
+function migrateShieldItem(item) {
+  if (!item || item.classId !== 'shield' || !item.mods) return item;
+  const mods = item.mods;
+  if (mods.armor != null && mods.shieldGuard == null) {
+    mods.shieldGuard = mods.armor;
+  }
+  delete mods.armor;
+  return item;
+}
+
+// рюкзак грузится «как есть» (без нормализации предметов) — но старым щитам в нём
+// тоже нужно переехать с `armor` на `shieldGuard`, иначе экипировка вернёт пассивность
+function migrateBackpack(data, base) {
+  if (data.backpack?.length !== BACKPACK_COUNT) return base.backpack;
+  return data.backpack.map((item) => migrateShieldItem(item));
+}
+
 function migrateEquipment(data, base) {
   const eq = { ...base.equipment, ...(data.equipment || {}) };
 
@@ -1347,7 +1410,7 @@ function migrateEquipment(data, base) {
   delete eq.accessory;
 
   [...EQUIPMENT_SLOTS, ...EXTRA_SLOTS].forEach(({ key }) => {
-    eq[key] = eq[key] ? normalizeItem(eq[key]) : emptyItem();
+    eq[key] = eq[key] ? migrateShieldItem(normalizeItem(eq[key])) : emptyItem();
   });
 
   // двуручное оружие из старых сохранений отражаем во вторую руку, если она пуста
@@ -1384,9 +1447,7 @@ function loadSheet(char) {
       classSkills: migrateClassSkills(data, base),
       combatCustom: migrateCombatCustom(data),
       equipment: migrateEquipment(data, base),
-      backpack: data.backpack?.length === BACKPACK_COUNT
-        ? data.backpack
-        : base.backpack,
+      backpack: migrateBackpack(data, base),
       spells: migrateSpells(data, base),
       ...migrateEffects(data),
       quests: migrateQuests(data),
@@ -1437,9 +1498,7 @@ function migrateSheetData(data, base) {
     classSkills: migrateClassSkills(data, base),
     combatCustom: migrateCombatCustom(data),
     equipment: migrateEquipment(data, base),
-    backpack: data.backpack?.length === BACKPACK_COUNT
-      ? data.backpack
-      : base.backpack,
+    backpack: migrateBackpack(data, base),
     spells: migrateSpells(data, base),
     ...migrateEffects(data),
     quests: migrateQuests(data),
@@ -2101,6 +2160,14 @@ function combatRowSources(rowId) {
         ...customSourceEntries(rowId),
       ] };
     default: {
+      // по-предметная строка щита: combat-row-shieldGuard-<рука> — источник только этот щит
+      const shieldSlot = /^combat-row-shieldGuard-(leftHand|rightHand)$/.exec(rowId)?.[1];
+      if (shieldSlot) {
+        return { stat: null, sources: [
+          ...equipmentModSources('shieldGuard').filter((s) => s.slotKey === shieldSlot),
+          ...customSourceEntries(rowId),
+        ] };
+      }
       // строки-агрегаты снаряжения/классов: id вида combat-row-<modKey>
       const modKey = rowId.replace('combat-row-', '');
       const stat = CLASS_ROW_STAT[modKey] || null;
@@ -4468,7 +4535,7 @@ function importFromSharedFormat(jsonString) {
 
   const rawBackpack = Array.isArray(raw.backpack) ? raw.backpack : [];
   const backpack = Array.from({ length: BACKPACK_COUNT }, (_, i) => (
-    rawBackpack[i] ? normalizeItem(cloneItem(rawBackpack[i])) : emptyItem()
+    rawBackpack[i] ? migrateShieldItem(normalizeItem(cloneItem(rawBackpack[i]))) : emptyItem()
   ));
 
   const identity = migrateIdentity(raw);
