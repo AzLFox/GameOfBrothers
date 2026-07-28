@@ -3573,6 +3573,86 @@ html.gob-item-touch-drag .item-slot {
   color: #8b2840;
 }
 
+.damage-field-label {
+  display: block;
+  margin: 0 0 5px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+  color: var(--ink);
+}
+
+.damage-atk-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.damage-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  color: var(--ink);
+}
+
+.damage-select,
+.damage-num {
+  padding: 8px 10px;
+  border: 1px solid rgba(122, 90, 40, 0.4);
+  border-radius: 3px;
+  background: var(--parchment, #f3e6c8);
+  color: var(--ink);
+  font-family: "Cinzel", serif;
+  font-size: 1rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.damage-num {
+  width: 74px;
+  text-align: center;
+}
+
+.damage-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-family: "Cinzel", serif;
+  font-size: 0.85rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.damage-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: #8b2840;
+}
+
+.damage-verdict {
+  margin: 10px 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #8b2840;
+  min-height: 1.2em;
+}
+
+.damage-verdict--riposte {
+  font-weight: 700;
+}
+
+.damage-summary__note {
+  font-size: 0.72rem;
+  opacity: 0.7;
+  font-style: italic;
+}
+
 /* ================= QUESTS ================= */
 .quests-panel__head {
   display: flex;

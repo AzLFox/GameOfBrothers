@@ -989,31 +989,96 @@ function equippedShields() {
   }, []);
 }
 
-// Чистый редьюсер входящего урона по шагам С2·3:
-// уворот → щиты → бабл (0 при активном) → плоская броня → итог ≥ 0.
-// input: { raw, dodge:{value,passed}, shields:[{label,value,passed}],
-//          bubble:{active,fell}|null, armor }
+// Чистый редьюсер входящего урона (контестная модель С2·3):
+// попадание кидается один раз (atkRoll/atkCrit), уворот и щиты — встречные броски
+// против него; у кого больше — тот прав (при равенстве прав защитник). Криты и
+// антикрит защитника считаются авто по стату «Крит» листа и размеру кубика.
+// input: {
+//   raw, atkRoll, atkCrit, die, defCrit,           // атака + кубик + Крит защитника
+//   dodge:{value,roll}, shields:[{label,value,roll}],
+//   bubble:{active,units,roll}|null, armor
+// }
+// Порядок: уворот → щиты → бабл(0 при активном, D10-проверка) → плоская броня.
 function computeDamageIntake(input) {
   const steps = [];
+  const die = parseInt(input.die, 10) || 6;
+  const crit = parseInt(input.defCrit, 10) || 0;
+  const atkRoll = parseInt(input.atkRoll, 10) || 0;
+  const atkCrit = !!input.atkCrit;
+  // крит защитника: бросок в крит-диапазоне [max(2, N−Крит), N]; антикрит — чистая 1
+  const isCritRoll = (roll) => roll >= 2 && roll >= Math.max(2, die - crit);
   let dmg = Math.max(0, parseInt(input.raw, 10) || 0);
-  const push = (label, rawDelta, extra) => {
+  let riposte = false;
+
+  // — Уворот: единственный шаг, где применяется удвоение урона от крита/антикрита —
+  {
     const before = dmg;
-    dmg = Math.max(0, dmg + rawDelta);
-    steps.push({ label, before, delta: dmg - before, after: dmg, ...(extra || {}) });
-  };
-
-  if (input.dodge) {
-    push('Уворот', input.dodge.passed ? -(parseInt(input.dodge.value, 10) || 0) : 0);
+    const v = parseInt(input.dodge?.value, 10) || 0;
+    const r = parseInt(input.dodge?.roll, 10) || 0;
+    const defCrit = r >= 1 && isCritRoll(r);
+    const defAnti = r === 1;
+    let after; let note;
+    if (defAnti) {
+      after = before * 2; note = `антикрит защитника — урон ×2 (${before}→${before * 2})`;
+    } else if (atkCrit && !defCrit) {
+      after = before * 2; note = `крит атаки — урон ×2, не увернулся`;
+    } else if (defCrit && !atkCrit) {
+      after = 0; riposte = true; note = 'крит-уворот — полный уворот (0) + рипост';
+    } else {
+      const mult = (atkCrit && defCrit) ? 2 : 1;
+      const dd = before * mult; const vv = v * mult;
+      const pre = mult > 1 ? 'оба крит ×2 — ' : '';
+      if (r >= 1 && r >= atkRoll) { after = dd - vv; note = `${pre}увернулся −${vv}`; }
+      else { after = dd; note = `${pre}не увернулся`; }
+    }
+    after = Math.max(0, after);
+    steps.push({ label: 'Уворот', before, after, note });
+    dmg = after;
   }
+
+  // — Щиты: встречный бросок vs той же атаки; крит щита блокирует ×2 значения —
   (input.shields || []).forEach((sh) => {
-    push(`Щит ${sh.label}`, sh.passed ? -(parseInt(sh.value, 10) || 0) : 0);
+    const before = dmg;
+    const v = parseInt(sh.value, 10) || 0;
+    const r = parseInt(sh.roll, 10) || 0;
+    const shCrit = r >= 1 && isCritRoll(r);
+    let after; let note;
+    if (shCrit) { after = before - v * 2; note = `крит щита — блок ×2 (−${v * 2})`; }
+    else if (atkCrit) { after = before; note = 'крит атаки пробил щит'; }
+    else if (r >= 1 && r >= atkRoll) { after = before - v; note = `защитился −${v}`; }
+    else { after = before; note = 'не защитился'; }
+    after = Math.max(0, after);
+    steps.push({ label: `Щит ${sh.label}`, before, after, note });
+    dmg = after;
   });
-  if (input.bubble && input.bubble.active) {
-    push('Бабл', -dmg, { bubble: true });
-  }
-  push('Броня', -(parseInt(input.armor, 10) || 0));
 
-  return { steps, finalDamage: dmg };
+  // — Бабл: пока активен, урон 0; D10-проверка от 1 до текущих единиц —
+  let bubbleOut = null;
+  if (input.bubble && input.bubble.active) {
+    const before = dmg;
+    const units = parseInt(input.bubble.units, 10) || 0;
+    const r = parseInt(input.bubble.roll, 10) || 0;
+    const rolled = r >= 1;
+    const success = rolled && r <= units;
+    let note;
+    if (!rolled) note = 'бабл держит удар — урон 0 (введи бросок D10)';
+    else if (success) note = `бабл держит удар — урон 0, проверка ${r} ≤ ${units} (−1 ед.)`;
+    else note = `бабл сбит — урон 0, проверка ${r} > ${units}`;
+    steps.push({ label: 'Бабл', before, after: 0, note, bubble: true });
+    dmg = 0;
+    bubbleOut = { rolled, success, roll: r };
+  }
+
+  // — Плоская броня: вычитается всегда —
+  {
+    const before = dmg;
+    const a = parseInt(input.armor, 10) || 0;
+    const after = Math.max(0, before - a);
+    steps.push({ label: 'Броня', before, after, note: `−${a}` });
+    dmg = after;
+  }
+
+  return { steps, finalDamage: dmg, riposte, bubble: bubbleOut };
 }
 
 // По строке на каждый надетый щит — «Щит в левой/правой руке». Щитов может быть
@@ -1192,9 +1257,13 @@ function openDamageWizard() {
   const w = {
     index: 0,
     raw: 0,
-    dodge: { value: currentEvasion(), passed: false, def: '', atk: '' },
-    shields: equippedShields().map((s) => ({ ...s, passed: false, def: '', atk: '' })),
-    bubble: bubbleActive ? { active: true, units: currentBubbleUnits(), fell: false } : null,
+    atkRoll: '',                 // бросок попадания атаки (один на всю атаку)
+    atkCrit: false,              // крит атаки (с чужого листа — только вручную)
+    die: HIT_DICE[0] || 6,       // кубик броска (для крит/антикрит защитника)
+    defCrit: effectiveCrit(),    // Крит защитника — снимок при открытии
+    dodge: { value: currentEvasion(), roll: '' },
+    shields: equippedShields().map((s) => ({ ...s, roll: '' })),
+    bubble: bubbleActive ? { active: true, units: currentBubbleUnits(), roll: '' } : null,
     armor: currentArmor(),
     plan: [{ type: 'raw' }, { type: 'dodge' }],
   };
@@ -1212,16 +1281,22 @@ function closeDamageWizard() {
   damageWizard = null;
 }
 
-// текущий вход для computeDamageIntake из выбранных ответов
+// текущий вход для computeDamageIntake из введённых бросков
 function damageIntakeInput() {
   const w = damageWizard;
   return {
-    raw: w.raw,
-    dodge: { value: w.dodge.value, passed: w.dodge.passed },
-    shields: w.shields.map((s) => ({ label: s.label, value: s.value, passed: s.passed })),
-    bubble: w.bubble ? { active: w.bubble.active } : null,
+    raw: w.raw, atkRoll: w.atkRoll, atkCrit: w.atkCrit, die: w.die, defCrit: w.defCrit,
+    dodge: { value: w.dodge.value, roll: w.dodge.roll },
+    shields: w.shields.map((s) => ({ label: s.label, value: s.value, roll: s.roll })),
+    bubble: w.bubble ? { active: w.bubble.active, units: w.bubble.units, roll: w.bubble.roll } : null,
     armor: w.armor,
   };
+}
+
+// шаг редьюсера, соответствующий текущему шагу плана (raw=0, дальше по порядку)
+function currentComputeStep() {
+  const w = damageWizard;
+  return computeDamageIntake(damageIntakeInput()).steps[w.index - 1] || null;
 }
 
 function renderDamageStep() {
@@ -1232,16 +1307,13 @@ function renderDamageStep() {
   const title = document.getElementById('damage-modal-title');
   if (!host || !step) return;
   host.innerHTML = '';
-  // «входящий» урон, дошедший до текущего шага (по уже выбранным ответам)
-  const result = computeDamageIntake(damageIntakeInput());
-  const before = w.index >= 1 && w.index <= result.steps.length ? result.steps[w.index - 1].before : w.raw;
 
   switch (step.type) {
     case 'raw':     renderDamageRawStep(host, title); break;
-    case 'dodge':   renderDamageCheckStep(host, title, before, w.dodge, 'Уворот', 'Уворот прошёл — урон снижается на его значение.'); break;
-    case 'shield':  renderDamageCheckStep(host, title, before, w.shields[step.i], `Щит ${w.shields[step.i].label}`, 'Проверка щита прошла — урон снижается на число щита.'); break;
-    case 'bubble':  renderDamageBubbleStep(host, title, before); break;
-    case 'armor':   renderDamageArmorStep(host, title, before); break;
+    case 'dodge':   renderDamageContestStep(host, title, w.dodge, { heading: 'Уворот', valueLabel: 'Уворот' }); break;
+    case 'shield':  renderDamageContestStep(host, title, w.shields[step.i], { heading: `Щит ${w.shields[step.i].label}`, valueLabel: 'Щит' }); break;
+    case 'bubble':  renderDamageBubbleStep(host, title); break;
+    case 'armor':   renderDamageArmorStep(host, title); break;
     case 'summary': renderDamageSummaryStep(host, title); break;
     default: break;
   }
@@ -1251,109 +1323,121 @@ function renderDamageStep() {
 function renderDamageRawStep(host, title) {
   title.textContent = 'Сколько тебе прилетело?';
   const w = damageWizard;
+  const dieOpts = HIT_DICE.map((n) => `<option value="${n}"${n === w.die ? ' selected' : ''}>D${n}</option>`).join('');
   host.innerHTML = `
-    <p class="damage-step__hint">Введи количество нанесённого урона.</p>
+    <p class="damage-step__hint">Урон и бросок попадания атаки (один — общий для уворота и щитов).</p>
+    <label class="damage-field-label" for="damage-raw">Урон</label>
     <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4"
            class="damage-input-big" id="damage-raw" aria-label="Входящий урон">
+    <div class="damage-atk-row">
+      <label class="damage-field">Кубик
+        <select class="damage-select" id="damage-die" aria-label="Кубик броска">${dieOpts}</select>
+      </label>
+      <label class="damage-field">Бросок атаки
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="damage-num" id="damage-atk-roll" aria-label="Бросок попадания атаки">
+      </label>
+    </div>
+    <label class="damage-check">
+      <input type="checkbox" id="damage-atk-crit"> Крит атаки
+    </label>
   `;
-  const input = host.querySelector('#damage-raw');
-  input.value = w.raw || '';
-  input.addEventListener('input', () => {
-    const clean = input.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 4);
-    if (clean !== input.value) input.value = clean;
+  const raw = host.querySelector('#damage-raw');
+  raw.value = w.raw || '';
+  raw.addEventListener('input', () => {
+    const clean = raw.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 4);
+    if (clean !== raw.value) raw.value = clean;
     w.raw = parseInt(clean, 10) || 0;
     const next = document.getElementById('damage-next');
     if (next) next.disabled = !(w.raw > 0);
   });
-  requestAnimationFrame(() => input.focus());
+  const die = host.querySelector('#damage-die');
+  die.addEventListener('change', () => { w.die = parseInt(die.value, 10) || 6; });
+  const atk = host.querySelector('#damage-atk-roll');
+  atk.value = w.atkRoll || '';
+  atk.addEventListener('input', () => {
+    const clean = atk.value.replace(/\D/g, '').slice(0, 3);
+    if (clean !== atk.value) atk.value = clean;
+    w.atkRoll = clean;
+  });
+  const crit = host.querySelector('#damage-atk-crit');
+  crit.checked = !!w.atkCrit;
+  crit.addEventListener('change', () => { w.atkCrit = crit.checked; });
+  requestAnimationFrame(() => raw.focus());
 }
 
-// Единый шаг активной проверки (уворот/щит): да/нет ↔ альтернативный ввод по
-// числам кубов (защита vs атака) — «два варианта, разделённых полосой» (С2·3).
-function renderDamageCheckStep(host, title, before, state, heading, hint) {
-  title.textContent = heading;
+// Встречный бросок защиты (уворот/щит) против единственного броска атаки.
+// Крит/антикрит защитника считаются авто; вердикт и урон обновляются вживую.
+function renderDamageContestStep(host, title, state, opts) {
+  const w = damageWizard;
+  title.textContent = opts.heading;
+  const critInfo = w.atkCrit ? 'крит' : 'обычный';
   host.innerHTML = `
-    <p class="damage-running">Входящий урон: <strong>${before}</strong></p>
-    <p class="damage-step__hint">${hint}</p>
-    <div class="damage-choice">
-      <button type="button" class="damage-choice-btn damage-choice-btn--yes${state.passed ? ' is-on' : ''}" data-pass="1">
-        Прошло <span class="damage-choice-sub">−${state.value}</span>
-      </button>
-      <button type="button" class="damage-choice-btn damage-choice-btn--no${state.passed ? '' : ' is-on'}" data-pass="0">
-        Не прошло <span class="damage-choice-sub">−0</span>
-      </button>
-    </div>
-    <div class="damage-alt">
-      <span class="damage-alt__rule"></span>
-      <span class="damage-alt__label">или по кубам</span>
-      <span class="damage-alt__rule"></span>
-    </div>
+    <p class="damage-running" data-role="before"></p>
+    <p class="damage-step__hint">Атака: бросок <strong>${w.atkRoll || '—'}</strong> на D${w.die} (${critInfo}). ${opts.valueLabel}: <strong>${state.value}</strong>. Введи бросок защиты (D${w.die}).</p>
     <div class="damage-dice">
-      <label>Защита <input type="text" inputmode="numeric" class="damage-dice-input" data-die="def" maxlength="3" value="${state.def}"></label>
-      <span class="damage-dice-vs">vs</span>
-      <label>Атака <input type="text" inputmode="numeric" class="damage-dice-input" data-die="atk" maxlength="3" value="${state.atk}"></label>
-      <span class="damage-dice-result" data-role="dice-result"></span>
+      <label>Бросок защиты
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="damage-num" data-role="def-roll" value="${state.roll}">
+      </label>
     </div>
+    <p class="damage-verdict" data-role="verdict"></p>
+    <p class="damage-running" data-role="after"></p>
   `;
-  const yes = host.querySelector('.damage-choice-btn--yes');
-  const no = host.querySelector('.damage-choice-btn--no');
-  const setPassed = (passed) => {
-    state.passed = passed;
-    yes.classList.toggle('is-on', passed);
-    no.classList.toggle('is-on', !passed);
+  const rollI = host.querySelector('[data-role="def-roll"]');
+  const beforeEl = host.querySelector('[data-role="before"]');
+  const afterEl = host.querySelector('[data-role="after"]');
+  const verdictEl = host.querySelector('[data-role="verdict"]');
+  const refresh = () => {
+    const cs = currentComputeStep();
+    if (!cs) return;
+    beforeEl.innerHTML = `Входящий урон: <strong>${cs.before}</strong>`;
+    afterEl.innerHTML = `Станет: <strong>${cs.after}</strong>`;
+    verdictEl.textContent = cs.note || '';
   };
-  yes.addEventListener('click', () => setPassed(true));
-  no.addEventListener('click', () => setPassed(false));
-
-  const defI = host.querySelector('[data-die="def"]');
-  const atkI = host.querySelector('[data-die="atk"]');
-  const res = host.querySelector('[data-role="dice-result"]');
-  const evalDice = () => {
-    state.def = defI.value.replace(/\D/g, '').slice(0, 3);
-    state.atk = atkI.value.replace(/\D/g, '').slice(0, 3);
-    if (defI.value !== state.def) defI.value = state.def;
-    if (atkI.value !== state.atk) atkI.value = state.atk;
-    if (state.def !== '' && state.atk !== '') {
-      const passed = parseInt(state.def, 10) >= parseInt(state.atk, 10);
-      res.textContent = passed ? 'защита не ниже — прошло' : 'атака выше — не прошло';
-      setPassed(passed);
-    } else {
-      res.textContent = '';
-    }
-  };
-  defI.addEventListener('input', evalDice);
-  atkI.addEventListener('input', evalDice);
+  rollI.addEventListener('input', () => {
+    const clean = rollI.value.replace(/\D/g, '').slice(0, 3);
+    if (clean !== rollI.value) rollI.value = clean;
+    state.roll = clean;
+    refresh();
+  });
+  refresh();
+  requestAnimationFrame(() => rollI.focus());
 }
 
-function renderDamageBubbleStep(host, title, before) {
+function renderDamageBubbleStep(host, title) {
   title.textContent = 'Бабл держит удар';
   const w = damageWizard;
   host.innerHTML = `
-    <p class="damage-running">Входящий урон: <strong>${before}</strong> → <strong>0</strong></p>
-    <p class="damage-step__hint">Бабл активен (${w.bubble.units} ед.) — удар поглощается полностью. Бабл выстоял или упал?</p>
-    <div class="damage-choice">
-      <button type="button" class="damage-choice-btn damage-choice-btn--yes${w.bubble.fell ? '' : ' is-on'}" data-fell="0">
-        Выстоял <span class="damage-choice-sub">−1 ед.</span>
-      </button>
-      <button type="button" class="damage-choice-btn damage-choice-btn--no${w.bubble.fell ? ' is-on' : ''}" data-fell="1">
-        Упал <span class="damage-choice-sub">выключить</span>
-      </button>
+    <p class="damage-running">Бабл активен: <strong>${w.bubble.units} ед.</strong> — входящий урон 0.</p>
+    <p class="damage-step__hint">Брось D10: проверка от 1 до текущих единиц. Успех (≤ единиц) → бабл держит удар, −1 ед. (не ниже 1); провал → бабл сбит (выключается).</p>
+    <div class="damage-dice">
+      <label>Бросок D10
+        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" class="damage-num" data-role="bubble-roll" value="${w.bubble.roll}">
+      </label>
     </div>
+    <p class="damage-verdict" data-role="verdict"></p>
   `;
-  const stood = host.querySelector('[data-fell="0"]');
-  const fell = host.querySelector('[data-fell="1"]');
-  stood.addEventListener('click', () => { w.bubble.fell = false; stood.classList.add('is-on'); fell.classList.remove('is-on'); });
-  fell.addEventListener('click', () => { w.bubble.fell = true; fell.classList.add('is-on'); stood.classList.remove('is-on'); });
+  const rollI = host.querySelector('[data-role="bubble-roll"]');
+  const verdictEl = host.querySelector('[data-role="verdict"]');
+  const refresh = () => { verdictEl.textContent = currentComputeStep()?.note || ''; };
+  rollI.addEventListener('input', () => {
+    let clean = rollI.value.replace(/\D/g, '').slice(0, 2);
+    if (clean !== '' && parseInt(clean, 10) > 10) clean = '10';
+    if (clean !== rollI.value) rollI.value = clean;
+    w.bubble.roll = clean;
+    refresh();
+  });
+  refresh();
+  requestAnimationFrame(() => rollI.focus());
 }
 
-function renderDamageArmorStep(host, title, before) {
+function renderDamageArmorStep(host, title) {
   title.textContent = 'Плоская броня';
   const w = damageWizard;
-  const after = Math.max(0, before - w.armor);
+  const cs = currentComputeStep();
   host.innerHTML = `
-    <p class="damage-running">Входящий урон: <strong>${before}</strong></p>
+    <p class="damage-running">Входящий урон: <strong>${cs?.before ?? 0}</strong></p>
     <p class="damage-step__hint">Броня поглощает <strong>−${w.armor}</strong> плоско.</p>
-    <p class="damage-running">Останется: <strong>${after}</strong></p>
+    <p class="damage-running">Останется: <strong>${cs?.after ?? 0}</strong></p>
   `;
 }
 
@@ -1363,14 +1447,20 @@ function renderDamageSummaryStep(host, title) {
   const result = computeDamageIntake(damageIntakeInput());
   w.result = result;
   const rows = result.steps.map((s) => {
-    const sign = s.delta === 0 ? '±0' : (s.delta > 0 ? '+' : '−') + Math.abs(s.delta);
-    return `<li class="damage-summary__row"><span>${s.label}</span><span>${sign} → ${s.after}</span></li>`;
+    const delta = s.after - s.before;
+    const sign = delta === 0 ? '±0' : (delta > 0 ? '+' : '−') + Math.abs(delta);
+    const note = s.note ? ` <span class="damage-summary__note">${s.note}</span>` : '';
+    return `<li class="damage-summary__row"><span>${s.label}${note}</span><span>${sign} → ${s.after}</span></li>`;
   }).join('');
   const hp = parseInt(sheet.combat.hp, 10) || 0;
   const newHp = Math.max(0, hp - result.finalDamage);
+  const riposte = result.riposte
+    ? '<p class="damage-verdict damage-verdict--riposte">Рипост! Крит-уворот отвечает контратакой — считается отдельно.</p>'
+    : '';
   host.innerHTML = `
-    <p class="damage-running">Исходный урон: <strong>${w.raw}</strong></p>
+    <p class="damage-running">Исходный урон: <strong>${w.raw}</strong> · атака ${w.atkCrit ? 'крит' : 'обычная'}, бросок ${w.atkRoll || '—'} (D${w.die})</p>
     <ul class="damage-summary">${rows}</ul>
+    ${riposte}
     <p class="damage-summary__final">Итоговый урон: <strong>${result.finalDamage}</strong></p>
     <p class="damage-hp">HP: <strong>${hp}</strong> → <strong>${newHp}</strong></p>
   `;
@@ -1423,6 +1513,7 @@ function bindDamageIntake() {
 
 // Списывает единицу бабла через системный кастом-источник строки «Баблы»,
 // чтобы развёртка осталась консистентной (декремент виден и сохраняется).
+// Не опускает единицы ниже 1 — ниже только сбитием (bubbleActive=false).
 function spendBubbleUnit() {
   const rowId = 'combat-row-bubble';
   if (!sheet.combatCustom || typeof sheet.combatCustom !== 'object') sheet.combatCustom = {};
@@ -1433,7 +1524,9 @@ function spendBubbleUnit() {
     entry = { id: uid(), label: 'Пробитие бабла', value: 0, sys: 'bubbleSpend' };
     list.push(entry);
   }
-  entry.value = (parseInt(entry.value, 10) || 0) - 1;
+  const unitsNow = currentBubbleUnits();
+  const target = Math.max(1, unitsNow - 1);
+  entry.value = (parseInt(entry.value, 10) || 0) + (target - unitsNow);
 }
 
 // Финал визарда: списать итоговый урон с HP, применить эффекты бабла, сохранить.
@@ -1444,9 +1537,10 @@ function applyDamageIntake() {
   const hp = parseInt(sheet.combat.hp, 10) || 0;
   sheet.combat.hp = Math.max(0, hp - result.finalDamage);
 
-  if (w.bubble && w.bubble.active) {
-    if (w.bubble.fell) sheet.combat.bubbleActive = false;
-    else spendBubbleUnit();
+  if (result.bubble) {
+    if (result.bubble.rolled && !result.bubble.success) sheet.combat.bubbleActive = false; // сбит
+    else if (result.bubble.success) spendBubbleUnit();                                     // держит: −1 (не ниже 1)
+    // бросок не введён → бабл без изменений
   }
 
   syncCombatInputs();

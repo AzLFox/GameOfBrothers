@@ -214,8 +214,12 @@ SSE для листов, поллинг ящика логично перевес
   щит(ы) по рукам → бабл → плоская броня → HP. Расчёт — чистый редьюсер `computeDamageIntake` поверх
   агрегатов листа (`currentEvasion`/`currentArmor`/`currentBubbleUnits`/`equippedShields`);
   `applyDamageIntake` списывает итог с `sheet.combat.hp` (не ниже 0). Активный бабл обнуляет урон: «упал»
-  → `bubbleActive=false`, «выстоял» → −1 единица (`spendBubbleUnit`). На шагах проверки — двойной ввод
-  да/нет ↔ числа выпавших кубов. Реализация — [../public/js/character.js](../public/js/character.js),
+  → `bubbleActive=false`, «выстоял» → −1 единица (`spendBubbleUnit`). **Контестная модель:** уворот и щит —
+  встречный бросок против одного броска попадания атаки (у кого больше — тот прав, равенство — защитнику);
+  криты/антикрит защитника считаются авто по стату «Крит» и размеру кубика (селектор D6–D100 на стр. урона),
+  крит атаки — галкой; таблица уворота (крит/оба крит ×2/антикрит ×2/рипост) и щит (крит → блок ×2, крит атаки
+  пробивает); бабл — проверка броском D10 (от 1 до единиц, −1 не ниже 1, провал → сбит). Реализация —
+  [../public/js/character.js](../public/js/character.js),
   разметка/стили — [../public/character.html](../public/character.html) /
   [../public/css/character.css](../public/css/character.css). Роадмап —
   [damage-intake-roadmap.md](damage-intake-roadmap.md).
