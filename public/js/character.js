@@ -960,6 +960,62 @@ function shieldRowValue(slotKey) {
   return base + customSourcesSum(`combat-row-shieldGuard-${slotKey}`);
 }
 
+// ── Кнопка «получить пизды»: авторасчёт входящего урона (С2·3) ──────────────
+// Текущие защитные агрегаты — те же формулы, что и в updateCombatValues:
+// снаряга (sumEquipmentMods) + классовый вклад + пользовательские источники строки.
+function currentEvasion() {
+  return (sumEquipmentMods().evasion || 0) + dexClassEvasion()
+    + customSourcesSum('combat-row-evasion');
+}
+
+function currentArmor() {
+  return (sumEquipmentMods().armor || 0) + endClassArmor()
+    + customSourcesSum('combat-row-armor');
+}
+
+function currentBubbleUnits() {
+  return (sumEquipmentMods().bubble || 0) + spiClassBubble()
+    + customSourcesSum('combat-row-bubble');
+}
+
+// надетые щиты (по рукам) со значением проверки; пассивной защиты щит не даёт (B4)
+function equippedShields() {
+  return HAND_SLOTS.reduce((out, slotKey) => {
+    const item = sheet.equipment?.[slotKey];
+    if (item && !item.mirror && item.classId === 'shield') {
+      out.push({ slot: slotKey, label: HAND_ROW_LABEL[slotKey], value: shieldRowValue(slotKey) });
+    }
+    return out;
+  }, []);
+}
+
+// Чистый редьюсер входящего урона по шагам С2·3:
+// уворот → щиты → бабл (0 при активном) → плоская броня → итог ≥ 0.
+// input: { raw, dodge:{value,passed}, shields:[{label,value,passed}],
+//          bubble:{active,fell}|null, armor }
+function computeDamageIntake(input) {
+  const steps = [];
+  let dmg = Math.max(0, parseInt(input.raw, 10) || 0);
+  const push = (label, rawDelta, extra) => {
+    const before = dmg;
+    dmg = Math.max(0, dmg + rawDelta);
+    steps.push({ label, before, delta: dmg - before, after: dmg, ...(extra || {}) });
+  };
+
+  if (input.dodge) {
+    push('Уворот', input.dodge.passed ? -(parseInt(input.dodge.value, 10) || 0) : 0);
+  }
+  (input.shields || []).forEach((sh) => {
+    push(`Щит ${sh.label}`, sh.passed ? -(parseInt(sh.value, 10) || 0) : 0);
+  });
+  if (input.bubble && input.bubble.active) {
+    push('Бабл', -dmg, { bubble: true });
+  }
+  push('Броня', -(parseInt(input.armor, 10) || 0));
+
+  return { steps, finalDamage: dmg };
+}
+
 // По строке на каждый надетый щит — «Щит в левой/правой руке». Щитов может быть
 // два (как урон у оружия), каждый — отдельная проверка; агрегата нет (см. BUGS.md B4).
 function renderShieldRows(host) {
