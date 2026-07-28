@@ -204,6 +204,17 @@ body.group-page {
   color: rgba(232, 212, 176, 0.55);
 }
 
+.group-account-card--gm {
+  border-color: var(--gold);
+  background: rgba(201, 162, 77, 0.08);
+}
+
+.group-account-meta--gm {
+  color: var(--gold-light);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
 .group-member-account {
   margin: 0;
   font-size: 0.74rem;

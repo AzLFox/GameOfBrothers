@@ -388,18 +388,21 @@ function inviteCard(char, account, { disabled = false, inGroup = false, isSelf =
 }
 
 function accountCard(account) {
+  const isGm = account.role === 'gamemaster';
   const card = document.createElement('button');
   card.type = 'button';
-  card.className = 'group-account-card';
+  card.className = `group-account-card${isGm ? ' group-account-card--gm' : ''}`;
   card.innerHTML = `
     <span class="group-account-icon" aria-hidden="true">${accountInitial(account.username)}</span>
     <span class="group-account-name">${account.username}</span>
   `;
 
   const meta = document.createElement('p');
-  meta.className = 'group-account-meta';
+  meta.className = `group-account-meta${isGm ? ' group-account-meta--gm' : ''}`;
   if (account.isSelf) {
     meta.textContent = 'Ваш аккаунт';
+  } else if (isGm) {
+    meta.textContent = 'Аккаунт мастера';
   } else {
     meta.textContent = 'Аккаунт игрока';
   }

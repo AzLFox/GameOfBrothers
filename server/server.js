@@ -612,6 +612,7 @@ app.get('/api/group/accounts', (req, res) => {
         id: u.id,
         username: u.username,
         kind: 'user',
+        role: auth.resolveUserRole(u),
         isSelf: u.id === sessionUser.id,
       });
     });

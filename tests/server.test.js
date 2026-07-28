@@ -241,6 +241,29 @@ describe('список аккаунтов', () => {
     assert.equal(self.isSelf, true);
   });
 
+  test('/api/group/accounts отдаёт role: мастер vs игрок (B2)', async () => {
+    const ORIG = process.env.GOB_GM_USERNAMES;
+    const gmName = h.uniqueUsername('master');
+    process.env.GOB_GM_USERNAMES = gmName;
+    try {
+      const gm = h.makeClient(baseUrl);
+      const gmReg = await gm.post('/api/auth/register', { username: gmName, password: 'secret123' });
+      const gmId = gmReg.data.user.id;
+
+      const { client, user } = await newUser('player');
+      const res = await client.get('/api/group/accounts');
+      assert.equal(res.status, 200);
+
+      const gmAcc = res.data.find((a) => a.id === gmId);
+      const playerAcc = res.data.find((a) => a.id === user.id);
+      assert.equal(gmAcc.role, 'gamemaster');
+      assert.equal(playerAcc.role, 'player');
+    } finally {
+      if (ORIG === undefined) delete process.env.GOB_GM_USERNAMES;
+      else process.env.GOB_GM_USERNAMES = ORIG;
+    }
+  });
+
   test('герои аккаунта: 401 без входа, 404 неизвестный, 200 список', async () => {
     const { client, user } = await newUser();
     const card = await createChar(client, 'Виден');
