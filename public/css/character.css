@@ -3618,21 +3618,36 @@ html.gob-item-touch-drag .item-slot {
   text-align: center;
 }
 
-.damage-check {
-  display: flex;
+/* Галочка «Крит» — в одну строку с кубиком и броском атаки, в общем стиле листа */
+.damage-field--check {
   align-items: center;
-  gap: 8px;
-  margin-top: 14px;
-  font-family: "Cinzel", serif;
-  font-size: 0.85rem;
-  color: var(--ink);
-  cursor: pointer;
+  justify-content: flex-start;
 }
 
-.damage-check input {
-  width: 18px;
-  height: 18px;
-  accent-color: #8b2840;
+.damage-check-box {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 20px;
+  height: 20px;
+  margin-top: 8px;
+  border: 1px solid rgba(122, 90, 40, 0.4);
+  border-radius: 3px;
+  background: var(--parchment, #f3e6c8);
+  cursor: pointer;
+  position: relative;
+}
+
+.damage-check-box:checked::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid var(--gold-dark);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 
 .damage-verdict {
