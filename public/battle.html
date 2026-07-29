@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0a0604">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Gates of Beyond · Боевой стол</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/gob-tokens.css">
+  <link rel="stylesheet" href="css/battle.css">
+</head>
+<body class="battle-page">
+  <div class="battle-shell">
+    <header class="battle-header">
+      <a href="/" class="battle-back" id="battle-back">← К листу</a>
+      <h1 class="battle-title">⚔ Боевой стол</h1>
+    </header>
+
+    <p class="battle-status" id="battle-status" aria-live="polite"></p>
+
+    <p class="battle-error" id="battle-error" hidden role="alert"></p>
+    <p class="battle-empty" id="battle-empty" hidden>Загрузка боя…</p>
+
+    <div class="battle-arena" id="battle-arena" hidden aria-label="Расстановка бойцов">
+      <div class="battle-field" id="battle-field"></div>
+    </div>
+  </div>
+
+  <script src="js/gob-auth.js"></script>
+  <script src="js/gob-battle.js"></script>
+  <script src="js/battle-view.js"></script>
+  <script src="js/battle.js"></script>
+</body>
+</html>

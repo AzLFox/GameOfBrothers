@@ -143,6 +143,32 @@ function deletePartyGroup(groupId) {
   if (fs.existsSync(file)) fs.unlinkSync(file);
 }
 
+// Состояние боя группы — отдельный файл под parties/battles/, чтобы не трогать
+// модель группы (normalizePartyGroup) и удалять бой независимо. listAllPartyGroups
+// фильтрует только .json в parties/, поэтому подкаталог battles/ ему не мешает.
+function battlesDir() {
+  return path.join(partiesDir(), 'battles');
+}
+
+function battleFile(groupId) {
+  return path.join(battlesDir(), `${groupId}.json`);
+}
+
+function getPartyBattle(groupId) {
+  if (!groupId) return null;
+  return readJson(battleFile(groupId), null);
+}
+
+function savePartyBattle(battle) {
+  if (!battle?.groupId) return;
+  writeJson(battleFile(battle.groupId), battle);
+}
+
+function deletePartyBattle(groupId) {
+  const file = battleFile(groupId);
+  if (fs.existsSync(file)) fs.unlinkSync(file);
+}
+
 function charGroupsFile(userId) {
   return path.join(accountDir(userId), 'char-groups.json');
 }
@@ -352,6 +378,9 @@ module.exports = {
   getPartyGroup,
   savePartyGroup,
   deletePartyGroup,
+  getPartyBattle,
+  savePartyBattle,
+  deletePartyBattle,
   getCharGroupIds,
   addCharToGroup,
   removeCharFromGroup,

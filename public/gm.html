@@ -11,6 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/gob-tokens.css">
   <link rel="stylesheet" href="css/gm.css">
+  <link rel="stylesheet" href="css/combat-wizard.css">
   <link rel="stylesheet" href="css/gob-polish.css">
   <script src="js/gob-transition-guard.js"></script>
   <script src="js/gob-mobile.js"></script>
@@ -45,6 +46,9 @@
           <button type="button" class="gm-toolbar-btn" id="gm-change-group">← Другая группа</button>
           <h2 class="gm-table-name" id="gm-active-group-name">Группа</h2>
           <span class="gm-table-meta" id="gm-active-group-meta"></span>
+          <button type="button" class="gm-toolbar-btn gm-battle-toggle" id="gm-battle-toggle" hidden>⚔ Начать бой</button>
+          <button type="button" class="gm-toolbar-btn gm-battle-attack" id="gm-battle-attack" hidden>⚔ Атаковать</button>
+          <span class="gm-table-meta gm-battle-status" id="gm-battle-status" hidden></span>
         </div>
 
         <div class="gm-table-scene">
@@ -176,6 +180,18 @@
     </div>
   </div>
 
+  <!-- Стол файта: визард урона по цели (общий CombatWizard, combat-wizard.js) -->
+  <dialog class="damage-modal" id="gm-damage-modal">
+    <div class="damage-modal__panel">
+      <header class="damage-modal__header">
+        <h2 class="damage-modal__title" id="gm-damage-modal-title">Получить пизды</h2>
+        <button type="button" class="damage-modal__close" id="gm-damage-modal-close" aria-label="Закрыть">×</button>
+      </header>
+      <div class="damage-modal__step" id="gm-damage-step"></div>
+      <div class="damage-modal__actions" id="gm-damage-actions"></div>
+    </div>
+  </dialog>
+
   <div id="gob-page-wipe" class="gob-page-wipe" aria-hidden="true" hidden>
     <div class="gob-page-wipe__void"></div>
     <div class="gob-page-wipe__mist"></div>
@@ -184,7 +200,10 @@
   <script src="js/gob-motion.js" defer></script>
   <script src="js/gob-auth.js" defer></script>
   <script src="js/gob-gm.js" defer></script>
+  <script src="js/gob-battle.js" defer></script>
   <script src="js/item-catalog.js" defer></script>
+  <script src="js/combat-core.js" defer></script>
+  <script src="js/combat-wizard.js" defer></script>
   <script src="js/gm-item-presets.js" defer></script>
   <script src="js/gm-catalog-store.js" defer></script>
   <script src="js/gm.js" defer></script>
