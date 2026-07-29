@@ -27,6 +27,7 @@
 - [b4-shield-active-guard-roadmap.md](b4-shield-active-guard-roadmap.md) — фикс бага B4: щит — активная проверка (`shieldGuard`), не пассивная защита.
 - [b5-two-handed-hand-guard-roadmap.md](b5-two-handed-hand-guard-roadmap.md) — фикс бага B5: двуручное оружие нельзя надеть, если вторая рука занята (не затирать предмет).
 - [damage-intake-roadmap.md](damage-intake-roadmap.md) — фича «получить пизды»: авторасчёт входящего урона (урон → уворот → щиты → бабл → броня → HP).
+- [fight-table-roadmap.md](fight-table-roadmap.md) — «Стол файта»: общий живой боевой стол группы (расстановка + «кто кого атакует» + проброс в урон), v1 — персонажи игроков.
 
 > **Новые фичи планируем роадмапом.** Для каждой крупной возможности заводим
 > `docs/<slug>-roadmap.md` в едином формате (шапка → Принципы → Фазы с промптом и

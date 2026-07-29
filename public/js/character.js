@@ -265,13 +265,7 @@ const STAT_CLASS_LABEL = {
 const CLASS_ROW_STAT = { evasion: 'dex', armor: 'end', bubble: 'spi' };
 
 // сумма видимых (по достигнутым тирам) значений классовых полей характеристики
-function statClassDiceSum(statKey) {
-  const tier = statClassTier(sheet.stats[statKey] || 0);
-  const arr = sheet.statClass?.[statKey] || [];
-  let sum = 0;
-  for (let i = 0; i < tier; i++) sum += parseInt(arr[i], 10) || 0;
-  return sum;
-}
+function statClassDiceSum(statKey) { return CombatCore.statClassDiceSum(sheet, statKey); }
 
 function strClassHp()      { return statClassDiceSum('str'); }
 function dexClassEvasion() { return statClassDiceSum('dex'); }
@@ -719,20 +713,8 @@ function migrateCombat(data, stats) {
   };
 }
 
-// суммирует плоские (flat) модификаторы со всех надетых предметов
-function sumEquipmentMods() {
-  const sums = {};
-  Object.values(sheet.equipment || {}).forEach((item) => {
-    if (!item || !item.classId || !item.mods) return;
-    if (item.mirror) return; // зеркало двуручного оружия — не считаем дважды
-    Object.entries(item.mods).forEach(([key, val]) => {
-      const def = CATALOG.MODIFIERS[key];
-      if (!def || def.type !== 'flat') return;
-      sums[key] = (sums[key] || 0) + (parseInt(val, 10) || 0);
-    });
-  });
-  return sums;
-}
+// суммирует плоские (flat) модификаторы со всех надетых предметов (см. CombatCore)
+function sumEquipmentMods() { return CombatCore.sumEquipmentMods(sheet, CATALOG); }
 
 function maxHp() {
   return sheet.stats.str * 4 + (sumEquipmentMods().hpBonus || 0) + strClassHp()
@@ -952,145 +934,21 @@ function renderExtraCombatRows(mods) {
 }
 
 // значение щита в конкретной руке (собственный мод + пользовательские источники строки)
-function shieldRowValue(slotKey) {
-  const item = sheet.equipment?.[slotKey];
-  const base = (item && !item.mirror && item.classId === 'shield')
-    ? (parseInt(item.mods?.shieldGuard, 10) || 0)
-    : 0;
-  return base + customSourcesSum(`combat-row-shieldGuard-${slotKey}`);
-}
+function shieldRowValue(slotKey) { return CombatCore.shieldRowValue(sheet, CATALOG, slotKey); }
 
 // ── Кнопка «получить пизды»: авторасчёт входящего урона (С2·3) ──────────────
 // Текущие защитные агрегаты — те же формулы, что и в updateCombatValues:
 // снаряга (sumEquipmentMods) + классовый вклад + пользовательские источники строки.
-function currentEvasion() {
-  return (sumEquipmentMods().evasion || 0) + dexClassEvasion()
-    + customSourcesSum('combat-row-evasion');
-}
-
-function currentArmor() {
-  return (sumEquipmentMods().armor || 0) + endClassArmor()
-    + customSourcesSum('combat-row-armor');
-}
-
-function currentBubbleUnits() {
-  return (sumEquipmentMods().bubble || 0) + spiClassBubble()
-    + customSourcesSum('combat-row-bubble');
-}
+// Делегируют в CombatCore (общий источник истины листа и стола мастера).
+function currentEvasion() { return CombatCore.currentEvasion(sheet, CATALOG); }
+function currentArmor() { return CombatCore.currentArmor(sheet, CATALOG); }
+function currentBubbleUnits() { return CombatCore.currentBubbleUnits(sheet, CATALOG); }
 
 // надетые щиты (по рукам) со значением проверки; пассивной защиты щит не даёт (B4)
-function equippedShields() {
-  return HAND_SLOTS.reduce((out, slotKey) => {
-    const item = sheet.equipment?.[slotKey];
-    if (item && !item.mirror && item.classId === 'shield') {
-      out.push({ slot: slotKey, label: HAND_ROW_LABEL[slotKey], value: shieldRowValue(slotKey) });
-    }
-    return out;
-  }, []);
-}
+function equippedShields() { return CombatCore.equippedShields(sheet, CATALOG); }
 
-// Чистый редьюсер входящего урона (контестная модель С2·3):
-// попадание кидается один раз (atkRoll/atkCrit), уворот и щиты — встречные броски
-// против него; у кого больше — тот прав (при равенстве прав защитник). Криты и
-// антикрит защитника считаются авто по стату «Крит» листа и размеру кубика.
-// input: {
-//   raw, atkRoll, atkCrit, die, defCrit,           // атака + кубик + Крит защитника
-//   dodge:{value,roll}, shields:[{label,value,roll}],
-//   bubble:{active,units,roll}|null, armor
-// }
-// Порядок: уворот → щиты → бабл(0 при активном, D10-проверка) → плоская броня.
-function computeDamageIntake(input) {
-  const steps = [];
-  const die = parseInt(input.die, 10) || 6;
-  const crit = parseInt(input.defCrit, 10) || 0;
-  const atkRoll = parseInt(input.atkRoll, 10) || 0;
-  const atkCrit = !!input.atkCrit;
-  // крит защитника: бросок в крит-диапазоне [max(2, N−Крит), N]; антикрит — чистая 1
-  const isCritRoll = (roll) => roll >= 2 && roll >= Math.max(2, die - crit);
-  let dmg = Math.max(0, parseInt(input.raw, 10) || 0);
-  let riposte = false;
-
-  // — Уворот: единственный шаг, где применяется удвоение урона от крита/антикрита.
-  // Крит атаки урон НЕ удваивает — удвоение кубов уже вписано в поле урона игроком;
-  // галочка «Крит» влияет только на исход контеста (пробитие/сравнение бросков). —
-  {
-    const before = dmg;
-    const v = parseInt(input.dodge?.value, 10) || 0;
-    const r = parseInt(input.dodge?.roll, 10) || 0;
-    const manual = input.dodge?.manual || null;   // ручной выбор исхода (кнопки)
-    let after; let note;
-    if (manual === 'pass') { after = before - v; note = `увернулся −${v}`; }
-    else if (manual === 'fail') { after = before; note = 'не увернулся'; }
-    else {
-      const defCrit = r >= 1 && isCritRoll(r);
-      const defAnti = r === 1;
-      if (defAnti) {
-        after = before * 2; note = `антикрит защитника — урон ×2 (${before}→${before * 2})`;
-      } else if (atkCrit && !defCrit) {
-        after = before; note = 'крит атаки — не увернулся';
-      } else if (defCrit && !atkCrit) {
-        after = 0; riposte = true; note = 'крит-уворот — полный уворот (0)';
-      } else {
-        const vv = (atkCrit && defCrit) ? v * 2 : v;   // оба крит — уворот ×2 (урон уже удвоен в поле)
-        const pre = (atkCrit && defCrit) ? 'оба крит — уворот ×2 — ' : '';
-        if (r >= 1 && r >= atkRoll) { after = before - vv; note = `${pre}увернулся −${vv}`; }
-        else { after = before; note = `${pre}не увернулся`; }
-      }
-    }
-    after = Math.max(0, after);
-    steps.push({ label: 'Уворот', before, after, note });
-    dmg = after;
-  }
-
-  // — Щиты: встречный бросок vs той же атаки; крит щита блокирует ×2 значения —
-  (input.shields || []).forEach((sh) => {
-    const before = dmg;
-    const v = parseInt(sh.value, 10) || 0;
-    const r = parseInt(sh.roll, 10) || 0;
-    const manual = sh.manual || null;               // ручной выбор исхода (кнопки)
-    let after; let note;
-    if (manual === 'pass') { after = before - v; note = `защитился −${v}`; }
-    else if (manual === 'fail') { after = before; note = 'не защитился'; }
-    else {
-      const shCrit = r >= 1 && isCritRoll(r);
-      if (shCrit) { after = before - v * 2; note = `крит щита — блок ×2 (−${v * 2})`; }
-      else if (atkCrit) { after = before; note = 'крит атаки пробил щит'; }
-      else if (r >= 1 && r >= atkRoll) { after = before - v; note = `защитился −${v}`; }
-      else { after = before; note = 'не защитился'; }
-    }
-    after = Math.max(0, after);
-    steps.push({ label: `Щит ${sh.label}`, before, after, note });
-    dmg = after;
-  });
-
-  // — Бабл: пока активен, урон 0; D10-проверка от 1 до текущих единиц —
-  let bubbleOut = null;
-  if (input.bubble && input.bubble.active) {
-    const before = dmg;
-    const units = parseInt(input.bubble.units, 10) || 0;
-    const r = parseInt(input.bubble.roll, 10) || 0;
-    const rolled = r >= 1;
-    const success = rolled && r <= units;
-    let note;
-    if (!rolled) note = 'бабл держит удар — урон 0 (введи бросок D10)';
-    else if (success) note = `бабл держит удар — урон 0, проверка ${r} ≤ ${units} (−1 ед.)`;
-    else note = `бабл сбит — урон 0, проверка ${r} > ${units}`;
-    steps.push({ label: 'Бабл', before, after: 0, note, bubble: true });
-    dmg = 0;
-    bubbleOut = { rolled, success, roll: r };
-  }
-
-  // — Плоская броня: вычитается всегда —
-  {
-    const before = dmg;
-    const a = parseInt(input.armor, 10) || 0;
-    const after = Math.max(0, before - a);
-    steps.push({ label: 'Броня', before, after, note: `−${a}` });
-    dmg = after;
-  }
-
-  return { steps, finalDamage: dmg, riposte, bubble: bubbleOut };
-}
+// Чистый редьюсер входящего урона (контестная модель С2·3) — в CombatCore.
+function computeDamageIntake(input) { return CombatCore.computeDamageIntake(input); }
 
 // По строке на каждый надетый щит — «Щит в левой/правой руке». Щитов может быть
 // два (как урон у оружия), каждый — отдельная проверка; агрегата нет (см. BUGS.md B4).
@@ -1258,10 +1116,10 @@ function bindCombatInputs() {
   bind('combat-mp', 'mp', 3);
 }
 
-// ── Визард «Получить пизды»: пошаговое списание входящего урона ─────────────
-let damageWizard = null;
-
-// Последний выбранный кубик атаки — сохраняется между открытиями и сессиями.
+// ── Визард «Получить пизды»: общий CombatWizard, привязанный к листу ─────────
+// Пошаговое списание входящего урона живёт в combat-wizard.js (тот же визард
+// использует стол мастера). Здесь — снимок агрегатов листа, персист кубика и
+// применение итога к своему листу.
 const DAMAGE_DIE_KEY = 'gob-damage-die';
 function lastDamageDie() {
   const saved = parseInt(localStorage.getItem(DAMAGE_DIE_KEY), 10);
@@ -1271,288 +1129,21 @@ function rememberDamageDie(die) {
   if (HIT_DICE.includes(die)) localStorage.setItem(DAMAGE_DIE_KEY, String(die));
 }
 
-// Строит план шагов под текущий лист: урон → уворот → по щиту → бабл(если
-// активен) → броня → итог. Снимок агрегатов делается один раз при открытии.
+// Снимок агрегатов делается один раз при открытии; применение меняет свой лист.
 function openDamageWizard() {
-  const bubbleActive = sheet.combat.bubbleActive !== false && currentBubbleUnits() > 0;
-  const w = {
-    index: 0,
-    raw: 0,
-    atkRoll: '',                 // бросок попадания атаки (один на всю атаку)
-    atkCrit: false,              // крит атаки (с чужого листа — только вручную)
-    die: lastDamageDie(),        // кубик броска (для крит/антикрит защитника) — последний выбранный
-    defCrit: effectiveCrit(),    // Крит защитника — снимок при открытии
-    dodge: { value: currentEvasion(), roll: '', manual: null },
-    shields: equippedShields().map((s) => ({ ...s, roll: '', manual: null })),
-    bubble: bubbleActive ? { active: true, units: currentBubbleUnits(), roll: '' } : null,
-    armor: currentArmor(),
-    plan: [{ type: 'raw' }, { type: 'dodge' }],
-  };
-  w.shields.forEach((_, i) => w.plan.push({ type: 'shield', i }));
-  if (w.bubble) w.plan.push({ type: 'bubble' });
-  w.plan.push({ type: 'armor' }, { type: 'summary' });
-  damageWizard = w;
-  renderDamageStep();
-  document.getElementById('damage-modal')?.showModal();
-}
-
-function closeDamageWizard() {
-  const d = document.getElementById('damage-modal');
-  if (d?.open) d.close();
-  damageWizard = null;
-}
-
-// текущий вход для computeDamageIntake из введённых бросков
-function damageIntakeInput() {
-  const w = damageWizard;
-  return {
-    raw: w.raw, atkRoll: w.atkRoll, atkCrit: w.atkCrit, die: w.die, defCrit: w.defCrit,
-    dodge: { value: w.dodge.value, roll: w.dodge.roll, manual: w.dodge.manual },
-    shields: w.shields.map((s) => ({ label: s.label, value: s.value, roll: s.roll, manual: s.manual })),
-    bubble: w.bubble ? { active: w.bubble.active, units: w.bubble.units, roll: w.bubble.roll } : null,
-    armor: w.armor,
-  };
-}
-
-// шаг редьюсера, соответствующий текущему шагу плана (raw=0, дальше по порядку)
-function currentComputeStep() {
-  const w = damageWizard;
-  return computeDamageIntake(damageIntakeInput()).steps[w.index - 1] || null;
-}
-
-function renderDamageStep() {
-  const w = damageWizard;
-  if (!w) return;
-  const step = w.plan[w.index];
-  const host = document.getElementById('damage-step');
-  const title = document.getElementById('damage-modal-title');
-  if (!host || !step) return;
-  host.innerHTML = '';
-
-  switch (step.type) {
-    case 'raw':     renderDamageRawStep(host, title); break;
-    case 'dodge':   renderDamageContestStep(host, title, w.dodge, { heading: 'Уворот', valueLabel: 'Уворот', passLabel: 'Увернулся', failLabel: 'Не увернулся' }); break;
-    case 'shield':  renderDamageContestStep(host, title, w.shields[step.i], { heading: `Щит ${w.shields[step.i].label}`, valueLabel: 'Щит', passLabel: 'Защитился', failLabel: 'Не защитился' }); break;
-    case 'bubble':  renderDamageBubbleStep(host, title); break;
-    case 'armor':   renderDamageArmorStep(host, title); break;
-    case 'summary': renderDamageSummaryStep(host, title); break;
-    default: break;
-  }
-  renderDamageNav(step);
-}
-
-function renderDamageRawStep(host, title) {
-  title.textContent = 'Сколько тебе прилетело?';
-  const w = damageWizard;
-  const dieOpts = HIT_DICE.map((n) => `<option value="${n}"${n === w.die ? ' selected' : ''}>D${n}</option>`).join('');
-  host.innerHTML = `
-    <p class="damage-step__hint">Урон и бросок попадания атаки (один — общий для уворота и щитов).</p>
-    <label class="damage-field-label" for="damage-raw">Урон</label>
-    <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4"
-           class="damage-input-big" id="damage-raw" aria-label="Входящий урон">
-    <div class="damage-atk-row">
-      <label class="damage-field">Кубик
-        <select class="damage-select" id="damage-die" aria-label="Кубик броска">${dieOpts}</select>
-      </label>
-      <label class="damage-field">Бросок атаки
-        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="damage-num" id="damage-atk-roll" aria-label="Бросок попадания атаки">
-      </label>
-      <label class="damage-field damage-field--check">Крит
-        <input type="checkbox" class="damage-check-box" id="damage-atk-crit" aria-label="Крит атаки">
-      </label>
-    </div>
-  `;
-  const raw = host.querySelector('#damage-raw');
-  raw.value = w.raw || '';
-  raw.addEventListener('input', () => {
-    const clean = raw.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, 4);
-    if (clean !== raw.value) raw.value = clean;
-    w.raw = parseInt(clean, 10) || 0;
-    const next = document.getElementById('damage-next');
-    if (next) next.disabled = !(w.raw > 0);
+  CombatWizard.open({
+    els: {
+      modal: document.getElementById('damage-modal'),
+      title: document.getElementById('damage-modal-title'),
+      step: document.getElementById('damage-step'),
+      actions: document.getElementById('damage-actions'),
+    },
+    dice: HIT_DICE,
+    loadDie: lastDamageDie,
+    saveDie: rememberDamageDie,
+    aggregates: CombatCore.damageAggregates(sheet, CATALOG),
+    onApply: applyDamageIntake,
   });
-  const die = host.querySelector('#damage-die');
-  die.addEventListener('change', () => { w.die = parseInt(die.value, 10) || 6; rememberDamageDie(w.die); });
-  const atk = host.querySelector('#damage-atk-roll');
-  atk.value = w.atkRoll || '';
-  atk.addEventListener('input', () => {
-    const clean = atk.value.replace(/\D/g, '').slice(0, 3);
-    if (clean !== atk.value) atk.value = clean;
-    w.atkRoll = clean;
-  });
-  const crit = host.querySelector('#damage-atk-crit');
-  crit.checked = !!w.atkCrit;
-  crit.addEventListener('change', () => { w.atkCrit = crit.checked; });
-  requestAnimationFrame(() => raw.focus());
-}
-
-// Встречный бросок защиты (уворот/щит) против единственного броска атаки.
-// Два способа задать исход: кнопки «прошло/не прошло» (ручной выбор) ИЛИ бросок
-// защиты — крит/антикрит защитника тогда считаются авто. Способы взаимоисключающие.
-function renderDamageContestStep(host, title, state, opts) {
-  const w = damageWizard;
-  title.textContent = opts.heading;
-  const critInfo = w.atkCrit ? 'крит' : 'обычный';
-  host.innerHTML = `
-    <p class="damage-running" data-role="before"></p>
-    <p class="damage-step__hint">Атака: бросок <strong>${w.atkRoll || '—'}</strong> на D${w.die} (${critInfo}). ${opts.valueLabel}: <strong>${state.value}</strong>.</p>
-    <div class="damage-choice">
-      <button type="button" class="damage-choice-btn damage-choice-btn--yes" data-choice="pass">${opts.passLabel}</button>
-      <button type="button" class="damage-choice-btn damage-choice-btn--no" data-choice="fail">${opts.failLabel}</button>
-    </div>
-    <div class="damage-alt">
-      <span class="damage-alt__rule"></span>
-      <span class="damage-alt__label">или бросок защиты (D${w.die})</span>
-      <span class="damage-alt__rule"></span>
-    </div>
-    <div class="damage-dice">
-      <label>Бросок защиты
-        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="3" class="damage-num" data-role="def-roll" value="${state.roll}">
-      </label>
-    </div>
-    <p class="damage-verdict" data-role="verdict"></p>
-    <p class="damage-running" data-role="after"></p>
-  `;
-  const rollI = host.querySelector('[data-role="def-roll"]');
-  const beforeEl = host.querySelector('[data-role="before"]');
-  const afterEl = host.querySelector('[data-role="after"]');
-  const verdictEl = host.querySelector('[data-role="verdict"]');
-  const yesBtn = host.querySelector('[data-choice="pass"]');
-  const noBtn = host.querySelector('[data-choice="fail"]');
-  const syncButtons = () => {
-    yesBtn.classList.toggle('is-on', state.manual === 'pass');
-    noBtn.classList.toggle('is-on', state.manual === 'fail');
-  };
-  const refresh = () => {
-    const cs = currentComputeStep();
-    if (!cs) return;
-    beforeEl.innerHTML = `Входящий урон: <strong>${cs.before}</strong>`;
-    afterEl.innerHTML = `Станет: <strong>${cs.after}</strong>`;
-    verdictEl.textContent = cs.note || '';
-  };
-  const pick = (choice) => {
-    state.manual = state.manual === choice ? null : choice;  // повторный клик снимает выбор
-    if (state.manual) { state.roll = ''; rollI.value = ''; } // ручной выбор отменяет бросок
-    syncButtons();
-    refresh();
-  };
-  yesBtn.addEventListener('click', () => pick('pass'));
-  noBtn.addEventListener('click', () => pick('fail'));
-  rollI.addEventListener('input', () => {
-    const clean = rollI.value.replace(/\D/g, '').slice(0, 3);
-    if (clean !== rollI.value) rollI.value = clean;
-    state.roll = clean;
-    if (clean) state.manual = null;   // ввод броска отменяет ручной выбор
-    syncButtons();
-    refresh();
-  });
-  syncButtons();
-  refresh();
-  requestAnimationFrame(() => rollI.focus());
-}
-
-function renderDamageBubbleStep(host, title) {
-  title.textContent = 'Бабл держит удар';
-  const w = damageWizard;
-  host.innerHTML = `
-    <p class="damage-running">Бабл активен: <strong>${w.bubble.units} ед.</strong> — входящий урон 0.</p>
-    <p class="damage-step__hint">Брось D10: проверка от 1 до текущих единиц. Успех (≤ единиц) → бабл держит удар, −1 ед. (не ниже 1); провал → бабл сбит (выключается).</p>
-    <div class="damage-dice">
-      <label>Бросок D10
-        <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" class="damage-num" data-role="bubble-roll" value="${w.bubble.roll}">
-      </label>
-    </div>
-    <p class="damage-verdict" data-role="verdict"></p>
-  `;
-  const rollI = host.querySelector('[data-role="bubble-roll"]');
-  const verdictEl = host.querySelector('[data-role="verdict"]');
-  const refresh = () => { verdictEl.textContent = currentComputeStep()?.note || ''; };
-  rollI.addEventListener('input', () => {
-    let clean = rollI.value.replace(/\D/g, '').slice(0, 2);
-    if (clean !== '' && parseInt(clean, 10) > 10) clean = '10';
-    if (clean !== rollI.value) rollI.value = clean;
-    w.bubble.roll = clean;
-    refresh();
-  });
-  refresh();
-  requestAnimationFrame(() => rollI.focus());
-}
-
-function renderDamageArmorStep(host, title) {
-  title.textContent = 'Плоская броня';
-  const w = damageWizard;
-  const cs = currentComputeStep();
-  host.innerHTML = `
-    <p class="damage-running">Входящий урон: <strong>${cs?.before ?? 0}</strong></p>
-    <p class="damage-step__hint">Броня поглощает <strong>−${w.armor}</strong> плоско.</p>
-    <p class="damage-running">Останется: <strong>${cs?.after ?? 0}</strong></p>
-  `;
-}
-
-function renderDamageSummaryStep(host, title) {
-  title.textContent = 'Итог';
-  const w = damageWizard;
-  const result = computeDamageIntake(damageIntakeInput());
-  w.result = result;
-  const rows = result.steps.map((s) => {
-    const delta = s.after - s.before;
-    const sign = delta === 0 ? '±0' : (delta > 0 ? '+' : '−') + Math.abs(delta);
-    const note = s.note ? ` <span class="damage-summary__note">${s.note}</span>` : '';
-    return `<li class="damage-summary__row"><span>${s.label}${note}</span><span>${sign} → ${s.after}</span></li>`;
-  }).join('');
-  const hp = parseInt(sheet.combat.hp, 10) || 0;
-  const newHp = Math.max(0, hp - result.finalDamage);
-  host.innerHTML = `
-    <p class="damage-running">Исходный урон: <strong>${w.raw}</strong> · атака ${w.atkCrit ? 'крит' : 'обычная'}, бросок ${w.atkRoll || '—'} (D${w.die})</p>
-    <ul class="damage-summary">${rows}</ul>
-    <p class="damage-summary__final">Итоговый урон: <strong>${result.finalDamage}</strong></p>
-    <p class="damage-hp">HP: <strong>${hp}</strong> → <strong>${newHp}</strong></p>
-  `;
-}
-
-function renderDamageNav(step) {
-  const host = document.getElementById('damage-actions');
-  const w = damageWizard;
-  if (!host) return;
-  host.innerHTML = '';
-  const back = document.createElement('button');
-  back.type = 'button';
-  back.className = 'effect-btn effect-btn--cancel';
-  back.textContent = 'Назад';
-  back.disabled = w.index === 0;
-  back.addEventListener('click', () => { if (w.index > 0) { w.index--; renderDamageStep(); } });
-  host.appendChild(back);
-
-  const spacer = document.createElement('span');
-  spacer.className = 'effect-modal__spacer';
-  host.appendChild(spacer);
-
-  if (step.type === 'summary') {
-    const apply = document.createElement('button');
-    apply.type = 'button';
-    apply.className = 'effect-btn effect-btn--save';
-    apply.id = 'damage-apply';
-    apply.textContent = 'Применить';
-    apply.addEventListener('click', applyDamageIntake);
-    host.appendChild(apply);
-  } else {
-    const next = document.createElement('button');
-    next.type = 'button';
-    next.className = 'effect-btn effect-btn--save';
-    next.id = 'damage-next';
-    next.textContent = 'Далее';
-    if (step.type === 'raw') next.disabled = !(w.raw > 0);
-    next.addEventListener('click', () => { w.index++; renderDamageStep(); });
-    host.appendChild(next);
-  }
-}
-
-function bindDamageIntake() {
-  document.getElementById('btn-damage-intake')?.addEventListener('click', openDamageWizard);
-  const modal = document.getElementById('damage-modal');
-  document.getElementById('damage-modal-close')?.addEventListener('click', closeDamageWizard);
-  bindDialogBackdropDismiss(modal, closeDamageWizard);
-  modal?.addEventListener('cancel', (e) => { e.preventDefault(); closeDamageWizard(); });
 }
 
 // Списывает единицу бабла через системный кастом-источник строки «Баблы»,
@@ -1574,10 +1165,7 @@ function spendBubbleUnit() {
 }
 
 // Финал визарда: списать итоговый урон с HP, применить эффекты бабла, сохранить.
-function applyDamageIntake() {
-  const w = damageWizard;
-  if (!w) return;
-  const result = w.result || computeDamageIntake(damageIntakeInput());
+function applyDamageIntake(result) {
   const hp = parseInt(sheet.combat.hp, 10) || 0;
   sheet.combat.hp = Math.max(0, hp - result.finalDamage);
 
@@ -1590,7 +1178,14 @@ function applyDamageIntake() {
   syncCombatInputs();
   scheduleSave();
   updateCombatValues();
-  closeDamageWizard();
+}
+
+function bindDamageIntake() {
+  document.getElementById('btn-damage-intake')?.addEventListener('click', openDamageWizard);
+  const modal = document.getElementById('damage-modal');
+  document.getElementById('damage-modal-close')?.addEventListener('click', () => CombatWizard.close());
+  bindDialogBackdropDismiss(modal, () => CombatWizard.close());
+  modal?.addEventListener('cancel', (e) => { e.preventDefault(); CombatWizard.close(); });
 }
 
 function renderCombat() {
@@ -2560,9 +2155,7 @@ function customRowSources(rowId) {
   return Array.isArray(list) ? list : [];
 }
 
-function customSourcesSum(rowId) {
-  return customRowSources(rowId).reduce((sum, s) => sum + (parseInt(s.value, 10) || 0), 0);
-}
+function customSourcesSum(rowId) { return CombatCore.customSourcesSum(sheet, rowId); }
 
 // оборачивает произвольные источники в формат, понятный buildBreakdown
 function customSourceEntries(rowId) {
@@ -5368,6 +4961,8 @@ async function init(char) {
     groupDock.href = `/group?id=${encodeURIComponent(id)}`;
   }
 
+  initBattleBanner(char);
+
   initFloatDock();
 
   if (typeof CharMotion !== 'undefined') {
@@ -5382,6 +4977,66 @@ async function init(char) {
   } else {
     document.body.classList.add('char-motion-ready');
   }
+}
+
+// Баннер «Идёт бой» — точка входа игрока на общий боевой стол (F6). Для своего
+// персонажа подписываемся на battle-SSE каждой его группы: баннер появляется при
+// старте боя и исчезает при завершении, ссылаясь на read-only стол /battle.
+let battleBannerSubs = [];
+function initBattleBanner(char) {
+  const banner = document.getElementById('battle-banner');
+  if (!banner || typeof GobBattle === 'undefined') return;
+  if (!char?.isUser || char.isForeign) return; // баннер только для своего героя
+
+  const charId = char.id;
+  const activeByGroup = new Map(); // groupId → { name } активного боя (или null)
+
+  const render = () => {
+    const entry = [...activeByGroup.entries()].find(([, info]) => info);
+    if (!entry) {
+      banner.hidden = true;
+      return;
+    }
+    const [groupId, info] = entry;
+    banner.href = `/battle?group=${encodeURIComponent(groupId)}&char=${encodeURIComponent(charId)}`;
+    const sub = document.getElementById('battle-banner-sub');
+    if (sub) {
+      const name = info.name ? `«${info.name}»` : 'группы';
+      sub.textContent = `Боевой стол ${name} — открыть`;
+    }
+    banner.hidden = false;
+  };
+
+  const teardown = () => {
+    battleBannerSubs.forEach((s) => s.close?.());
+    battleBannerSubs = [];
+  };
+
+  (async () => {
+    let groups = [];
+    try {
+      const res = await fetch(`/api/me/groups?charId=${encodeURIComponent(charId)}`, {
+        credentials: 'same-origin',
+      });
+      if (res.ok) groups = await res.json();
+    } catch {
+      return;
+    }
+    if (!Array.isArray(groups) || !groups.length) return;
+
+    teardown();
+    groups.forEach((group) => {
+      if (!group?.id) return;
+      const s = GobBattle.subscribe(group.id, (battle) => {
+        const isActive = !!battle?.active && (battle.combatants || []).length > 0;
+        activeByGroup.set(group.id, isActive ? { name: group.name } : null);
+        render();
+      });
+      battleBannerSubs.push(s);
+    });
+  })();
+
+  window.addEventListener('beforeunload', teardown);
 }
 
 function initFloatDock() {

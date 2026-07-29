@@ -534,6 +534,211 @@ describe('стол мастера', () => {
   });
 });
 
+// --- стол файта: модель боя (F1) ----------------------------------------
+
+describe('стол файта — модель боя (F1)', () => {
+  const gmName = h.uniqueUsername('battle_gm');
+  let ORIG_ENV;
+  before(() => {
+    ORIG_ENV = process.env.GOB_GM_USERNAMES;
+    process.env.GOB_GM_USERNAMES = gmName;
+  });
+  after(() => {
+    if (ORIG_ENV === undefined) delete process.env.GOB_GM_USERNAMES;
+    else process.env.GOB_GM_USERNAMES = ORIG_ENV;
+  });
+
+  // Владелец с группой из одного бойца; лист заполнен, чтобы снимок hp/maxHp
+  // был осмысленным (maxHp = str×4 + hpBonus = 20, hp = 12).
+  async function ownerWithGroup() {
+    const owner = await newUser('bt_owner');
+    const char = await createChar(owner.client, 'Боец');
+    await owner.client.put(`/api/me/sheets/${char.id}`, {
+      stats: { str: 5 }, combat: { hp: 12, hpBonus: 0 },
+    });
+    const group = (await owner.client.post('/api/me/groups', {
+      name: 'Стол', leaderCharId: char.id,
+    })).data;
+    return { owner, char, group };
+  }
+
+  test('POST собирает бойцов из участников со снимком hp/maxHp', async () => {
+    const { owner, char, group } = await ownerWithGroup();
+    const res = await owner.client.post(`/api/battle/${group.id}`);
+    assert.equal(res.status, 201);
+    assert.equal(res.data.active, true);
+    assert.equal(res.data.rev, 1);
+    assert.equal(res.data.combatants.length, 1);
+    const c = res.data.combatants[0];
+    assert.equal(c.charId, char.id);
+    assert.equal(c.side, 'party');
+    assert.ok(c.id.startsWith('cbt_'));
+    assert.equal(c.hp, 12);
+    assert.equal(c.maxHp, 20);
+    assert.equal(c.defeated, false);
+  });
+
+  test('GET без боя → active:false; после старта отдаёт бой', async () => {
+    const { owner, group } = await ownerWithGroup();
+    let res = await owner.client.get(`/api/battle/${group.id}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.data.active, false);
+
+    await owner.client.post(`/api/battle/${group.id}`);
+    res = await owner.client.get(`/api/battle/${group.id}`);
+    assert.equal(res.status, 200);
+    assert.equal(res.data.active, true);
+    assert.equal(res.data.combatants.length, 1);
+  });
+
+  test('PUT: rev-лок — устаревший rev → 409 со свежим боем', async () => {
+    const { owner, group } = await ownerWithGroup();
+    const started = (await owner.client.post(`/api/battle/${group.id}`)).data;
+    assert.equal(started.rev, 1);
+
+    const stale = await owner.client.put(`/api/battle/${group.id}`, { ...started, rev: 0 });
+    assert.equal(stale.status, 409);
+    assert.equal(stale.data.battle.rev, 1);
+
+    const put = await owner.client.put(`/api/battle/${group.id}`, {
+      ...started, rev: 1, round: 2,
+    });
+    assert.equal(put.status, 200);
+    assert.equal(put.data.rev, 2);
+    assert.equal(put.data.round, 2);
+  });
+
+  test('targets: срезаются цели на себя и от несуществующих бойцов', async () => {
+    const { owner, group } = await ownerWithGroup();
+    const started = (await owner.client.post(`/api/battle/${group.id}`)).data;
+    const cbt = started.combatants[0];
+    const put = await owner.client.put(`/api/battle/${group.id}`, {
+      ...started,
+      rev: 1,
+      targets: { [cbt.id]: cbt.id, cbt_ghost: cbt.id },
+    });
+    assert.equal(put.status, 200);
+    assert.deepEqual(put.data.targets, {});
+  });
+
+  test('доступ: не-участник → 403; ГМ за столом читает и пишет', async () => {
+    const { group } = await ownerWithGroup();
+
+    const stranger = await newUser('bt_stranger');
+    assert.equal((await stranger.client.get(`/api/battle/${group.id}`)).status, 403);
+    assert.equal((await stranger.client.post(`/api/battle/${group.id}`)).status, 403);
+
+    const gm = h.makeClient(baseUrl);
+    await gm.post('/api/auth/register', { username: gmName, password: 'secret123' });
+    await gm.put('/api/gm/session', { activeGroupId: group.id });
+    assert.equal((await gm.get(`/api/battle/${group.id}`)).status, 200);
+    assert.equal((await gm.post(`/api/battle/${group.id}`)).status, 201);
+  });
+
+  test('несуществующая группа → 404; DELETE завершает бой', async () => {
+    const { owner, group } = await ownerWithGroup();
+    assert.equal((await owner.client.get('/api/battle/grp_missing')).status, 404);
+    assert.equal((await owner.client.post('/api/battle/grp_missing')).status, 404);
+
+    await owner.client.post(`/api/battle/${group.id}`);
+    assert.equal((await owner.client.del(`/api/battle/${group.id}`)).status, 200);
+    assert.equal((await owner.client.get(`/api/battle/${group.id}`)).data.active, false);
+  });
+});
+
+// --- стол файта: живой бой по SSE (F2) ----------------------------------
+
+describe('стол файта — живой бой (F2)', () => {
+  async function ownerWithStartedBattle(prefix = 'bt2') {
+    const owner = await newUser(`${prefix}_owner`);
+    const char = await createChar(owner.client, 'Боец');
+    const group = (await owner.client.post('/api/me/groups', {
+      name: 'Стол', leaderCharId: char.id,
+    })).data;
+    const battle = (await owner.client.post(`/api/battle/${group.id}`)).data;
+    return { owner, char, group, battle };
+  }
+
+  test('SSE: hello при подключении и broadcast при правке', async () => {
+    const { owner, group, battle } = await ownerWithStartedBattle();
+    const sse = await h.openSse(
+      baseUrl,
+      `/api/battle/${group.id}/events?clientId=viewer`,
+      owner.client.getCookie(),
+    );
+    try {
+      assert.equal(sse.status, 200);
+      const hello = await sse.next();
+      assert.equal(hello.type, 'hello');
+      assert.equal(hello.battle.active, true);
+      assert.equal(hello.battle.rev, 1);
+
+      const put = await owner.client.put(
+        `/api/battle/${group.id}`,
+        { ...battle, rev: 1, round: 2 },
+        { 'X-Battle-Client': 'editor' },
+      );
+      assert.equal(put.status, 200);
+
+      const evt = await sse.next();
+      assert.equal(evt.type, 'battle');
+      assert.equal(evt.battle.round, 2);
+      assert.equal(evt.battle.rev, 2);
+    } finally {
+      sse.close();
+    }
+  });
+
+  test('SSE: автор правки (свой clientId) не получает эхо', async () => {
+    const { owner, group, battle } = await ownerWithStartedBattle('bt3');
+    const sse = await h.openSse(
+      baseUrl,
+      `/api/battle/${group.id}/events?clientId=editor`,
+      owner.client.getCookie(),
+    );
+    try {
+      await sse.next(); // hello
+
+      // Правка своим clientId 'editor' — эхо не должно прийти; вторая правка от
+      // другого клиента должна дойти первой в очередь.
+      await owner.client.put(
+        `/api/battle/${group.id}`, { ...battle, rev: 1, round: 5 },
+        { 'X-Battle-Client': 'editor' },
+      );
+      await owner.client.put(
+        `/api/battle/${group.id}`, { ...battle, rev: 2, round: 9 },
+        { 'X-Battle-Client': 'other' },
+      );
+
+      const evt = await sse.next();
+      assert.equal(evt.type, 'battle');
+      assert.equal(evt.battle.round, 9);
+    } finally {
+      sse.close();
+    }
+  });
+
+  test('SSE: DELETE рассылает active:false', async () => {
+    const { owner, group } = await ownerWithStartedBattle('bt4');
+    const sse = await h.openSse(
+      baseUrl,
+      `/api/battle/${group.id}/events?clientId=viewer`,
+      owner.client.getCookie(),
+    );
+    try {
+      await sse.next(); // hello
+      await owner.client.del(
+        `/api/battle/${group.id}`, undefined, { 'X-Battle-Client': 'editor' },
+      );
+      const evt = await sse.next();
+      assert.equal(evt.type, 'battle');
+      assert.equal(evt.battle.active, false);
+    } finally {
+      sse.close();
+    }
+  });
+});
+
 // --- статические страницы -----------------------------------------------
 
 describe('страницы', () => {

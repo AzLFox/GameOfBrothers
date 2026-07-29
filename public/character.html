@@ -15,6 +15,7 @@
   <noscript><link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"></noscript>
   <link rel="stylesheet" href="css/gob-tokens.css">
   <link rel="stylesheet" href="css/character.css">
+  <link rel="stylesheet" href="css/combat-wizard.css">
   <link rel="stylesheet" href="css/gob-art.css">
   <link rel="stylesheet" href="css/gob-polish.css">
   <script src="js/gob-transition-guard.js"></script>
@@ -32,6 +33,16 @@
       </div>
       <span class="save-hint" id="save-hint" aria-live="polite"></span>
     </header>
+
+    <a class="battle-banner" id="battle-banner" href="/battle" hidden>
+      <span class="battle-banner__pulse" aria-hidden="true"></span>
+      <span class="battle-banner__icon" aria-hidden="true">⚔</span>
+      <span class="battle-banner__text">
+        <span class="battle-banner__title">Идёт бой</span>
+        <span class="battle-banner__sub" id="battle-banner-sub">Открыть боевой стол группы</span>
+      </span>
+      <span class="battle-banner__arrow" aria-hidden="true">→</span>
+    </a>
 
     <div class="invite-letter-modal hidden" id="invite-letter-modal">
       <div class="invite-letter-modal__backdrop" id="invite-letter-backdrop"></div>
@@ -473,9 +484,9 @@
     </dialog>
 
     <dialog class="damage-modal" id="damage-modal">
-      <div class="damage-modal__panel panel">
+      <div class="damage-modal__panel">
         <header class="damage-modal__header">
-          <h2 class="panel-title" id="damage-modal-title">Получить пизды</h2>
+          <h2 class="damage-modal__title" id="damage-modal-title">Получить пизды</h2>
           <button type="button" class="damage-modal__close" id="damage-modal-close" aria-label="Закрыть">×</button>
         </header>
         <div class="damage-modal__step" id="damage-step"></div>
@@ -522,6 +533,9 @@
   <script src="js/gob-invites.js" defer></script>
   <script src="js/character-motion.js" defer></script>
   <script src="js/item-catalog.js" defer></script>
+  <script src="js/combat-core.js" defer></script>
+  <script src="js/combat-wizard.js" defer></script>
+  <script src="js/gob-battle.js" defer></script>
   <script src="js/stat-tier-frame.js" defer></script>
   <script src="js/coin-pouch.js" defer></script>
   <script src="js/character.js" defer></script>

@@ -146,7 +146,8 @@ GameOfBrothers): `C:\Users\shef\Claude\Projects\my_personal_assistant\wiki\GoB\`
 - показывать поверженных противников;
 - разделять бойцов на **ближнюю и дальнюю** дистанции.
 
-Крупная фича — стоит оформить отдельным роадмапом (навык `feature-roadmap`).
+Крупная фича — оформлена роадмапом: [fight-table-roadmap.md](fight-table-roadmap.md)
+(v1 — персонажи игроков, общий живой бой; фазы F1–F6, ветка `feature/fight-table`).
 
 ---
 

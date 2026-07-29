@@ -69,6 +69,36 @@ function broadcastSheetUpdate(charId, payload, exceptClientId) {
   }
 }
 
+/** groupId -> Set<{ res, clientId }>: открытые SSE-подписки на бой группы. */
+const battleSubscribers = new Map();
+
+function subscribeToBattle(groupId, entry) {
+  if (!battleSubscribers.has(groupId)) battleSubscribers.set(groupId, new Set());
+  battleSubscribers.get(groupId).add(entry);
+}
+
+function unsubscribeFromBattle(groupId, entry) {
+  const set = battleSubscribers.get(groupId);
+  if (!set) return;
+  set.delete(entry);
+  if (!set.size) battleSubscribers.delete(groupId);
+}
+
+/** Разослать бой всем подписчикам группы, кроме автора правки. */
+function broadcastBattleUpdate(groupId, payload, exceptClientId) {
+  const set = battleSubscribers.get(groupId);
+  if (!set) return;
+  const data = `data: ${JSON.stringify(payload)}\n\n`;
+  for (const entry of set) {
+    if (exceptClientId && entry.clientId === exceptClientId) continue;
+    try {
+      entry.res.write(data);
+    } catch {
+      /* мёртвое соединение подчистит close-хендлер */
+    }
+  }
+}
+
 /**
  * Лист хранится одним блобом, поэтому правки мастера и игрока могут затирать
  * друг друга. rev инкрементится сервером и проверяется при записи.
@@ -590,6 +620,134 @@ function validateGroupName(name) {
     return 'Название группы: от 2 до 48 символов';
   }
   return null;
+}
+
+// ── Стол файта: модель боя, снимок бойцов и доступ ──────────────────────────
+// Бой группы живёт отдельным файлом (store.getPartyBattle/…). v1 — только
+// персонажи игроков (side: 'party'); НПС (foe/ally) заложены в модель, но не
+// заполняются. Роадмап — docs/fight-table-roadmap.md.
+const BATTLE_SIDES = new Set(['party', 'foe', 'ally']);
+
+function newCombatantId() {
+  return `cbt_${crypto.randomUUID()}`;
+}
+
+function toInt(value, fallback = 0) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+// maxHp листа = str×4 + hpBonus (доменная формула; см. CLAUDE.md).
+function sheetMaxHp(sheet) {
+  return Math.max(0, toInt(sheet?.stats?.str, 0) * 4 + toInt(sheet?.combat?.hpBonus, 0));
+}
+
+function normalizeCombatant(raw, index) {
+  const id = String(raw?.id ?? '').trim();
+  return {
+    id: id.startsWith('cbt_') ? id : newCombatantId(),
+    charId: String(raw?.charId ?? '').trim(),
+    side: BATTLE_SIDES.has(raw?.side) ? raw.side : 'party',
+    name: String(raw?.name ?? '').trim(),
+    portrait: String(raw?.portrait ?? ''),
+    hp: Math.max(0, toInt(raw?.hp, 0)),
+    maxHp: Math.max(0, toInt(raw?.maxHp, 0)),
+    zone: String(raw?.zone ?? 'front').trim() || 'front',
+    defeated: raw?.defeated === true,
+    order: toInt(raw?.order, index),
+  };
+}
+
+// Валидирует тело боя: чужие поля срезаются, targets — только между
+// существующими бойцами и не на себя. groupId ставит сервер, не тело.
+function normalizeBattle(body, groupId) {
+  const combatants = (Array.isArray(body?.combatants) ? body.combatants : [])
+    .filter((c) => c && String(c.charId ?? '').trim())
+    .map(normalizeCombatant);
+  const ids = new Set(combatants.map((c) => c.id));
+  const rawTargets = body?.targets && typeof body.targets === 'object' ? body.targets : {};
+  const targets = {};
+  Object.entries(rawTargets).forEach(([attacker, target]) => {
+    const t = String(target);
+    if (ids.has(attacker) && ids.has(t) && attacker !== t) targets[attacker] = t;
+  });
+  return {
+    groupId: String(groupId || body?.groupId || '').trim(),
+    active: body?.active !== false,
+    round: Math.max(1, toInt(body?.round, 1)),
+    combatants,
+    targets,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// Снимок бойца из участника группы: имя/портрет из группы, hp/maxHp — с листа.
+function combatantFromMember(member, index) {
+  const owner = store.findUserByCharId(member.charId);
+  const sheet = owner ? store.getUserSheet(owner.id, member.charId) : null;
+  const hp = Math.max(0, toInt(sheet?.combat?.hp, 0));
+  const maxHp = sheetMaxHp(sheet);
+  return {
+    id: newCombatantId(),
+    charId: member.charId,
+    side: 'party',
+    name: String(member.name ?? '').trim() || 'Без имени',
+    portrait: String(member.portrait ?? ''),
+    hp,
+    maxHp,
+    zone: 'front',
+    defeated: maxHp > 0 && hp <= 0,
+    order: index,
+  };
+}
+
+// Собирает свежий бой из текущих участников группы (v1: все — party).
+function buildBattleFromGroup(group) {
+  const hydrated = hydratePartyGroup(group);
+  return {
+    groupId: hydrated.id,
+    active: true,
+    round: 1,
+    combatants: (hydrated.members || []).map(combatantFromMember),
+    targets: {},
+  };
+}
+
+function battleRev(battle) {
+  const rev = Number(battle?.rev);
+  return Number.isFinite(rev) && rev > 0 ? rev : 0;
+}
+
+function writeBattleWithRev(groupId, incoming, actorRole) {
+  const current = store.getPartyBattle(groupId);
+  const next = normalizeBattle(incoming, groupId);
+  next.rev = battleRev(current) + 1;
+  next.updatedBy = actorRole;
+  store.savePartyBattle(next);
+  return next;
+}
+
+// Читать бой может любой участник группы или ведущий её ГМ; писать — владелец
+// группы или ГМ с доступом.
+function canReadBattle(group, user) {
+  if (!group || !user) return false;
+  if (canAccessParty(group, user.id)) return true;
+  return auth.isGameMasterUser(user) && canGmAccessGroup(group, user.id);
+}
+
+function canWriteBattle(group, user) {
+  if (!group || !user) return false;
+  if (group.ownerUserId === user.id) return true;
+  return auth.isGameMasterUser(user) && canGmAccessGroup(group, user.id);
+}
+
+function battleActorRole(group, user) {
+  return group.ownerUserId === user.id ? 'owner' : 'gm';
+}
+
+// id вкладки-автора правки — чтобы не слать ему эхо собственной SSE-рассылки.
+function battleClientId(req) {
+  return String(req.get('X-Battle-Client') || '').trim();
 }
 
 function publicCharacterCard(char, { isUser = false } = {}) {
@@ -1185,6 +1343,111 @@ app.post('/api/me/messages/:id/read', auth.requireAuth, (req, res) => {
   return res.json({ ok: true, message: messages[idx] });
 });
 
+// ── Стол файта: REST боя группы (SSE-рассылка добавляется в F2) ──────────────
+app.post('/api/battle/:groupId', auth.requireAuth, (req, res) => {
+  const group = store.getPartyGroup(req.params.groupId);
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' });
+  if (!canWriteBattle(group, req.user)) {
+    return res.status(403).json({ error: 'Нет доступа к бою группы' });
+  }
+
+  const saved = writeBattleWithRev(
+    group.id,
+    buildBattleFromGroup(group),
+    battleActorRole(group, req.user),
+  );
+  broadcastBattleUpdate(group.id, { type: 'battle', battle: saved }, battleClientId(req));
+  return res.status(201).json(saved);
+});
+
+app.get('/api/battle/:groupId', auth.requireAuth, (req, res) => {
+  const group = store.getPartyGroup(req.params.groupId);
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' });
+  if (!canReadBattle(group, req.user)) {
+    return res.status(403).json({ error: 'Нет доступа к бою группы' });
+  }
+
+  const battle = store.getPartyBattle(group.id);
+  if (!battle) return res.json({ groupId: group.id, active: false });
+  return res.json({ ...battle, rev: battleRev(battle) });
+});
+
+app.put('/api/battle/:groupId', auth.requireAuth, (req, res) => {
+  const group = store.getPartyGroup(req.params.groupId);
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' });
+  if (!canWriteBattle(group, req.user)) {
+    return res.status(403).json({ error: 'Нет доступа к бою группы' });
+  }
+
+  const current = store.getPartyBattle(group.id);
+  const clientRev = Number(req.body?.rev);
+  // rev присылают не все клиенты; проверяем только когда он указан (как у листа).
+  if (current && Number.isFinite(clientRev) && clientRev !== battleRev(current)) {
+    return res.status(409).json({
+      error: 'Бой изменён другим участником',
+      battle: { ...current, rev: battleRev(current) },
+    });
+  }
+
+  const saved = writeBattleWithRev(group.id, req.body, battleActorRole(group, req.user));
+  broadcastBattleUpdate(group.id, { type: 'battle', battle: saved }, battleClientId(req));
+  return res.json(saved);
+});
+
+app.delete('/api/battle/:groupId', auth.requireAuth, (req, res) => {
+  const group = store.getPartyGroup(req.params.groupId);
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' });
+  if (!canWriteBattle(group, req.user)) {
+    return res.status(403).json({ error: 'Нет доступа к бою группы' });
+  }
+
+  store.deletePartyBattle(group.id);
+  broadcastBattleUpdate(
+    group.id,
+    { type: 'battle', battle: { groupId: group.id, active: false } },
+    battleClientId(req),
+  );
+  return res.json({ ok: true });
+});
+
+app.get('/api/battle/:groupId/events', auth.requireAuth, (req, res) => {
+  const group = store.getPartyGroup(req.params.groupId);
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' });
+  if (!canReadBattle(group, req.user)) {
+    return res.status(403).json({ error: 'Нет доступа к бою группы' });
+  }
+
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders?.();
+
+  const entry = { res, clientId: String(req.query.clientId || '').trim() };
+  subscribeToBattle(group.id, entry);
+
+  const battle = store.getPartyBattle(group.id);
+  res.write(`data: ${JSON.stringify({
+    type: 'hello',
+    battle: battle ? { ...battle, rev: battleRev(battle) } : { groupId: group.id, active: false },
+  })}\n\n`);
+
+  const ping = setInterval(() => {
+    try {
+      res.write(': ping\n\n');
+    } catch {
+      /* ignore */
+    }
+  }, 25000);
+
+  req.on('close', () => {
+    clearInterval(ping);
+    unsubscribeFromBattle(group.id, entry);
+  });
+});
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
@@ -1207,6 +1470,10 @@ app.get('/register', (req, res) => {
 
 app.get('/group', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/group.html'));
+});
+
+app.get('/battle', (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/battle.html'));
 });
 
 app.get('/gm', (req, res) => {
